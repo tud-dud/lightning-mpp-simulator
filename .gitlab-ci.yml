@@ -6,6 +6,7 @@ before_script:
   - cargo --version
 
 stages:
+  - build
   - test
   - fmt
   - clippy
@@ -16,7 +17,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 test:
-  stage: test
+  stage: build
   script:
     - echo "Building all artifacts"
     - cargo build --release
