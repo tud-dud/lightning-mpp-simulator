@@ -1,0 +1,42 @@
+image: rust:latest
+
+default:
+before_script:
+  - rustc --version
+  - cargo --version
+
+stages:
+  - test
+  - fmt
+  - clippy
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+test:
+  stage: test
+  script:
+    - echo "Building all artifacts"
+    - cargo build --release
+
+test:
+  stage: test
+  script:
+    - echo "Running unit tests"
+    - cargo test --release
+
+pretty:
+  stage: fmt
+  script:
+    - echo "Running cargo fmt"
+    - rustup component add rustfmt
+    - cargo fmt --all -- --check
+
+code-quality:
+  stage: clippy
+  script:
+    - echo "Running cargo clippy"
+    - rustup component add clippy
+    - cargo clippy --release -- -D warnings
