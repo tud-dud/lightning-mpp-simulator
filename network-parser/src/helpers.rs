@@ -8,18 +8,6 @@ pub(crate) fn from_json_to_raw(json_str: &str) -> Result<RawGraph, serde_json::E
     serde_json::from_str(json_str)
 }
 
-impl Hash for RawEdge {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.channel_id.hash(state);
-    }
-}
-impl Eq for RawEdge {}
-impl PartialEq for RawEdge {
-    fn eq(&self, other: &Self) -> bool {
-        self.channel_id == other.channel_id
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub(crate) struct RawGraph {
     pub(crate) nodes: Vec<RawNode>,
@@ -58,7 +46,7 @@ pub(crate) struct RawEdge {
 pub(crate) struct RawAddresses(pub(crate) Option<Vec<String>>);
 
 impl Node {
-    // return default values if some are not pleasant
+    // return default values if some are not present
     // TODO: maybe discard if certain fields like ID are missing?
     pub(crate) fn from_raw(raw_node: RawNode) -> Node {
         Node {
@@ -88,6 +76,19 @@ impl Edge {
         }
     }
 }
+
+impl Hash for RawEdge {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.channel_id.hash(state);
+    }
+}
+impl Eq for RawEdge {}
+impl PartialEq for RawEdge {
+    fn eq(&self, other: &Self) -> bool {
+        self.channel_id == other.channel_id
+    }
+}
+
 fn addresses_deserialize<'de, D>(deserializer: D) -> Result<RawAddresses, D::Error>
 where
     D: Deserializer<'de>,
