@@ -61,6 +61,7 @@ impl Node {
 }
 
 impl Edge {
+    /// We remove "orphaned" edges - edges where the source node is not in the list of nodes
     pub(crate) fn from_raw(raw_edge: RawEdge) -> Edge {
         Edge {
             channel_id: raw_edge.channel_id.unwrap_or_default(),
@@ -99,4 +100,44 @@ where
         .map(|item| item.to_owned())
         .collect();
     Ok(RawAddresses(Some(addresses)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore]
+    // FIXME
+    fn node_wo_id_is_ignored() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "id": "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                },
+                {
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "incomplete",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                }
+            ],
+            "adjacency": [
+              ]
+            }"##;
+        let graph = from_json_str(json_str).unwrap();
+        let actual = graph.nodes.len();
+        let expected = 1;
+        assert_eq!(actual, expected);
+    }
 }

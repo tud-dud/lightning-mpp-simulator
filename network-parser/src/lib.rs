@@ -373,7 +373,9 @@ mod tests {
                     .to_string(),
             },
         ];
-        assert!(actual.contains(&expected));
+        for edge in expected {
+            assert!(actual[0].contains(&edge));
+        }
     }
 
     #[test]
