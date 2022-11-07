@@ -7,7 +7,7 @@ use std::path::Path;
 mod helpers;
 use helpers::*;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Graph {
     pub nodes: HashSet<Node>,
     #[serde(rename = "adjacency")]
@@ -15,7 +15,7 @@ pub struct Graph {
     pub edges: HashMap<ID, HashSet<Edge>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Node {
     pub id: ID,
     pub alias: String,
