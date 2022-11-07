@@ -1,4 +1,5 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
+use serde_with::{formats::CommaSeparator, serde_as};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
@@ -15,13 +16,14 @@ pub(crate) struct RawGraph {
     pub(crate) edges: Vec<HashSet<RawEdge>>,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Eq, PartialEq)]
 pub(crate) struct RawNode {
     pub(crate) id: Option<String>,
     pub(crate) alias: Option<String>,
     #[serde(default)]
-    #[serde(deserialize_with = "addresses_deserialize")]
-    pub(crate) addresses: RawAddresses,
+    #[serde_as(as = "serde_with::StringWithSeparator::<CommaSeparator, String>")]
+    pub(crate) addresses: Vec<String>,
     pub(crate) rgb_color: Option<String>,
     pub(crate) out_degree: Option<u32>,
     pub(crate) in_degree: Option<u32>,
@@ -34,7 +36,7 @@ pub(crate) struct RawEdge {
     pub(crate) source: Option<String>,
     pub(crate) destination: Option<String>,
     pub(crate) features: Option<String>,
-    pub(crate) fee_base_msat: Option<u32>,
+    pub(crate) fee_base_msat: Option<usize>,
     pub(crate) fee_proportional_millionths: Option<usize>,
     pub(crate) htlc_minimim_msat: Option<usize>,
     pub(crate) htlc_maximum_msat: Option<usize>,
@@ -42,17 +44,12 @@ pub(crate) struct RawEdge {
     pub(crate) id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, Eq, PartialEq)]
-pub(crate) struct RawAddresses(pub(crate) Option<Vec<String>>);
-
 impl Node {
-    // return default values if some are not present
-    // TODO: maybe discard if certain fields like ID are missing?
     pub(crate) fn from_raw(raw_node: RawNode) -> Node {
         Node {
-            id: raw_node.id.unwrap_or_default(),
+            id: raw_node.id.expect("Error in node ID"),
             alias: raw_node.alias.unwrap_or_default(),
-            addresses: Addresses(raw_node.addresses.0.unwrap_or_default()),
+            addresses: raw_node.addresses,
             rgb_color: raw_node.rgb_color.unwrap_or_default(),
             out_degree: raw_node.out_degree.unwrap_or_default(),
             in_degree: raw_node.in_degree.unwrap_or_default(),
@@ -68,14 +65,33 @@ impl Edge {
             source: raw_edge.source.unwrap_or_default(),
             destination: raw_edge.destination.unwrap_or_default(),
             features: raw_edge.features.unwrap_or_default(),
-            fee_base_msat: raw_edge.fee_base_msat.unwrap_or_default(),
-            fee_proportional_millionths: raw_edge.fee_proportional_millionths.unwrap_or_default(),
+            fee_base_msat: raw_edge
+                .fee_base_msat
+                .expect("Error in fee_base_msat field"),
+            fee_proportional_millionths: raw_edge
+                .fee_proportional_millionths
+                .expect("Error in fee_proportional_millionths field"),
             htlc_minimim_msat: raw_edge.htlc_minimim_msat.unwrap_or_default(),
             htlc_maximum_msat: raw_edge.htlc_maximum_msat.unwrap_or_default(),
             cltv_expiry_delta: raw_edge.cltv_expiry_delta.unwrap_or_default(),
             id: raw_edge.id.unwrap_or_default(),
         }
     }
+}
+
+#[allow(unused)]
+pub(crate) fn edge_has_all_mandatory_fields(raw_edge: &RawEdge) -> bool {
+    let mut valid = false;
+    if let Some(base_fee) = raw_edge.fee_base_msat {
+        if base_fee != usize::default() {
+            if let Some(prop_fee) = raw_edge.fee_proportional_millionths {
+                if prop_fee != usize::default() {
+                    valid = true
+                }
+            }
+        }
+    }
+    valid
 }
 
 impl Hash for RawEdge {
@@ -90,25 +106,11 @@ impl PartialEq for RawEdge {
     }
 }
 
-fn addresses_deserialize<'de, D>(deserializer: D) -> Result<RawAddresses, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let str_sequence = String::deserialize(deserializer)?;
-    let addresses: Vec<String> = str_sequence
-        .split(',')
-        .map(|item| item.to_owned())
-        .collect();
-    Ok(RawAddresses(Some(addresses)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
-    // FIXME
     fn node_wo_id_is_ignored() {
         let json_str = r##"{
             "nodes": [
@@ -139,5 +141,91 @@ mod tests {
         let actual = graph.nodes.len();
         let expected = 1;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn ignore_unknown_edges_in_edgelist() {
+        let json_str = r##"{
+                "nodes": [
+                {
+                    "id": "validnode",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                },
+                {
+                    "id": "othervalidnode",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                }
+            ],
+            "adjacency": [
+                [
+                  {
+                    "scid": "714105x2146x0/0",
+                    "source": "unknownsrc",
+                    "destination": "othervalidnode",
+                    "timestamp": 1656588194,
+                    "features": "",
+                    "fee_base_msat": 5,
+                    "fee_proportional_millionths": 270,
+                    "htlc_minimim_msat": 1000,
+                    "htlc_maximum_msat": 5564111000,
+                    "cltv_expiry_delta": 34,
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
+                  },
+                  {
+                    "scid": "714505x2146x0/0",
+                    "source": "validnode",
+                    "destination": "othervalidnode",
+                    "timestamp": 1656588194,
+                    "features": "",
+                    "fee_base_msat": 5,
+                    "fee_proportional_millionths": 270,
+                    "htlc_minimim_msat": 1000,
+                    "htlc_maximum_msat": 5564111000,
+                    "cltv_expiry_delta": 34,
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
+                  },
+                  {
+                    "scid": "714116x477x0/0",
+                    "source": "validnode",
+                    "destination": "unknowndest",
+                    "timestamp": 1656522407,
+                    "features": "",
+                    "fee_base_msat": 0,
+                    "fee_proportional_millionths": 555,
+                    "htlc_minimim_msat": 1,
+                    "htlc_maximum_msat": 5545472000,
+                    "cltv_expiry_delta": 34,
+                    "id": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
+                  }
+                ]
+              ]
+            }"##;
+        let graph = from_json_str(json_str).unwrap();
+        let expected = HashSet::from([Edge {
+            channel_id: "714505x2146x0/0".to_string(),
+            source: "validnode".to_string(),
+            destination: "othervalidnode".to_string(),
+            features: String::default(),
+            fee_base_msat: 0,
+            fee_proportional_millionths: 555,
+            htlc_minimim_msat: 1,
+            htlc_maximum_msat: 5545472000,
+            cltv_expiry_delta: 34,
+            id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d".to_string(),
+        }]);
+        let actual = graph.edges.get("validnode").unwrap().clone();
+        assert_eq!(expected, actual);
     }
 }

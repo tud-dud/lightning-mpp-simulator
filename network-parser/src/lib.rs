@@ -19,7 +19,7 @@ pub struct Graph {
 pub struct Node {
     pub id: ID,
     pub alias: String,
-    pub addresses: Addresses,
+    pub addresses: Vec<String>,
     pub rgb_color: String,
     pub out_degree: u32,
     pub in_degree: u32,
@@ -31,16 +31,13 @@ pub struct Edge {
     pub source: String,
     pub destination: String,
     pub features: String,
-    pub fee_base_msat: u32,
+    pub fee_base_msat: usize,
     pub fee_proportional_millionths: usize,
     pub htlc_minimim_msat: usize,
     pub htlc_maximum_msat: usize,
     pub cltv_expiry_delta: u32,
     pub id: String,
 }
-
-#[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
-pub struct Addresses(pub Vec<String>);
 
 pub type ID = String;
 
@@ -75,18 +72,34 @@ pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
 
 pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
     let raw_graph = from_json_to_raw(json_str).expect("Error deserialising JSON str!");
+    // discard nodes without ID
     let nodes: HashSet<Node> = raw_graph
         .nodes
         .iter()
+        .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
         .map(|raw_node| Node::from_raw(raw_node.clone()))
         .collect();
 
     let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
+    // discard edges with unknown IDs
+    // TODO: check fees fields and others are ok
     let edges_vec: Vec<HashSet<Edge>> = raw_graph
         .edges
         .iter()
         .map(|adj| {
             adj.iter()
+                .filter(|raw_edge| {
+                    // We only need the ID to know if the node exists
+                    let src_node = Node {
+                        id: raw_edge.source.clone().unwrap(),
+                        ..Default::default()
+                    };
+                    let dest_node = Node {
+                        id: raw_edge.destination.clone().unwrap(),
+                        ..Default::default()
+                    };
+                    nodes.contains(&src_node) && nodes.contains(&dest_node)
+                })
                 .map(|raw_edge| Edge::from_raw(raw_edge.clone()))
                 .collect()
         })
@@ -161,7 +174,7 @@ mod tests {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: "MilliBit".to_string(),
             rgb_color: "550055".to_string(),
-            addresses: Addresses(vec!["ipv4://83.85.142.36:9735".to_string()]),
+            addresses: vec!["ipv4://83.85.142.36:9735".to_string()],
             out_degree: 25,
             in_degree: 9,
         };
@@ -181,6 +194,12 @@ mod tests {
                     "addresses": "ipv4://83.85.142.36:9735",
                     "out_degree": 25,
                     "in_degree": 9
+                },
+                {
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
+                },
+                {
+                    "id": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                 }
             ],
             "adjacency": [
@@ -274,7 +293,7 @@ mod tests {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: String::default(),
             rgb_color: String::default(),
-            addresses: Addresses::default(),
+            addresses: Vec::default(),
             out_degree: u32::default(),
             in_degree: u32::default(),
         };
@@ -299,6 +318,26 @@ mod tests {
             "nodes": [
                 {
                     "id": "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                },
+                {
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                },
+                {
+                    "id": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d",
                     "timestamp": 1657607504,
                     "features": "888000080a69a2",
                     "rgb_color": "550055",
