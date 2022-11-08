@@ -10,7 +10,8 @@ use crate::ID;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
-    pub(crate) adjacency: HashMap<ID, Vec<Edge>>,
+    #[serde(rename = "adjacency")]
+    pub(crate) edges: HashMap<ID, Vec<Edge>>,
 }
 
 impl Graph {
@@ -23,10 +24,7 @@ impl Graph {
             .into_iter()
             .map(|(id, edge)| (id, Vec::from_iter(edge)))
             .collect();
-        Graph {
-            nodes,
-            adjacency: edges,
-        }
+        Graph { nodes, edges }
     }
     pub fn reduce_to_greatest_scc(&self) -> Graph {
         info!("Reducing graph to greatest SCC.");
@@ -50,12 +48,12 @@ impl Graph {
             .collect();
         let greatest_scc_edges: HashMap<ID, Vec<Edge>> = greatest_scc_nodes
             .iter()
-            .map(|n| (n.id.clone(), self.adjacency.get(&n.id).unwrap().clone()))
+            .map(|n| (n.id.clone(), self.edges.get(&n.id).unwrap().clone()))
             .collect();
 
         Graph {
             nodes: greatest_scc_nodes,
-            adjacency: greatest_scc_edges,
+            edges: greatest_scc_edges,
         }
     }
 
@@ -63,16 +61,12 @@ impl Graph {
         self.nodes.len()
     }
     pub fn edge_count(&self) -> usize {
-        self.adjacency
-            .clone()
-            .into_iter()
-            .map(|(_, v)| v.len())
-            .sum()
+        self.edges.clone().into_iter().map(|(_, v)| v.len()).sum()
     }
 
     fn get_sccs(&self) -> Vec<Vec<ID>> {
         let successors = |node: &ID| -> Vec<ID> {
-            if let Some(succs) = self.adjacency.get(&node.to_owned()) {
+            if let Some(succs) = self.edges.get(&node.to_owned()) {
                 let nbrs: Vec<ID> = succs.iter().map(|e| e.destination.clone()).collect();
                 nbrs
             } else {
@@ -217,16 +211,14 @@ mod tests {
             ..Default::default()
         });
         graph
-            .adjacency
+            .edges
             .insert("scc1".to_string(), vec![network_parser::Edge::default()]);
         graph
-            .adjacency
+            .edges
             .insert("scc2".to_string(), vec![network_parser::Edge::default()]);
         let sccs = graph.clone().get_sccs();
-        println!("sccs {:?}", sccs);
         assert_eq!(sccs.len(), 4); //empty string is an SCC. somehow..
         let actual = graph.reduce_to_greatest_scc();
-        println!("actual {:?}", actual);
         assert_eq!(actual.node_count(), 3);
         assert_eq!(actual.edge_count(), 4);
     }

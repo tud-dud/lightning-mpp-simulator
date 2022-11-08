@@ -2,6 +2,7 @@
 name = "simulator"
 version = "0.1.0"
 edition = "2021"
+default-run = "simulator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,3 +13,11 @@ env_logger = "0.7"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 pathfinding = "3.0.14"
+
+[[bin]]
+name = "main"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "simulator"
+path = "src/bin/simulation.rs"

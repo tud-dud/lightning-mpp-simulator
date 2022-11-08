@@ -17,6 +17,7 @@ pub struct Graph {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Node {
+    /// Pubkey
     pub id: ID,
     pub alias: String,
     pub addresses: Vec<String>,
@@ -27,14 +28,23 @@ pub struct Node {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Edge {
+    /// Short channel id
     pub channel_id: String,
+    /// The source node
     pub source: String,
+    /// The destination node
     pub destination: String,
+    /// BOLT #9 features bitmap for this channel
     pub features: String,
+    /// Base fee changed by source to use this channel
     pub fee_base_msat: usize,
+    /// Proportional fee changed by source to use this channel, in parts-per-million
     pub fee_proportional_millionths: usize,
+    /// The smallest payment source will allow via this channel
     pub htlc_minimim_msat: usize,
+    /// The largest payment source will allow via this channel
     pub htlc_maximum_msat: usize,
+    /// total CLTV delta across path
     pub cltv_expiry_delta: u32,
     pub id: String,
 }
