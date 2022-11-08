@@ -3,6 +3,7 @@
 - Topology dataset provided by
   [lnresearch](https://github.com/lnresearch/topology)
 - Epoch time ```1656633600``` (2022-07-01:0000 UTC)
+- Epoch time ```1630965600``` (2021-09-06:0000 UTC)
 
 - restored using:
     ```

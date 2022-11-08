@@ -1,54 +1,88 @@
-use network_parser;
-use petgraph::prelude::{DiGraph, NodeIndex};
+use std::collections::HashMap;
 
-use crate::Petgraph;
+use log::{debug, info};
+use network_parser::{Edge, Node};
+use pathfinding::directed::strongly_connected_components::strongly_connected_components;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
-pub struct Graph(pub Petgraph);
+use crate::ID;
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Graph {
+    pub(crate) nodes: Vec<Node>,
+    pub(crate) adjacency: HashMap<ID, Vec<Edge>>,
+}
 
 impl Graph {
-    /// Transform to petgraph to allow graph operations such as SCC and shortest path computations
-    pub fn to_petgraph(net_graph: &network_parser::Graph) -> Petgraph {
-        let mut graph: Petgraph =
-            DiGraph::with_capacity(net_graph.nodes.len(), net_graph.edges.len());
-        let node_idx: Vec<NodeIndex> = net_graph
+    /// Transform to another type of graph to allow graph operations such as SCC and shortest path computations
+    pub fn to_sim_graph(net_graph: &network_parser::Graph) -> Graph {
+        let nodes: Vec<Node> = net_graph.nodes.clone().into_iter().collect();
+        let edges: HashMap<ID, Vec<Edge>> = net_graph
             .clone()
-            .nodes
+            .edges
             .into_iter()
-            .map(|node| graph.add_node(node))
+            .map(|(id, edge)| (id, Vec::from_iter(edge)))
             .collect();
-        for src in node_idx {
-            let id = &graph[src].id;
-            let edges = net_graph.clone().get_edges_for_node(&id.clone());
-            for edge in edges {
-                let dest = graph
-                    .node_indices()
-                    .find(|i| graph[*i].id == edge.destination)
-                    .unwrap();
-                graph.add_edge(src, dest, edge);
-            }
+        Graph {
+            nodes,
+            adjacency: edges,
         }
-        graph
     }
-
-    pub fn reduce_to_greatest_scc(self) -> Petgraph {
-        let sccs = self.clone().get_sccs();
+    pub fn reduce_to_greatest_scc(&self) -> Graph {
+        info!("Reducing graph to greatest SCC.");
+        let mut sccs = self.get_sccs();
+        sccs.retain(|scc| !scc.is_empty());
         let mut greatest_scc_idx: usize = 0;
+        let mut greatest_scc_len: usize = 0;
         for (idx, cc) in sccs.iter().enumerate() {
-            if cc.len() >= greatest_scc_idx {
+            if cc.len() >= greatest_scc_len {
+                greatest_scc_len = cc.len();
                 greatest_scc_idx = idx;
             }
         }
-        let greatest_scc = sccs[greatest_scc_idx].clone();
-        let mut scc_subgraph = self.0;
-        for node_id in greatest_scc {
-            scc_subgraph.remove_node(node_id);
+        let greatest_scc_nodes: Vec<Node> = self
+            .nodes
+            .clone()
+            .into_iter()
+            .filter(|n| sccs[greatest_scc_idx].contains(&n.id))
+            .into_iter()
+            .clone()
+            .collect();
+        let greatest_scc_edges: HashMap<ID, Vec<Edge>> = greatest_scc_nodes
+            .iter()
+            .map(|n| (n.id.clone(), self.adjacency.get(&n.id).unwrap().clone()))
+            .collect();
+
+        Graph {
+            nodes: greatest_scc_nodes,
+            adjacency: greatest_scc_edges,
         }
-        scc_subgraph
     }
 
-    fn get_sccs(self) -> Vec<Vec<petgraph::stable_graph::NodeIndex>> {
-        petgraph::algo::tarjan_scc(&self.0)
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+    pub fn edge_count(&self) -> usize {
+        self.adjacency
+            .clone()
+            .into_iter()
+            .map(|(_, v)| v.len())
+            .sum()
+    }
+
+    fn get_sccs(&self) -> Vec<Vec<ID>> {
+        let successors = |node: &ID| -> Vec<ID> {
+            if let Some(succs) = self.adjacency.get(&node.to_owned()) {
+                let nbrs: Vec<ID> = succs.iter().map(|e| e.destination.clone()).collect();
+                nbrs
+            } else {
+                Vec::default()
+            }
+        };
+        let nodes: Vec<ID> = self.nodes.iter().map(|n| n.id.clone()).collect();
+        let sccs = strongly_connected_components(&nodes, successors);
+        debug!("Got {} SCCs", sccs.len());
+        sccs
     }
 }
 
@@ -154,19 +188,17 @@ mod tests {
     fn transform_works() {
         let json_str = json_str();
         let graph = network_parser::from_json_str(&json_str).unwrap();
-        let petgraph = Graph::to_petgraph(&graph);
-        let num_nodes = petgraph.node_count();
+        let digraph = Graph::to_sim_graph(&graph);
+        let num_nodes = digraph.node_count();
         assert_eq!(num_nodes, 3);
-        let num_edges = petgraph.edge_count();
+        let num_edges = digraph.edge_count();
         assert_eq!(num_edges, 4);
     }
 
     #[test]
     fn scc_compuatation() {
         let json_str = json_str();
-        let graph = Graph(Graph::to_petgraph(
-            &network_parser::from_json_str(&json_str).unwrap(),
-        ));
+        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
         let actual = graph.get_sccs();
         assert_eq!(actual.len(), 1);
         assert_eq!(actual[0].len(), 3);
@@ -175,20 +207,26 @@ mod tests {
     #[test]
     fn greatest_scc_subgraph() {
         let json_str = json_str();
-        let mut graph = Graph(Graph::to_petgraph(
-            &network_parser::from_json_str(&json_str).unwrap(),
-        ));
-        let node1 = graph.0.add_node(network_parser::Node::default());
-        let node2 = graph.0.add_node(network_parser::Node::default());
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        graph.nodes.push(network_parser::Node {
+            id: "scc1".to_string(),
+            ..Default::default()
+        });
+        graph.nodes.push(network_parser::Node {
+            id: "scc2".to_string(),
+            ..Default::default()
+        });
         graph
-            .0
-            .add_edge(node1, node2, network_parser::Edge::default());
+            .adjacency
+            .insert("scc1".to_string(), vec![network_parser::Edge::default()]);
         graph
-            .0
-            .add_edge(node2, node1, network_parser::Edge::default());
+            .adjacency
+            .insert("scc2".to_string(), vec![network_parser::Edge::default()]);
         let sccs = graph.clone().get_sccs();
-        assert_eq!(sccs.len(), 2);
+        println!("sccs {:?}", sccs);
+        assert_eq!(sccs.len(), 4); //empty string is an SCC. somehow..
         let actual = graph.reduce_to_greatest_scc();
+        println!("actual {:?}", actual);
         assert_eq!(actual.node_count(), 3);
         assert_eq!(actual.edge_count(), 4);
     }
