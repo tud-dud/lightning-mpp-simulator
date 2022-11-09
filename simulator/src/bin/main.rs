@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::prelude::Read;
 use std::io::BufReader;
 
-use simulator::graph::*;
+use lightning_simulator::graph::*;
 
 use env_logger::Env;
 use log::info;

@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use log::{debug, info};
 use network_parser::{Edge, Node};
 use pathfinding::directed::strongly_connected_components::strongly_connected_components;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::ID;
+use crate::{ID, RNG};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Graph {
@@ -27,7 +28,11 @@ impl Graph {
         Graph { nodes, edges }
     }
     pub fn reduce_to_greatest_scc(&self) -> Graph {
-        info!("Reducing graph to greatest SCC.");
+        info!(
+            "Reducing graph with {} nodes and {} edges to greatest SCC.",
+            self.node_count(),
+            self.edge_count()
+        );
         let mut sccs = self.get_sccs();
         sccs.retain(|scc| !scc.is_empty());
         let mut greatest_scc_idx: usize = 0;
@@ -51,10 +56,16 @@ impl Graph {
             .map(|n| (n.id.clone(), self.edges.get(&n.id).unwrap().clone()))
             .collect();
 
-        Graph {
+        let g = Graph {
             nodes: greatest_scc_nodes,
             edges: greatest_scc_edges,
-        }
+        };
+        info!(
+            "Reduced to graph with {} nodes and {} edges.",
+            g.node_count(),
+            g.edge_count()
+        );
+        g
     }
 
     pub fn node_count(&self) -> usize {
@@ -62,6 +73,22 @@ impl Graph {
     }
     pub fn edge_count(&self) -> usize {
         self.edges.clone().into_iter().map(|(_, v)| v.len()).sum()
+    }
+
+    pub(crate) fn get_node_ids(&self) -> Vec<ID> {
+        self.nodes.iter().map(|n| n.id.clone()).collect()
+    }
+
+    pub(crate) fn get_random_pair_of_nodes(&self) -> (ID, ID) {
+        let mut rng = RNG.lock().unwrap();
+        let node_ids = self.get_node_ids();
+        assert!(
+            !node_ids.is_empty(),
+            "Empty node list cannot be sampled for pairs."
+        );
+        let src = node_ids.choose(&mut *rng).unwrap();
+        let dest = node_ids.choose(&mut *rng).unwrap();
+        (src.clone(), dest.clone())
     }
 
     fn get_sccs(&self) -> Vec<Vec<ID>> {
