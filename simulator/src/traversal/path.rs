@@ -6,3 +6,8 @@ pub struct Path {
     dest_id: Node,
     edges: Vec<Edge>,
 }
+
+// Route {
+//  hop : Path for single
+//  and Vec<Path> for AMP
+// }

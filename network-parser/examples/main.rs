@@ -17,7 +17,7 @@ fn main() {
     match graph {
         Ok(graph) => {
             println!("Number of nodes {}", graph.nodes.len());
-            println!("Total number of edges {}", graph.total_num_edges());
+            println!("Total number of edges {}", graph.edge_count());
         }
         Err(e) => println!("{:?}", e),
     };

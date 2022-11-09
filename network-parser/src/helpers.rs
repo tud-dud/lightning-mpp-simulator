@@ -59,22 +59,29 @@ impl Node {
 
 impl Edge {
     /// We remove "orphaned" edges - edges where the source node is not in the list of nodes
-    pub(crate) fn from_raw(raw_edge: RawEdge) -> Edge {
-        Edge {
-            channel_id: raw_edge.channel_id.unwrap_or_default(),
-            source: raw_edge.source.unwrap_or_default(),
-            destination: raw_edge.destination.unwrap_or_default(),
-            features: raw_edge.features.unwrap_or_default(),
-            fee_base_msat: raw_edge
-                .fee_base_msat
-                .expect("Error in fee_base_msat field"),
-            fee_proportional_millionths: raw_edge
-                .fee_proportional_millionths
-                .expect("Error in fee_proportional_millionths field"),
-            htlc_minimim_msat: raw_edge.htlc_minimim_msat.unwrap_or_default(),
-            htlc_maximum_msat: raw_edge.htlc_maximum_msat.unwrap_or_default(),
-            cltv_expiry_delta: raw_edge.cltv_expiry_delta.unwrap_or_default(),
-            id: raw_edge.id.unwrap_or_default(),
+    pub(crate) fn from_raw(raw_edge: &RawEdge) -> Option<Edge> {
+        if raw_edge.fee_base_msat.is_none()
+            || raw_edge.fee_proportional_millionths.is_none()
+            || raw_edge.htlc_maximum_msat.is_none()
+        {
+            None
+        } else {
+            Some(Edge {
+                channel_id: raw_edge.channel_id.clone().unwrap_or_default(),
+                source: raw_edge.source.clone().unwrap_or_default(),
+                destination: raw_edge.destination.clone().unwrap_or_default(),
+                features: raw_edge.features.clone().unwrap_or_default(),
+                fee_base_msat: raw_edge
+                    .fee_base_msat
+                    .expect("Error in fee_base_msat field"),
+                fee_proportional_millionths: raw_edge
+                    .fee_proportional_millionths
+                    .expect("Error in fee_proportional_millionths field"),
+                htlc_minimim_msat: raw_edge.htlc_minimim_msat.unwrap_or_default(),
+                htlc_maximum_msat: raw_edge.htlc_maximum_msat.unwrap_or_default(),
+                cltv_expiry_delta: raw_edge.cltv_expiry_delta.unwrap_or_default(),
+                id: raw_edge.id.clone().unwrap_or_default(),
+            })
         }
     }
 }

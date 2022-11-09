@@ -73,7 +73,7 @@ impl Graph {
             None => HashSet::default(),
         }
     }
-    pub fn total_num_edges(self) -> usize {
+    pub fn edge_count(self) -> usize {
         self.get_edges_as_vec_vec().iter().map(Vec::len).sum()
     }
 }
@@ -95,7 +95,6 @@ pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
 
     let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
     // discard edges with unknown IDs
-    // TODO: check fees fields and others are ok
     let edges_vec: Vec<HashSet<Edge>> = raw_graph
         .edges
         .iter()
@@ -113,7 +112,8 @@ pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
                     };
                     nodes.contains(&src_node) && nodes.contains(&dest_node)
                 })
-                .map(|raw_edge| Edge::from_raw(raw_edge.clone()))
+                .filter(|raw_edge| Edge::from_raw(&(*raw_edge).clone()).is_some())
+                .map(|raw_edge| Edge::from_raw(raw_edge).unwrap())
                 .collect()
         })
         .collect();
@@ -523,8 +523,64 @@ mod tests {
               ]
             }"##;
         let graph = from_json_str(&json_str).unwrap();
-        let actual = graph.total_num_edges();
+        let actual = graph.edge_count();
         let expected = 2;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn discard_edges_without_necessary_fields() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "id": "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32",
+                    "timestamp": 1657607504,
+                    "features": "888000080a69a2",
+                    "rgb_color": "550055",
+                    "alias": "MilliBit",
+                    "addresses": "ipv4://83.85.142.36:9735",
+                    "out_degree": 25,
+                    "in_degree": 9
+                },
+                {
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
+                },
+                {
+                    "id": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
+                }
+            ],
+            "adjacency": [
+                [
+                  {
+                    "scid": "714105x2146x0/0",
+                    "source": "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32",
+                    "destination": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c",
+                    "timestamp": 1656588194,
+                    "features": "",
+                    "fee_base_msat": 5,
+                    "fee_proportional_millionths": 270,
+                    "htlc_minimim_msat": 1000,
+                    "cltv_expiry_delta": 34,
+                    "id": "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
+                  },
+                  {
+                    "scid": "714116x477x0/0",
+                    "source": "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32",
+                    "destination": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d",
+                    "timestamp": 1656522407,
+                    "features": "",
+                    "fee_base_msat": 0,
+                    "htlc_minimim_msat": 1,
+                    "htlc_maximum_msat": 5545472000,
+                    "cltv_expiry_delta": 34,
+                    "id": "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
+                  }
+                ]
+              ]
+            }"##;
+        let graph = from_json_str(&json_str).unwrap();
+        let actual = graph.edge_count();
+        let expected = 0;
+        assert_eq!(expected, actual);
     }
 }
