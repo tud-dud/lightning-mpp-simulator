@@ -27,7 +27,6 @@ impl Simulation {
         graph: &Graph,
         n: usize,
     ) -> (impl Iterator<Item = (ID, ID)> + Clone) {
-        let mut node_pairs: Vec<(ID, ID)> = Vec::with_capacity(n);
         let g = graph.clone();
         (0..n)
             .collect::<Vec<_>>()
@@ -51,5 +50,14 @@ mod tests {
         let actual = Simulation::new(seed, graph, amount, pairs);
         assert_eq!(actual.amount, amount);
         assert_eq!(actual.run, seed);
+    }
+
+    #[test]
+    fn get_n_random_node_pairs() {
+        let path_to_file = Path::new("../test_data/trivial.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let n = 2;
+        let actual = Simulation::draw_n_pairs_for_simulation(&graph, n);
+        assert_eq!(actual.size_hint(), (n, Some(n)));
     }
 }

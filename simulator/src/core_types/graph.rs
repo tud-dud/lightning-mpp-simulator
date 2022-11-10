@@ -86,8 +86,13 @@ impl Graph {
             !node_ids.is_empty(),
             "Empty node list cannot be sampled for pairs."
         );
+        assert!(node_ids.len() >= 2, "Set of nodes is too small to sample.");
         let src = node_ids.choose(&mut *rng).unwrap();
-        let dest = node_ids.choose(&mut *rng).unwrap();
+        let mut dest = node_ids.choose(&mut *rng).unwrap();
+        while dest == src {
+            println!("here");
+            dest = node_ids.choose(&mut *rng).unwrap()
+        }
         (src.clone(), dest.clone())
     }
 
@@ -248,5 +253,26 @@ mod tests {
         let actual = graph.reduce_to_greatest_scc();
         assert_eq!(actual.node_count(), 3);
         assert_eq!(actual.edge_count(), 4);
+    }
+
+    #[test]
+    fn fetch_node_ids() {
+        let json_str = json_str();
+        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let actual = graph.get_node_ids();
+        assert_eq!(actual.len(), graph.nodes.len());
+        for node in graph.nodes {
+            assert!(actual.contains(&node.id));
+        }
+    }
+
+    #[test]
+    fn random_pair_of_nodes() {
+        let json_str = json_str();
+        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let (actual_src, actual_dest) = graph.get_random_pair_of_nodes();
+        assert_ne!(actual_src, actual_dest);
+        assert!(graph.get_node_ids().contains(&actual_src));
+        assert!(graph.get_node_ids().contains(&actual_dest));
     }
 }
