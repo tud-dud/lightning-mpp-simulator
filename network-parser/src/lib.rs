@@ -320,7 +320,7 @@ mod tests {
         assert!(actual.is_ok());
         let graph = actual.unwrap();
         let edges: HashMap<ID, HashSet<Edge>> = graph.edges.into_iter().collect();
-        assert_eq!(graph.nodes.len(), 4);
+        assert_eq!(graph.nodes.len(), 7);
         assert!(edges
             .contains_key("021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32"));
     }
