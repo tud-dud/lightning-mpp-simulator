@@ -40,7 +40,7 @@ pub(crate) struct RawEdge {
     pub(crate) fee_proportional_millionths: Option<usize>,
     pub(crate) htlc_minimim_msat: Option<usize>,
     pub(crate) htlc_maximum_msat: Option<usize>,
-    pub(crate) cltv_expiry_delta: Option<u32>,
+    pub(crate) cltv_expiry_delta: Option<usize>,
     pub(crate) id: Option<String>,
 }
 

@@ -19,6 +19,13 @@ struct Cli {
     /// Number of src/dest pairs to use in the simulation
     #[arg(long = "pairs", short = 'n', default_value_t = 1000)]
     num_pairs: usize,
+    /// Split the payment and route independently. Default is not to split and send as a single
+    /// payment
+    #[arg(long = "split", short = 's')]
+    split_payments: bool,
+    /// Routing finding heuristic to use
+    #[arg(long = "path-metric", short = 'p')]
+    edge_weight: lightning_simulator::RoutingMetric,
     #[arg(long = "log", short = 'l', default_value = "info")]
     log_level: String,
     #[arg(long)]
@@ -32,9 +39,17 @@ fn main() {
         .filter_or("MY_LOG_LEVEL", log_level)
         .write_style_or("MY_LOG_STYLE", "always");
     env_logger::init_from_env(env);
-    info!("Initialising simulation.");
 
     let g = network_parser::from_json_file(std::path::Path::new(&args.graph_file));
+    let seed = args.run;
+    let paymeny_amt = args.amount;
+    let number_of_sim_pairs = args.num_pairs;
+    let routing_metric = args.edge_weight;
+    let split_payments = if args.split_payments {
+        lightning_simulator::PaymentParts::Split
+    } else {
+        lightning_simulator::PaymentParts::Single
+    };
     let graph = match g {
         Ok(graph) => graph::Graph::to_sim_graph(&graph),
         Err(e) => {
@@ -43,9 +58,13 @@ fn main() {
         }
     };
     let graph = graph.reduce_to_greatest_scc();
-    let seed = args.run;
-    let paymeny_amt = args.amount;
-    let number_of_sim_pairs = args.num_pairs;
-    let mut simulator = Simulation::new(seed, graph, paymeny_amt, number_of_sim_pairs);
+    let mut simulator = Simulation::new(
+        seed,
+        graph,
+        paymeny_amt,
+        number_of_sim_pairs,
+        routing_metric,
+        split_payments,
+    );
     simulator.run();
 }

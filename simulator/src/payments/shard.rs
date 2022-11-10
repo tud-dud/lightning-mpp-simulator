@@ -1,4 +1,4 @@
-use crate::{traversal::Route, Node, PaymentId};
+use crate::{Node, PaymentId};
 
 #[derive(Debug, Clone)]
 pub struct PaymentShard {
@@ -6,7 +6,6 @@ pub struct PaymentShard {
     source: Node,
     dest: Node,
     amt: usize,
-    path: Route,
 }
 
 impl Eq for PaymentShard {}

@@ -45,7 +45,7 @@ pub struct Edge {
     /// The largest payment source will allow via this channel
     pub htlc_maximum_msat: usize,
     /// total CLTV delta across path
-    pub cltv_expiry_delta: u32,
+    pub cltv_expiry_delta: usize,
     pub id: String,
 }
 

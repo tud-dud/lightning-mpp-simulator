@@ -75,10 +75,11 @@ impl Graph {
         self.edges.clone().into_iter().map(|(_, v)| v.len()).sum()
     }
 
-    pub(crate) fn get_node_ids(&self) -> Vec<ID> {
+    pub fn get_node_ids(&self) -> Vec<ID> {
         self.nodes.iter().map(|n| n.id.clone()).collect()
     }
 
+    /// TODO: We can use choose_multiple here
     pub(crate) fn get_random_pair_of_nodes(&self) -> (ID, ID) {
         let mut rng = RNG.lock().unwrap();
         let node_ids = self.get_node_ids();
@@ -90,7 +91,6 @@ impl Graph {
         let src = node_ids.choose(&mut *rng).unwrap();
         let mut dest = node_ids.choose(&mut *rng).unwrap();
         while dest == src {
-            println!("here");
             dest = node_ids.choose(&mut *rng).unwrap()
         }
         (src.clone(), dest.clone())

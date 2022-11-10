@@ -1,2 +1,2 @@
-mod payment;
+pub mod payment;
 mod shard;
