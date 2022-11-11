@@ -81,13 +81,13 @@ impl Graph {
 
     /// TODO: We can use choose_multiple here
     pub(crate) fn get_random_pair_of_nodes(&self) -> (ID, ID) {
-        let mut rng = RNG.lock().unwrap();
         let node_ids = self.get_node_ids();
         assert!(
             !node_ids.is_empty(),
             "Empty node list cannot be sampled for pairs."
         );
         assert!(node_ids.len() >= 2, "Set of nodes is too small to sample.");
+        let mut rng = RNG.lock().unwrap();
         let src = node_ids.choose(&mut *rng).unwrap();
         let mut dest = node_ids.choose(&mut *rng).unwrap();
         while dest == src {

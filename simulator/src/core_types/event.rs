@@ -14,6 +14,13 @@ pub struct EventQueue {
     last_tick: Time,
 }
 
+enum MessageType {
+    /// Offer an HTLC to another node
+    UpdateAddHtlc,
+    RevokeAndAck,
+    CommitmentSigned,
+}
+
 impl EventQueue {
     pub fn new() -> Self {
         let events = BTreeMap::new();

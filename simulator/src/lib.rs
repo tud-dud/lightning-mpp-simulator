@@ -5,7 +5,7 @@ use std::sync::Mutex;
 pub mod core_types;
 pub mod payments;
 pub mod sim;
-//mod traversal;
+mod traversal;
 
 pub use core_types::*;
 pub use payments::*;
@@ -15,6 +15,7 @@ pub type ID = String;
 pub type PaymentId = usize;
 pub type Node = network_parser::Node;
 pub type Edge = network_parser::Edge;
+pub type EdgeWeight = usize;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 
@@ -32,7 +33,7 @@ pub enum RoutingMetric {
 pub enum PaymentParts {
     /// Send the whole payment at once
     Single,
-    /// Split the payment into multiple payments are route independently
+    /// Split the payment into multiple payments and route independently
     Split,
 }
 
