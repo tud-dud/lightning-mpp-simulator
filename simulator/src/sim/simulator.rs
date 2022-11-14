@@ -1,11 +1,10 @@
-use std::time::Instant;
-
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, time::Time, PaymentParts, RoutingMetric,
-    ID,
+    core_types::graph::Graph, event::*, payment::Payment, time::Time,
+    traversal::path_finder::PathFinder, PaymentParts, RoutingMetric, ID,
 };
 use log::{debug, info};
 use rand::SeedableRng;
+use std::time::Instant;
 
 pub struct Simulation {
     /// Graph describing LN topology
@@ -52,8 +51,11 @@ impl Simulation {
     // 2. Process event queue
     // 3. Evaluate and report simulation results
     pub fn run(&mut self) {
+        info!(
+            "Drawing {} sender-receiver pairs for simulation.",
+            self.num_pairs
+        );
         let random_pairs_iter = Self::draw_n_pairs_for_simulation(&self.graph, self.num_pairs);
-        info!("Starting simulation.");
         let mut now = Time::from_secs(0.0); // start simulation at (0)
         for (payment_id, (src, dest)) in random_pairs_iter.enumerate() {
             let payment = Payment::new(payment_id, src, dest, self.amount);
@@ -66,6 +68,7 @@ impl Simulation {
             self.event_queue.queue_length()
         );
 
+        info!("Starting simulation.");
         // this is where the actual simulation happens
         while let Some(event) = self.event_queue.next() {
             match event {
@@ -75,18 +78,31 @@ impl Simulation {
                         payment.payment_id,
                         self.event_queue.now()
                     );
-                    self.send_payment()
+                    self.send_payment(payment.source, payment.dest, payment.amount_msat);
                 }
             }
         }
     }
 
-    // TODO
-    fn send_payment(&self) {
+    // 1. Find candidate paths
+    // 1.1. find paths connecting sender to the recipient from the channel graph
+    // - fees calculation in reverse order (because incoming HTLC at each hop must be larger
+    // (amount + expiry timelock) than outgoing HTLC
+    // - channel must have sufficient funds for payment amount + cumulative fees of all subsequent hops
+    // 1.2. order candidate paths by {fee | probability} or shortest path?
+    // 2. Send payment
+    // 2.1. try candidate paths sequentially (trial-and-error loop)
+    // 2.2. record success or failure (where?)
+    // 2.3. update states (node balances, ???)
+    fn send_payment(&self, src: ID, dest: ID, amount: usize) {
+        let graph = Box::new(self.graph.clone());
+        let mut path_finder = PathFinder::new(src, dest, amount, graph);
         let start = Instant::now();
-
-        // call after finding path
-        let duration = start.elapsed().as_millis();
+        if let Some(_) = path_finder.find_path() {
+            let duration_in_ms = start.elapsed().as_millis();
+            info!("Found path after {} ms.", duration_in_ms);
+            // fail immediately if sender's balance < amount
+        }
     }
 
     fn draw_n_pairs_for_simulation(

@@ -29,6 +29,8 @@ pub(crate) struct PathFinder {
     /// the destination node
     dest: ID,
     current_node: ID,
+    /// How much is being sent from src to dest
+    amount: usize,
 }
 
 /// A path that we may use to route from src to dest
@@ -75,26 +77,34 @@ impl CandidatePath {
 }
 
 impl PathFinder {
+    /// New PathFinder for payment from src to dest transferring amount of msats
     pub(crate) fn new(src: ID, dest: ID, amount: usize, graph: Box<Graph>) -> Self {
         let current_node = dest.clone();
         Self {
             graph,
             src,
             dest,
+            amount,
             current_node,
         }
     }
 
     /// Returns a route, the total amount due and lock time and none if no route is found
-    pub(crate) fn find_path(&mut self) {
-        /*if let Some(next_to_visit) = self.visit_next() {
-
-        }*/
+    pub(crate) fn find_path(&mut self) -> Option<(Path, usize, u16)> {
+        self.remove_inadequate_edges();
+        unimplemented!()
     }
 
-    /*fn visit_next(&self) -> Option<ID> {
-
-    }*/
+    /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
+    fn remove_inadequate_edges(&mut self) {
+        let graph_edges = self.graph.get_edges();
+        for edge in graph_edges {
+            // iter each node's edges
+            for e in edge.1 {
+                if e.htlc_minimim_msat > self.amount {}
+            }
+        }
+    }
 }
 
 #[cfg(test)]

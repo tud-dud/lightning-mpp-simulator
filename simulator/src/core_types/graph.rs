@@ -1,12 +1,11 @@
-use std::collections::HashMap;
+use crate::{ID, RNG};
+use network_parser::{Edge, Node};
 
 use log::{debug, info};
-use network_parser::{Edge, Node};
 use pathfinding::directed::strongly_connected_components::strongly_connected_components;
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
-
-use crate::{ID, RNG};
+use std::{cmp, collections::HashMap};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Graph {
@@ -26,26 +25,10 @@ impl Graph {
             .map(|(id, edge)| (id, Vec::from_iter(edge)))
             .collect();
         let graph = Graph { nodes, edges };
-        let mut greatest_scc = graph.reduce_to_greatest_scc();
+        let greatest_scc = graph.reduce_to_greatest_scc();
+        let mut greatest_scc = greatest_scc.remove_unidrectional_edges();
         greatest_scc.set_channel_balances();
         greatest_scc
-    }
-
-    /// We calculate balances based on the edges' max_sat values using a random uniform
-    /// distribution
-    fn set_channel_balances(&mut self) {
-        info!("Calculating channel balances..");
-        let mut rng = RNG.lock().unwrap();
-        for edges in self.edges.iter() {
-            let src = edges.0;
-            // edges from src
-            for e in edges.1 {
-                let to = e.destination.clone();
-                let edges_from_to = self.get_outedges(&to);
-                // get edge to->src
-                let max_msat_from_src = e.htlc_maximum_msat;
-            }
-        }
     }
 
     fn reduce_to_greatest_scc(&self) -> Graph {
@@ -104,7 +87,13 @@ impl Graph {
         &self.edges
     }
 
-    /// Remove the edge in both directions
+    pub(crate) fn get_edges_for_node(&self, node_id: &ID) -> Option<Vec<Edge>> {
+        self.get_edges()
+            .get(node_id)
+            .map(|adj_list| adj_list.to_owned())
+    }
+
+    /// Will try to remove the edge in both directions
     pub(crate) fn remove_edge(&mut self, src: &ID, dest: &ID) {
         // The edge (src, dest) exists
         if let Some(src_edges) = self.edges.get_mut(src) {
@@ -122,6 +111,63 @@ impl Graph {
         } else {
             Vec::default()
         }
+    }
+
+    /// We calculate balances based on the edges' max_sat values using a random uniform
+    /// distribution
+    fn set_channel_balances(&mut self) {
+        info!("Calculating channel balances.");
+        // hm
+        let graph_copy = self.clone();
+        let mut rng = RNG.lock().unwrap();
+        for (src, edges) in self.edges.iter_mut() {
+            for out_edge in edges.iter_mut() {
+                // means we haven't visited the edge before; might break if htlc_maximum_msat == 0
+                if out_edge.balance == usize::default() {
+                    // Channel capacity is assumed to be the lower htlc_maximum_msat value
+                    if let Some(mut reverse_edge) = graph_copy.get_edge(&out_edge.destination, src)
+                    {
+                        let src_capacity_dist: f32 = rng.gen();
+                        let max_src_htlc = &out_edge.htlc_maximum_msat;
+                        let max_dest_htlc = reverse_edge.htlc_maximum_msat;
+                        let capacity = *cmp::min(max_src_htlc, &max_dest_htlc) as f32;
+                        let src_balance = (src_capacity_dist * capacity).round();
+                        let dest_balance = capacity - src_balance;
+                        reverse_edge.balance = dest_balance as usize;
+                        out_edge.balance = src_balance as usize;
+                    }
+                }
+            }
+        }
+    }
+
+    fn remove_unidrectional_edges(&self) -> Self {
+        info!("Deleting unidirectional edges from graph.");
+        let mut graph_copy = self.clone();
+        let mut num_removed = 0;
+        for (src, edges) in self.edges.iter() {
+            let from = src;
+            for out in edges.iter() {
+                let to = &out.destination;
+                // check if to->from exists
+                let edges_from_to: Vec<ID> = if let Some(edges) = self.get_edges_for_node(to) {
+                    edges.iter().map(|edge| edge.destination.clone()).collect()
+                } else {
+                    Vec::default()
+                };
+                if !edges_from_to.contains(from) {
+                    graph_copy.remove_edge(from, to);
+                    num_removed += 1;
+                }
+            }
+        }
+        debug!("Removed {} unidirectional edges.", num_removed);
+        info!(
+            "Proceeding with {} nodes and {} edges.",
+            graph_copy.node_count(),
+            graph_copy.edge_count()
+        );
+        graph_copy
     }
 
     // FIXME: Parallel edges between nodes
@@ -273,7 +319,7 @@ mod tests {
         let num_nodes = digraph.node_count();
         assert_eq!(num_nodes, 3);
         let num_edges = digraph.edge_count();
-        assert_eq!(num_edges, 4);
+        assert_eq!(num_edges, 2);
     }
 
     #[test]
@@ -281,8 +327,7 @@ mod tests {
         let json_str = json_str();
         let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
         let actual = graph.get_sccs();
-        assert_eq!(actual.len(), 1);
-        assert_eq!(actual[0].len(), 3);
+        assert_eq!(actual.len(), 2);
     }
 
     #[test]
@@ -304,10 +349,10 @@ mod tests {
             .edges
             .insert("scc2".to_string(), vec![network_parser::Edge::default()]);
         let sccs = graph.clone().get_sccs();
-        assert_eq!(sccs.len(), 4); //empty string is an SCC. somehow..
+        assert_eq!(sccs.len(), 5); //empty string is an SCC. somehow..
         let actual = graph.reduce_to_greatest_scc();
-        assert_eq!(actual.node_count(), 3);
-        assert_eq!(actual.edge_count(), 4);
+        assert_eq!(actual.node_count(), 2);
+        assert_eq!(actual.edge_count(), 2);
     }
 
     #[test]
@@ -332,14 +377,17 @@ mod tests {
     }
 
     #[test]
-    fn get_edge_src_to_dest() {
+    fn get_edge_from_src_to_dest() {
         let json_str = json_str();
         let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
         let from = "random0".to_string();
         let to = "random1".to_string();
         let actual = graph.get_edge(&from, &to);
+        assert!(actual.is_none());
+        let from = "random2".to_string();
+        let actual = graph.get_edge(&from, &to);
         let expected = Some(Edge {
-            channel_id: String::from("714105x2146x0/0"),
+            channel_id: String::from("714116xx0/0"),
             source: from,
             destination: to,
             features: String::default(),
@@ -349,7 +397,7 @@ mod tests {
             htlc_maximum_msat: 5564111000,
             cltv_expiry_delta: 34,
             id: String::default(),
-            balance: 0,
+            balance: actual.clone().unwrap().balance, // hacky because it depends on the RNG
         });
         assert_eq!(actual, expected);
     }
@@ -358,17 +406,17 @@ mod tests {
     fn get_nodes_outedges() {
         let json_str = json_str();
         let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
-        let node = String::from("random0");
+        let node = String::from("random1");
         let actual = graph.get_outedges(&node);
         let expected = vec![Edge {
-            channel_id: String::from("714105x2146x0/0"),
+            channel_id: String::from("714116x477x0/0"),
             source: node,
             destination: String::from("random1"),
             features: String::default(),
-            fee_base_msat: 5,
-            fee_proportional_millionths: 270,
-            htlc_minimim_msat: 1000,
-            htlc_maximum_msat: 5564111000,
+            fee_base_msat: 0,
+            fee_proportional_millionths: 555,
+            htlc_minimim_msat: 1,
+            htlc_maximum_msat: 5545472000,
             cltv_expiry_delta: 34,
             id: String::default(),
             balance: 0,
@@ -393,5 +441,19 @@ mod tests {
         assert_eq!(node2_edge_len - 1, node2_edge_new_len);
         assert!(graph.get_edge(&node1, &node2).is_none());
         assert!(graph.get_edge(&node2, &node1).is_none());
+    }
+
+    #[test]
+    fn add_edge_balances() {
+        let json_str = json_str();
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        graph.set_channel_balances();
+        println!("graph {:?}", graph);
+        for edges in graph.edges.into_values() {
+            for e in edges {
+                assert!(e.balance != usize::default());
+                assert!(e.balance <= e.htlc_maximum_msat);
+            }
+        }
     }
 }

@@ -61,8 +61,8 @@ impl Graph {
     pub fn get_nodes_as_vec(self) -> Vec<Node> {
         self.nodes.into_iter().collect()
     }
-    pub fn get_edges(self) -> HashMap<ID, HashSet<Edge>> {
-        self.edges
+    pub fn get_edges(&self) -> HashMap<ID, HashSet<Edge>> {
+        self.edges.clone()
     }
     pub fn get_edges_as_vec_vec(self) -> Vec<Vec<Edge>> {
         self.edges
@@ -70,7 +70,7 @@ impl Graph {
             .map(|node_adj| node_adj.1.into_iter().collect())
             .collect()
     }
-    pub fn get_edges_for_node(self, node_id: &ID) -> HashSet<Edge> {
+    pub fn get_edges_for_node(&self, node_id: &ID) -> HashSet<Edge> {
         match self.get_edges().get(node_id) {
             Some(adj_list) => adj_list.to_owned(),
             None => HashSet::default(),
@@ -413,7 +413,7 @@ mod tests {
                 cltv_expiry_delta: 34,
                 id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                     .to_string(),
-                    balance: 0,
+                balance: 0,
             },
             Edge {
                 channel_id: "714116x477x0/0".to_string(),
@@ -429,7 +429,7 @@ mod tests {
                 cltv_expiry_delta: 34,
                 id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                     .to_string(),
-                    balance: 0,
+                balance: 0,
             },
         ];
         for edge in expected {

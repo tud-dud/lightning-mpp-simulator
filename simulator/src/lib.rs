@@ -5,11 +5,12 @@ use std::sync::Mutex;
 pub mod core_types;
 pub mod payments;
 pub mod sim;
-mod traversal;
+pub(crate) mod traversal;
 
 pub use core_types::*;
 pub use payments::*;
 pub use sim::*;
+pub(crate) use traversal::path_finder::*;
 
 pub type ID = String;
 pub type PaymentId = usize;
