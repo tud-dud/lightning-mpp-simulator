@@ -30,10 +30,8 @@ fn main() {
     match graph {
         Ok(graph) => {
             let graph = Graph::to_sim_graph(&graph);
-            info!("to petgraph");
-            let greatest_scc = graph.reduce_to_greatest_scc();
-            info!("Greatest SCC with {} nodes.", greatest_scc.node_count());
-            info!("Greatest SCC with {} edges ", greatest_scc.edge_count());
+            info!("Greatest SCC with {} nodes.", graph.node_count());
+            info!("Greatest SCC with {} edges ", graph.edge_count());
         }
         Err(e) => println!("{:?}", e),
     };

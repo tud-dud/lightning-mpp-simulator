@@ -44,9 +44,12 @@ pub struct Edge {
     pub htlc_minimim_msat: usize,
     /// The largest payment source will allow via this channel
     pub htlc_maximum_msat: usize,
-    /// total CLTV delta across path
+    /// CLTV delta across channel
+    /// minimum difference between the expiration of an incoming and outgoing HTLC
     pub cltv_expiry_delta: usize,
     pub id: String,
+    /// node's edge balance which we add after graph creation
+    pub balance: usize,
 }
 
 pub type ID = String;
@@ -266,6 +269,7 @@ mod tests {
                     cltv_expiry_delta: 34,
                     id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                         .to_string(),
+                    balance: 0,
                 },
                 Edge {
                     channel_id: "714116x477x0/0".to_string(),
@@ -282,6 +286,7 @@ mod tests {
                     cltv_expiry_delta: 34,
                     id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                         .to_string(),
+                    balance: 0,
                 },
             ]),
         )]);
@@ -408,6 +413,7 @@ mod tests {
                 cltv_expiry_delta: 34,
                 id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                     .to_string(),
+                    balance: 0,
             },
             Edge {
                 channel_id: "714116x477x0/0".to_string(),
@@ -423,6 +429,7 @@ mod tests {
                 cltv_expiry_delta: 34,
                 id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                     .to_string(),
+                    balance: 0,
             },
         ];
         for edge in expected {

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use env_logger::Env;
 use lightning_simulator::{core_types::graph, sim::Simulation};
-use log::{error, info};
+use log::error;
 
 #[derive(clap::Parser)]
 #[command(name = "lightning-simulator", version, about)]
@@ -57,7 +57,6 @@ fn main() {
             std::process::exit(-1)
         }
     };
-    let graph = graph.reduce_to_greatest_scc();
     let mut simulator = Simulation::new(
         seed,
         graph,
