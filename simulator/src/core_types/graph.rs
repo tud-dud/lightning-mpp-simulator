@@ -180,7 +180,6 @@ impl Graph {
             .cloned()
     }
 
-    /// TODO: We can use choose_multiple here
     pub(crate) fn get_random_pair_of_nodes(&self) -> (ID, ID) {
         let node_ids = self.get_node_ids();
         assert!(
@@ -189,12 +188,8 @@ impl Graph {
         );
         assert!(node_ids.len() >= 2, "Set of nodes is too small to sample.");
         let mut rng = RNG.lock().unwrap();
-        let src = node_ids.choose(&mut *rng).unwrap();
-        let mut dest = node_ids.choose(&mut *rng).unwrap();
-        while dest == src {
-            dest = node_ids.choose(&mut *rng).unwrap()
-        }
-        (src.clone(), dest.clone())
+        let pair: Vec<ID> = node_ids.choose_multiple(&mut *rng, 2).cloned().collect();
+        (pair[0].to_owned(), pair[1].to_owned())
     }
 
     fn get_sccs(&self) -> Vec<Vec<ID>> {
@@ -371,7 +366,6 @@ mod tests {
         let json_str = json_str();
         let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
         let (actual_src, actual_dest) = graph.get_random_pair_of_nodes();
-        assert_ne!(actual_src, actual_dest);
         assert!(graph.get_node_ids().contains(&actual_src));
         assert!(graph.get_node_ids().contains(&actual_dest));
     }
