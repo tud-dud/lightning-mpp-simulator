@@ -96,7 +96,7 @@ impl Simulation {
     // 2.3. update states (node balances, ???)
     fn send_payment(&self, src: ID, dest: ID, amount: usize) {
         let graph = Box::new(self.graph.clone());
-        let mut path_finder = PathFinder::new(src, dest, amount, graph);
+        let mut path_finder = PathFinder::new(src, dest, amount, graph, self.routing_metric);
         let start = Instant::now();
         if let Some(_) = path_finder.find_path() {
             let duration_in_ms = start.elapsed().as_millis();

@@ -10,7 +10,6 @@ pub(crate) mod traversal;
 pub use core_types::*;
 pub use payments::*;
 pub use sim::*;
-pub(crate) use traversal::path_finder::*;
 
 pub type ID = String;
 pub type PaymentId = usize;
@@ -19,6 +18,8 @@ pub type Edge = network_parser::Edge;
 pub type EdgeWeight = usize;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
+/// Number of shortest paths to compute during pathfinding
+pub(crate) static K: usize = 3;
 
 /// Metric to use when looking for a route
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

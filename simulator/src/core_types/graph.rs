@@ -1,4 +1,4 @@
-use crate::{ID, RNG};
+use crate::{EdgeWeight, RoutingMetric, ID, RNG};
 use network_parser::{Edge, Node};
 
 use log::{debug, info};
