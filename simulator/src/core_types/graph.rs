@@ -170,7 +170,7 @@ impl Graph {
         graph_copy
     }
 
-    // FIXME: Parallel edges between nodes
+    /// Use get_all_src_dest_edges to get all such edges
     fn get_edge(&self, from: &ID, to: &ID) -> Option<Edge> {
         let out_edges = self.get_outedges(from);
         // Assumes there is at most one edge from dest to src
@@ -178,6 +178,14 @@ impl Graph {
             .iter()
             .find(|out| out.destination == to.clone())
             .cloned()
+    }
+
+    /// Returns all edges between two nodes. Empty if there are none
+    pub(crate) fn get_all_src_dest_edges(&self, from: &ID, to: &ID) -> Vec<Edge> {
+        self.get_outedges(from)
+            .into_iter()
+            .filter(|edge| edge.destination == to.clone())
+            .collect()
     }
 
     pub(crate) fn get_random_pair_of_nodes(&self) -> (ID, ID) {
@@ -211,6 +219,7 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     fn json_str() -> String {
         let json_str = r##"{
@@ -449,5 +458,17 @@ mod tests {
                 assert!(e.balance <= e.htlc_maximum_msat);
             }
         }
+    }
+
+    #[test]
+    fn all_edges_between_two_nodes() {
+        let graph = Graph::to_sim_graph(
+            &network_parser::from_json_file(&Path::new("../test_data/trivial_connected.json"))
+                .unwrap(),
+        );
+        let from = String::from("034");
+        let to = String::from("036");
+        let actual = graph.get_all_src_dest_edges(&from, &to);
+        assert_eq!(actual.len(), 2);
     }
 }

@@ -210,7 +210,6 @@ mod tests {
             let now: f32 = eq.now().as_millis();
             let next_time = times.pop().unwrap().floor();
 
-            println!("Running at {}, Should be: {}", now, next_time);
             assert_eq!(now, next_time);
         }
         assert!(times.is_empty());

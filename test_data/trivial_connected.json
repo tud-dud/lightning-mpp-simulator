@@ -50,6 +50,19 @@
                 "id": "034"
             },
             {
+                "scid": "7836x2386x1/1",
+                "source": "034",
+                "destination": "036",
+                "timestamp": 1630848990,
+                "features": "",
+                "fee_base_msat": 1000,
+                "fee_proportional_millionths": 1,
+                "htlc_minimim_msat": 100,
+                "htlc_maximum_msat": 8351700,
+                "cltv_expiry_delta": 40,
+                "id": "034"
+            },
+            {
                 "scid": "683464x931x0/0",
                 "source": "034",
                 "destination": "025",
