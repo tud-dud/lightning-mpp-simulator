@@ -1,14 +1,7 @@
-use crate::{graph::Graph, Edge, EdgeWeight, RoutingMetric, ID};
+use crate::{graph::Graph, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
 
 use log::{debug, trace};
-use std::collections::{BTreeMap, VecDeque};
-
-/// Describes an edge between two nodes
-#[derive(Debug, Clone)]
-pub(crate) struct Hop {
-    src: ID,
-    dest: ID,
-}
+use std::collections::VecDeque;
 
 /// Describes a path between two nodes
 #[derive(Debug, Clone, PartialEq)]
@@ -25,13 +18,13 @@ pub(crate) struct PathFinder {
     /// Network topolgy graph
     pub(crate) graph: Box<Graph>,
     /// Node looking for a route
-    src: ID,
+    pub(super) src: ID,
     /// the destination node
-    dest: ID,
+    pub(super) dest: ID,
     /// How much is being sent from src to dest
-    amount: usize,
-    routing_metric: RoutingMetric,
-    edge_weights: BTreeMap<(ID, ID), EdgeWeight>,
+    pub(super) amount: usize,
+    pub(super) routing_metric: RoutingMetric,
+    pub(super) payment_parts: PaymentParts,
 }
 
 /// A path that we may use to route from src to dest
@@ -39,11 +32,11 @@ pub(crate) struct PathFinder {
 pub(crate) struct CandidatePath {
     pub(crate) path: Path,
     /// The aggregated path weight (fees or probability) describing how costly the path is
-    weight: EdgeWeight,
+    pub(crate) weight: EdgeWeight,
     /// The aggregated amount due when using this path (amount + fees)
-    amount: usize,
+    pub(crate) amount: usize,
     /// The aggregated timelock
-    time: usize,
+    pub(crate) time: usize,
 }
 
 impl Path {
@@ -52,7 +45,7 @@ impl Path {
         Self { src, dest, hops }
     }
 
-    /// Excluding src and dest
+    /// Including src and dest
     fn get_involved_nodes(&self) -> Vec<ID> {
         self.hops.clone().into_iter().collect()
     }
@@ -62,8 +55,6 @@ impl Path {
         self.hops.push_back(hop);
     }
 }
-
-impl Hop {}
 
 impl CandidatePath {
     fn new(src: ID, dest: ID, amount: usize) -> Self {
@@ -96,6 +87,7 @@ impl PathFinder {
         amount: usize,
         graph: Box<Graph>,
         routing_metric: RoutingMetric,
+        payment_parts: PaymentParts,
     ) -> Self {
         Self {
             graph,
@@ -103,64 +95,18 @@ impl PathFinder {
             dest,
             amount,
             routing_metric,
-            edge_weights: BTreeMap::default(),
+            payment_parts,
         }
     }
 
-    /// Returns a route, the total amount due and lock time and none if no route is found
-    /// Search for paths from dest to src
     pub(crate) fn find_path(&mut self) -> Option<Vec<CandidatePath>> {
-        let mut candidate_paths = Vec::default();
-        self.remove_inadequate_edges();
-        debug!(
-            "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
-            self.src, self.dest, self.routing_metric
-        );
-        let successors = |node: &ID| -> Vec<(ID, usize)> {
-            let succs = match self.graph.get_edges_for_node(node) {
-                Some(edges) => edges
-                    .iter()
-                    .map(|e| {
-                        (
-                            e.destination.clone(),
-                            Self::get_edge_weight(e, self.amount, self.routing_metric),
-                        )
-                    })
-                    .collect(),
-                None => Vec::default(),
-            };
-            succs
-        };
-        // returns distinct paths including src and dest sorted in ascending cost order
-        let k_shortest_paths =
-            pathfinding::prelude::yen(&self.src, successors, |n| *n == self.dest, crate::K);
-        trace!(
-            "Got {} shortest paths between {} and {}.",
-            k_shortest_paths.len(),
-            self.src,
-            self.dest
-        );
-        if k_shortest_paths.is_empty() {
-            return None;
+        match self.payment_parts {
+            PaymentParts::Single => PathFinder::find_path_single_payment(self),
+            PaymentParts::Split => todo!(),
         }
-        // construct candipaths using k_shortest_path
-        // - calculate total path cost
-        for shortest_path in k_shortest_paths {
-            trace!(
-                "Creating candidate path from {:?} shortest path.",
-                shortest_path
-            );
-            let mut path = Path::new(self.src.clone(), self.dest.clone());
-            path.hops = shortest_path.0.into_iter().collect();
-            let mut candidate_path = CandidatePath::new_with_path(path);
-            Self::get_aggregated_path_cost(self, &mut candidate_path);
-            candidate_paths.push(candidate_path);
-        }
-        // sort? already sorted by cost
-        Some(candidate_paths)
     }
 
-    fn get_edge_weight(edge: &Edge, amount: usize, metric: RoutingMetric) -> EdgeWeight {
+    pub(super) fn get_edge_weight(edge: &Edge, amount: usize, metric: RoutingMetric) -> EdgeWeight {
         match metric {
             RoutingMetric::MinFee => Self::get_edge_fee(edge, amount),
             RoutingMetric::MaxProb => Self::get_edge_failure_probabilty(edge, amount),
@@ -191,7 +137,7 @@ impl PathFinder {
     }
 
     /// Calculates the total probabilty along a given path starting from dest to src
-    fn get_aggregated_path_cost(&mut self, mut candidate_path: &mut CandidatePath) {
+    pub(super) fn get_aggregated_path_cost(&mut self, mut candidate_path: &mut CandidatePath) {
         // 1. for all (src, dest) pairs in the path:
         // 2. calculate weight and fee
         // 3. output: total weight, total fees and total amount due
@@ -253,8 +199,6 @@ impl PathFinder {
             let edge_weight = Self::get_edge_weight(&edge, self.amount, self.routing_metric);
             if edge_weight < min_weight {
                 min_weight = edge_weight;
-                self.edge_weights
-                    .insert((edge.source.clone(), edge.destination.clone()), edge_weight);
                 cheapest_edge = Some(edge);
             }
         }
@@ -262,7 +206,7 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    fn remove_inadequate_edges(&mut self) {
+    pub(super) fn remove_inadequate_edges(&mut self) {
         debug!("Removing edges with insufficient funds.");
         let mut ctr = 0;
         for edge in self.graph.edges.clone() {
@@ -340,122 +284,5 @@ mod tests {
         let actual = PathFinder::get_edge_fee(&edge, amount);
         let expected = 100;
         assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn find_min_fee_paths() {
-        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
-        let balance = 70000; // ensure balances are not the reason for failure
-        for (_, edges) in graph.edges.iter_mut() {
-            for e in edges {
-                e.balance = balance;
-            }
-        }
-        let graph = Box::new(graph);
-        let src = String::from("alice");
-        let dest = String::from("dina");
-        let amount = 5000;
-        let routing_metric = RoutingMetric::MinFee;
-        let mut path_finder = PathFinder::new(src, dest, amount, graph, routing_metric);
-        let actual = path_finder.find_path();
-        assert!(actual.is_some());
-        let actual = actual.unwrap();
-        let expected_path = Path {
-            src: String::from("alice"),
-            dest: String::from("dina"),
-            hops: VecDeque::from([
-                "alice".to_owned(),
-                "bob".to_owned(),
-                "chan".to_owned(),
-                "dina".to_owned(),
-            ]),
-        };
-        let expected: Vec<CandidatePath> = vec![CandidatePath {
-            path: expected_path,
-            weight: 120,  // fees (a->b, b->c)
-            amount: 5120, // amount + fees
-            time: 45,
-        }];
-        assert_eq!(actual.len(), expected.len());
-        for (idx, e) in expected.iter().enumerate() {
-            assert_eq!(*e, actual[idx]);
-        }
-    }
-
-    #[test]
-    fn find_max_prob_paths() {
-        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
-        let balance = 70000; // ensure balances are not the reason for failure
-        for (_, edges) in graph.edges.iter_mut() {
-            for e in edges {
-                e.balance = balance;
-            }
-        }
-        let graph = Box::new(graph);
-        let src = String::from("alice");
-        let dest = String::from("dina");
-        let amount = 5000;
-        let routing_metric = RoutingMetric::MaxProb;
-        let mut path_finder = PathFinder::new(src, dest, amount, graph, routing_metric);
-        let actual = path_finder.find_path();
-        assert!(actual.is_some());
-        let actual = actual.unwrap();
-        let expected_path = Path {
-            src: String::from("alice"),
-            dest: String::from("dina"),
-            hops: VecDeque::from([
-                "alice".to_owned(),
-                "bob".to_owned(),
-                "chan".to_owned(),
-                "dina".to_owned(),
-            ]),
-        };
-        let expected: Vec<CandidatePath> = vec![CandidatePath {
-            path: expected_path,
-            weight: 1,    // probabilty
-            amount: 5120, // amount + fees
-            time: 45,
-        }];
-        assert_eq!(actual.len(), expected.len());
-        for (idx, e) in expected.iter().enumerate() {
-            assert_eq!(*e, actual[idx]);
-        }
-    }
-
-    #[test]
-    fn aggregated_path_cost() {
-        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
-        let mut path_finder = PathFinder {
-            graph: Box::new(graph),
-            src: "dina".to_string(),
-            dest: "bob".to_string(),
-            amount: 10000,
-            routing_metric: RoutingMetric::MinFee,
-            edge_weights: BTreeMap::default(),
-        };
-        let path = Path {
-            src: path_finder.src.clone(),
-            dest: path_finder.dest.clone(),
-            hops: VecDeque::from(["dina".to_owned(), "chan".to_owned(), "bob".to_owned()]),
-        };
-        let mut candidate_path = &mut CandidatePath::new_with_path(path);
-        PathFinder::get_aggregated_path_cost(&mut path_finder, &mut candidate_path);
-        let (actual_weight, actual_amount, actual_time) = (
-            candidate_path.weight,
-            candidate_path.amount,
-            candidate_path.time,
-        );
-        let expected_weight = 1000;
-        let expected_amount = 11000;
-        let expected_time = 40;
-
-        assert_eq!(actual_weight, expected_weight);
-        assert_eq!(actual_amount, expected_amount);
-        assert_eq!(actual_time, expected_time);
-
-        path_finder.routing_metric = RoutingMetric::MaxProb;
     }
 }

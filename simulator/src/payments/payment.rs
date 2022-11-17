@@ -2,10 +2,13 @@ use crate::{PaymentId, ID};
 
 #[derive(Debug, Clone, Default)]
 pub struct Payment {
+    /// Unique payment identifier
     pub(crate) payment_id: PaymentId,
     pub(crate) source: ID,
     pub(crate) dest: ID,
+    /// Total amount issued by this payment (fees + amount)
     pub(crate) amount_msat: usize,
+    /// True when the payment fails completely and we give up
     pub(crate) failed: bool,
     //current_hop: Hop,
     pub(crate) current_hop: ID,
@@ -21,7 +24,7 @@ impl Payment {
             amount_msat,
             failed: false,
             current_hop: source,
-            min_shard_amt: 10000000,
+            min_shard_amt: usize::MAX,
         }
     }
 }
@@ -51,7 +54,7 @@ mod tests {
             amount_msat: amount,
             failed: false,
             current_hop: source,
-            min_shard_amt: 10000000,
+            min_shard_amt: usize::MAX,
         };
         assert_eq!(actual, expected);
         assert_eq!(actual.failed, expected.failed);

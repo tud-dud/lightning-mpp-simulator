@@ -1,4 +1,4 @@
-use crate::{EdgeWeight, RoutingMetric, ID, RNG};
+use crate::{ID, RNG};
 use network_parser::{Edge, Node};
 
 use log::{debug, info};
@@ -466,9 +466,14 @@ mod tests {
             &network_parser::from_json_file(&Path::new("../test_data/trivial_connected.json"))
                 .unwrap(),
         );
-        let from = String::from("034");
-        let to = String::from("036");
-        let actual = graph.get_all_src_dest_edges(&from, &to);
-        assert_eq!(actual.len(), 2);
+        let nodes = graph.get_node_ids();
+        for (idx, node) in nodes.iter().enumerate() {
+            let from = node;
+            let to = nodes[idx + 1 % nodes.len() - 1].clone();
+            if *from != to {
+                let actual = graph.get_all_src_dest_edges(&from, &to);
+                assert_eq!(actual.len(), 1);
+            }
+        }
     }
 }

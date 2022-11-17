@@ -1,6 +1,10 @@
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, time::Time,
-    traversal::pathfinding::PathFinder, PaymentParts, RoutingMetric, ID,
+    core_types::graph::Graph,
+    event::*,
+    payment::Payment,
+    time::Time,
+    traversal::pathfinding::PathFinder,
+    PaymentParts, RoutingMetric, ID,
 };
 use log::{debug, error, info};
 use rand::SeedableRng;
@@ -21,6 +25,8 @@ pub struct Simulation {
     payment_parts: PaymentParts,
     /// Queue of events to be simulated
     event_queue: EventQueue,
+    /// Assigned to each new payment
+    next_payment_id: usize,
 }
 
 impl Simulation {
@@ -44,6 +50,7 @@ impl Simulation {
             routing_metric,
             payment_parts,
             event_queue,
+            next_payment_id: 0,
         }
     }
 
@@ -78,32 +85,45 @@ impl Simulation {
                         payment.payment_id,
                         self.event_queue.now()
                     );
-                    self.send_payment(payment.source, payment.dest, payment.amount_msat);
+                    match self.payment_parts {
+                        PaymentParts::Single => self.send_single_payment(
+                            payment.source,
+                            payment.dest,
+                            payment.amount_msat,
+                        ),
+                        PaymentParts::Split => todo!(),
+                    }
                 }
             }
         }
     }
 
-    // 1. Find candidate paths
-    // 1.1. find paths connecting sender to the recipient from the channel graph
-    // - fees calculation in reverse order (because incoming HTLC at each hop must be larger
-    // (amount + expiry timelock) than outgoing HTLC
-    // - channel must have sufficient funds for payment amount + cumulative fees of all subsequent hops
-    // 1.2. order candidate paths by {fee | probability} or shortest path?
-    // 2. Send payment
+    // 2. Send payment (Try each path in order until payment succeeds (the trial-and-error loop))
+    // 2.0. create payment
     // 2.1. try candidate paths sequentially (trial-and-error loop)
     // 2.2. record success or failure (where?)
     // 2.3. update states (node balances, ???)
-    fn send_payment(&self, src: ID, dest: ID, amount: usize) {
+    fn send_single_payment(&self, src: ID, dest: ID, amount: usize) {
         let graph = Box::new(self.graph.clone());
-        let mut path_finder = PathFinder::new(src, dest, amount, graph, self.routing_metric);
+        let mut path_finder = PathFinder::new(
+            src,
+            dest,
+            amount,
+            graph,
+            self.routing_metric,
+            self.payment_parts,
+        );
         let start = Instant::now();
-        if let Some(_) = path_finder.find_path() {
+        if let Some(candidate_paths) = path_finder.find_path() {
             let duration_in_ms = start.elapsed().as_millis();
-            info!("Found path after {} ms.", duration_in_ms);
+            info!(
+                "Found {} paths after {} ms.",
+                candidate_paths.len(),
+                duration_in_ms
+            );
             // fail immediately if sender's balance < amount
         } else {
-            error!("No paths found!");
+            error!("No paths found.");
         }
     }
 
@@ -116,6 +136,12 @@ impl Simulation {
             .collect::<Vec<_>>()
             .into_iter()
             .map(move |_| g.clone().get_random_pair_of_nodes())
+    }
+
+    fn next_payment_id(&mut self) -> usize {
+        let next_payment_id = self.next_payment_id;
+        self.next_payment_id += 1;
+        next_payment_id
     }
 }
 
