@@ -1,4 +1,5 @@
 {
+    "_comment": "fully connected network of 3 nodes",
     "directed": true,
     "multigraph": false,
     "graph": [],

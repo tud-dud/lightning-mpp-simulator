@@ -1,2 +1,2 @@
-pub(crate) mod path_finder;
+pub(crate) mod pathfinding;
 mod route;

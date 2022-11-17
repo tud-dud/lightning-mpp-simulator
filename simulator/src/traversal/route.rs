@@ -1,4 +1,4 @@
-use crate::{traversal::path_finder::Hop, Edge};
+use crate::traversal::pathfinding::Hop;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Route {

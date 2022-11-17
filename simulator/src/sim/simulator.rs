@@ -1,8 +1,8 @@
 use crate::{
     core_types::graph::Graph, event::*, payment::Payment, time::Time,
-    traversal::path_finder::PathFinder, PaymentParts, RoutingMetric, ID,
+    traversal::pathfinding::PathFinder, PaymentParts, RoutingMetric, ID,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use rand::SeedableRng;
 use std::time::Instant;
 
@@ -102,6 +102,8 @@ impl Simulation {
             let duration_in_ms = start.elapsed().as_millis();
             info!("Found path after {} ms.", duration_in_ms);
             // fail immediately if sender's balance < amount
+        } else {
+            error!("No paths found!");
         }
     }
 

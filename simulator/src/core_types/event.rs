@@ -198,7 +198,6 @@ mod tests {
 
             let t = Time::from_millis(rand_time);
             eq.schedule(t, e.clone());
-            println!("Scheduled for rand_time: {}, Time: {}", rand_time, t);
         }
 
         times.sort_by(|a, b| a.partial_cmp(b).unwrap());
