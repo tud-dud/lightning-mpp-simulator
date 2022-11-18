@@ -23,7 +23,7 @@ struct Cli {
     /// payment
     #[arg(long = "split", short = 's')]
     split_payments: bool,
-    /// Routing finding heuristic to use
+    /// Route finding heuristic to use
     #[arg(long = "path-metric", short = 'p')]
     edge_weight: lightning_simulator::RoutingMetric,
     #[arg(long = "log", short = 'l', default_value = "info")]

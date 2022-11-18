@@ -10,9 +10,11 @@ impl PathFinder {
     pub(super) fn find_path_single_payment(&mut self) -> Option<Vec<CandidatePath>> {
         let mut candidate_paths = Vec::default();
         self.remove_inadequate_edges();
-        debug!(
+        trace!(
             "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
-            self.src, self.dest, self.routing_metric
+            self.src,
+            self.dest,
+            self.routing_metric
         );
         let successors = |node: &ID| -> Vec<(ID, usize)> {
             let succs = match self.graph.get_edges_for_node(node) {

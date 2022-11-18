@@ -113,6 +113,12 @@ impl Graph {
         }
     }
 
+    pub(crate) fn get_max_edge_balance(&self, source: &ID, dest: &ID) -> usize {
+        let out_edges = self.get_all_src_dest_edges(source, dest);
+        let max_balance = out_edges.iter().map(|e| e.balance).max();
+        max_balance.unwrap_or(0)
+    }
+
     /// We calculate balances based on the edges' max_sat values using a random uniform
     /// distribution
     fn set_channel_balances(&mut self) {

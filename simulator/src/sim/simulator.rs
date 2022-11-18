@@ -1,10 +1,10 @@
 use crate::{
     core_types::graph::Graph,
     event::*,
-    payment::Payment,
+    payment::{Payment, PaymentShard},
     time::Time,
     traversal::pathfinding::PathFinder,
-    PaymentParts, RoutingMetric, ID,
+    PaymentId, PaymentParts, RoutingMetric, ID,
 };
 use log::{debug, error, info};
 use rand::SeedableRng;
@@ -26,7 +26,7 @@ pub struct Simulation {
     /// Queue of events to be simulated
     event_queue: EventQueue,
     /// Assigned to each new payment
-    next_payment_id: usize,
+    current_payment_id: PaymentId,
 }
 
 impl Simulation {
@@ -38,7 +38,11 @@ impl Simulation {
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
     ) -> Self {
-        info!("Initialising simulation.");
+        info!("Initialising simulation...");
+        info!(
+            "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
+            num_pairs, routing_metric, payment_parts
+        );
         let mut rng = crate::RNG.lock().unwrap();
         *rng = SeedableRng::seed_from_u64(run);
         let event_queue = EventQueue::new();
@@ -50,7 +54,7 @@ impl Simulation {
             routing_metric,
             payment_parts,
             event_queue,
-            next_payment_id: 0,
+            current_payment_id: 0,
         }
     }
 
@@ -64,8 +68,8 @@ impl Simulation {
         );
         let random_pairs_iter = Self::draw_n_pairs_for_simulation(&self.graph, self.num_pairs);
         let mut now = Time::from_secs(0.0); // start simulation at (0)
-        for (payment_id, (src, dest)) in random_pairs_iter.enumerate() {
-            let payment = Payment::new(payment_id, src, dest, self.amount);
+        for (src, dest) in random_pairs_iter {
+            let payment = Payment::new(self.next_payment_id(), src, dest, self.amount);
             let event = EventType::ScheduledPayment { payment };
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);
@@ -79,19 +83,15 @@ impl Simulation {
         // this is where the actual simulation happens
         while let Some(event) = self.event_queue.next() {
             match event {
-                EventType::ScheduledPayment { payment } => {
+                EventType::ScheduledPayment { mut payment } => {
                     debug!(
                         "Dispatching scheduled payment {} at simulation time = {}.",
                         payment.payment_id,
                         self.event_queue.now()
                     );
                     match self.payment_parts {
-                        PaymentParts::Single => self.send_single_payment(
-                            payment.source,
-                            payment.dest,
-                            payment.amount_msat,
-                        ),
-                        PaymentParts::Split => todo!(),
+                        PaymentParts::Single => self.send_single_payment(&mut payment),
+                        PaymentParts::Split => self.send_mpp_payment(&mut payment),
                     }
                 }
             }
@@ -103,18 +103,22 @@ impl Simulation {
     // 2.1. try candidate paths sequentially (trial-and-error loop)
     // 2.2. record success or failure (where?)
     // 2.3. update states (node balances, ???)
-    fn send_single_payment(&self, src: ID, dest: ID, amount: usize) {
+    fn send_single_payment(&self, mut payment: &mut Payment) {
         let graph = Box::new(self.graph.clone());
+        if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
+            // TODO: immediate failure
+        }
         let mut path_finder = PathFinder::new(
-            src,
-            dest,
-            amount,
+            payment.source.clone(),
+            payment.dest.clone(),
+            payment.amount_msat,
             graph,
             self.routing_metric,
             self.payment_parts,
         );
         let start = Instant::now();
         if let Some(candidate_paths) = path_finder.find_path() {
+            payment.paths = candidate_paths.clone();
             let duration_in_ms = start.elapsed().as_millis();
             info!(
                 "Found {} paths after {} ms.",
@@ -122,9 +126,63 @@ impl Simulation {
                 duration_in_ms
             );
             // fail immediately if sender's balance < amount
+            let payment_shard = payment.to_shard(payment.amount_msat);
+            let success = self.attempt_payment(&payment_shard);
+            if success {
+                // TODO
+                payment.failed = !success;
+            }
         } else {
             error!("No paths found.");
         }
+    }
+
+    // 1. Split payment into n parts
+    //  - observe min amount
+    //  2. Find paths for all parts
+    //  TODO: Maybe expect a shard
+    fn send_mpp_payment(&self, mut payment: &mut Payment) {
+        let graph = Box::new(self.graph.clone());
+        if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
+            // TODO: immediate failure
+        }
+        let mut path_finder = PathFinder::new(
+            payment.source.clone(),
+            payment.dest.clone(),
+            payment.amount_msat,
+            graph,
+            self.routing_metric,
+            self.payment_parts,
+        );
+
+        let start = Instant::now();
+        if let Some(candidate_paths) = path_finder.find_path() {
+            payment.paths = candidate_paths.clone();
+            let duration_in_ms = start.elapsed().as_millis();
+            info!(
+                "Found {} paths after {} ms.",
+                candidate_paths.len(),
+                duration_in_ms
+            );
+            let payment_shard = payment.to_shard(payment.amount_msat);
+            let success = self.attempt_payment(&payment_shard);
+            if success {
+                // TODO
+                payment.failed = success;
+            } else {
+                if let Some(split_shard) = payment_shard.split_payment() {
+                    let (shard1, shard2) = (split_shard.0, split_shard.1);
+                }
+            }
+        }
+    }
+
+    fn attempt_payment(&self, payment_shard: &PaymentShard) -> bool {
+        info!(
+            "{} attempting to send {} msats to {}.",
+            payment_shard.source, payment_shard.amount, payment_shard.dest
+        );
+        false
     }
 
     fn draw_n_pairs_for_simulation(
@@ -139,9 +197,9 @@ impl Simulation {
     }
 
     fn next_payment_id(&mut self) -> usize {
-        let next_payment_id = self.next_payment_id;
-        self.next_payment_id += 1;
-        next_payment_id
+        let current_id = self.current_payment_id;
+        self.current_payment_id += 1;
+        current_id
     }
 }
 
