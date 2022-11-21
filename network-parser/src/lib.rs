@@ -50,6 +50,8 @@ pub struct Edge {
     pub id: String,
     /// node's edge balance which we add after graph creation
     pub balance: usize,
+    /// edge balance minus commited HTLCs
+    pub liquidity: usize,
 }
 
 pub type ID = String;
@@ -270,6 +272,7 @@ mod tests {
                     id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                         .to_string(),
                     balance: 0,
+            liquidity: 0,
                 },
                 Edge {
                     channel_id: "714116x477x0/0".to_string(),
@@ -287,6 +290,7 @@ mod tests {
                     id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                         .to_string(),
                     balance: 0,
+            liquidity: 0,
                 },
             ]),
         )]);
@@ -414,6 +418,7 @@ mod tests {
                 id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                     .to_string(),
                 balance: 0,
+            liquidity: 0,
             },
             Edge {
                 channel_id: "714116x477x0/0".to_string(),
@@ -430,6 +435,7 @@ mod tests {
                 id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                     .to_string(),
                 balance: 0,
+            liquidity: 0,
             },
         ];
         for edge in expected {

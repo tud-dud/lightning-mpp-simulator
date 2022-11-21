@@ -120,7 +120,7 @@ impl Graph {
     }
 
     /// We calculate balances based on the edges' max_sat values using a random uniform
-    /// distribution
+    /// distribution. We set the liquidity to the calculated balance
     fn set_channel_balances(&mut self) {
         info!("Calculating channel balances.");
         // hm
@@ -140,7 +140,9 @@ impl Graph {
                         let src_balance = (src_capacity_dist * capacity).round();
                         let dest_balance = capacity - src_balance;
                         reverse_edge.balance = dest_balance as usize;
+                        reverse_edge.liquidity = reverse_edge.balance;
                         out_edge.balance = src_balance as usize;
+                        out_edge.liquidity = out_edge.balance;
                     }
                 }
             }
@@ -407,6 +409,7 @@ mod tests {
             cltv_expiry_delta: 34,
             id: String::default(),
             balance: actual.clone().unwrap().balance, // hacky because it depends on the RNG
+            liquidity: 0,
         });
         assert_eq!(actual, expected);
     }
@@ -429,6 +432,7 @@ mod tests {
             cltv_expiry_delta: 34,
             id: String::default(),
             balance: 0,
+            liquidity: 0,
         }];
         assert_eq!(actual, expected);
     }
@@ -457,7 +461,6 @@ mod tests {
         let json_str = json_str();
         let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
         graph.set_channel_balances();
-        println!("graph {:?}", graph);
         for edges in graph.edges.into_values() {
             for e in edges {
                 assert!(e.balance != usize::default());

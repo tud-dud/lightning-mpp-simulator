@@ -8,8 +8,9 @@ use std::collections::VecDeque;
 pub(crate) struct Path {
     pub(crate) src: ID,
     pub(crate) dest: ID,
-    /// the edges of the path described from sender to receiver
-    pub(crate) hops: VecDeque<ID>,
+    /// the edges of the path described from sender to receiver including fees and timelock over
+    /// the edge with the ID
+    pub(crate) hops: VecDeque<(ID, usize, usize, String)>,
 }
 
 /// Pathfinding object
@@ -47,12 +48,20 @@ impl Path {
 
     /// Including src and dest
     fn get_involved_nodes(&self) -> Vec<ID> {
-        self.hops.clone().into_iter().collect()
+        self.hops.iter().map(|h| h.0.clone()).collect()
     }
 
-    fn add_hop(&mut self, hop: ID) {
+    fn add_hop(&mut self, hop: ID, fees: usize, timelock: usize, edge_id: String) {
         // use with self.hops.pop_front()
-        self.hops.push_back(hop);
+        self.hops.push_back((hop, fees, timelock, edge_id));
+    }
+
+    fn update_hop(&mut self, hop_id: ID, fees: usize, timelock: usize, edge_id: &String) {
+        for hop in self.hops.iter_mut() {
+            if hop.0 == hop_id {
+                *hop = (hop.0.clone(), fees, timelock, edge_id.to_owned())
+            }
+        }
     }
 }
 
@@ -152,17 +161,21 @@ impl PathFinder {
             1
         };
         let mut accumulated_time = 0; // full timelock delta
-        let candidate_path_hops: VecDeque<ID> =
-            candidate_path.path.hops.iter().cloned().rev().collect();
+        let candidate_path_hops: VecDeque<ID> = candidate_path
+            .path
+            .get_involved_nodes()
+            .into_iter()
+            .rev()
+            .collect();
         for (idx, node_id) in candidate_path_hops.iter().enumerate() {
             // TODO: Do we need to do anything when node == src?
             if node_id.clone() == self.src || node_id.clone() == self.dest {
                 continue;
             } else {
-                let (dest, src) = (node_id, candidate_path_hops[idx + 1].clone());
-                // we are interested in the weight from src to dest since that is the direction the
+                let (src, dest) = (node_id, candidate_path_hops[idx - 1].clone());
+                // we are interested in the weight from src to dest (the previous node in the list) since that is the direction the
                 // payment will flow in
-                let cheapest_edge = match self.get_cheapest_edge(&src, dest) {
+                let cheapest_edge = match self.get_cheapest_edge(src, &dest) {
                     None => panic!("Edge in path does not exist! {} -> {}", src, dest),
                     Some(e) => e,
                 };
@@ -177,8 +190,16 @@ impl PathFinder {
                         accumulated_weight += Self::get_edge_fee(&cheapest_edge, accumulated_amount)
                     }
                 };
-                accumulated_amount += Self::get_edge_fee(&cheapest_edge, accumulated_amount);
-                accumulated_time += cheapest_edge.cltv_expiry_delta;
+                let edge_fee = Self::get_edge_fee(&cheapest_edge, accumulated_amount);
+                accumulated_amount += edge_fee;
+                let edge_timelock = cheapest_edge.cltv_expiry_delta;
+                accumulated_time += edge_timelock;
+                candidate_path.path.update_hop(
+                    cheapest_edge.source,
+                    edge_fee,
+                    edge_timelock,
+                    &cheapest_edge.channel_id,
+                );
             }
         }
         candidate_path.weight = accumulated_weight;
@@ -231,11 +252,11 @@ mod tests {
     fn get_nodes_involved_in_path() {
         let mut path = Path::new(String::from("a"), String::from("e"));
         path.hops = VecDeque::from([
-            "a".to_string(),
-            "b".to_string(),
-            "c".to_string(),
-            "d".to_string(),
-            "e".to_string(),
+            ("a".to_string(), 0, 0, "".to_string()),
+            ("b".to_string(), 0, 0, "".to_string()),
+            ("c".to_string(), 0, 0, "".to_string()),
+            ("d".to_string(), 0, 0, "".to_string()),
+            ("e".to_string(), 0, 0, "".to_string()),
         ]);
         let actual = path.get_involved_nodes();
         let expected = vec![

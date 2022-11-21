@@ -32,6 +32,7 @@ impl PathFinder {
             succs
         };
         // returns distinct paths including src and dest sorted in ascending cost order
+        // TODO: change source and dest?
         let k_shortest_paths =
             pathfinding::prelude::yen(&self.src, successors, |n| *n == self.dest, crate::K);
         trace!(
@@ -51,9 +52,14 @@ impl PathFinder {
                 shortest_path
             );
             let mut path = Path::new(self.src.clone(), self.dest.clone());
-            path.hops = shortest_path.0.into_iter().collect();
+            // the weights and timelock are set  as the total path costs are calculated
+            path.hops = shortest_path
+                .0
+                .into_iter()
+                .map(|h| (h, usize::default(), usize::default(), String::default()))
+                .collect();
             let mut candidate_path = CandidatePath::new_with_path(path);
-            Self::get_aggregated_path_cost(self, &mut candidate_path);
+            self.get_aggregated_path_cost(&mut candidate_path);
             candidate_paths.push(candidate_path);
         }
         // sort? already sorted by cost
@@ -93,17 +99,17 @@ mod tests {
             src: String::from("alice"),
             dest: String::from("dina"),
             hops: VecDeque::from([
-                "alice".to_owned(),
-                "bob".to_owned(),
-                "chan".to_owned(),
-                "dina".to_owned(),
+                ("alice".to_string(), 0, 0, String::default()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 0, 0, "".to_string()),
             ]),
         };
         let expected: Vec<CandidatePath> = vec![CandidatePath {
             path: expected_path,
-            weight: 120,  // fees (a->b, b->c)
-            amount: 5120, // amount + fees
-            time: 45,
+            weight: 175,  // fees (b->c, c->d)
+            amount: 5175, // amount + fees
+            time: 55,
         }];
         assert_eq!(actual.len(), expected.len());
         for (idx, e) in expected.iter().enumerate() {
@@ -141,17 +147,17 @@ mod tests {
             src: String::from("alice"),
             dest: String::from("dina"),
             hops: VecDeque::from([
-                "alice".to_owned(),
-                "bob".to_owned(),
-                "chan".to_owned(),
-                "dina".to_owned(),
+                ("alice".to_string(), 0, 0, String::default()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 0, 0, "".to_string()),
             ]),
         };
         let expected: Vec<CandidatePath> = vec![CandidatePath {
             path: expected_path,
-            weight: 1,    // probabilty
-            amount: 5120, // amount + fees
-            time: 45,
+            weight: 1,    // prob (b->c, c->d)
+            amount: 5175, // amount + fees
+            time: 55,
         }];
         assert_eq!(actual.len(), expected.len());
         for (idx, e) in expected.iter().enumerate() {
@@ -174,18 +180,23 @@ mod tests {
         let path = Path {
             src: path_finder.src.clone(),
             dest: path_finder.dest.clone(),
-            hops: VecDeque::from(["dina".to_owned(), "chan".to_owned(), "bob".to_owned()]),
+            hops: VecDeque::from([
+                ("dina".to_string(), 0, 0, "".to_string()),
+                ("chan".to_string(), 0, 0, "c".to_string()),
+                ("bob".to_string(), 0, 0, "".to_string()),
+            ]),
         };
         let mut candidate_path = &mut CandidatePath::new_with_path(path);
         PathFinder::get_aggregated_path_cost(&mut path_finder, &mut candidate_path);
+        println!("final path {:?}", candidate_path.path);
         let (actual_weight, actual_amount, actual_time) = (
             candidate_path.weight,
             candidate_path.amount,
             candidate_path.time,
         );
-        let expected_weight = 1000;
-        let expected_amount = 11000;
-        let expected_time = 40;
+        let expected_weight = 100;
+        let expected_amount = 10100;
+        let expected_time = 20;
 
         assert_eq!(actual_weight, expected_weight);
         assert_eq!(actual_amount, expected_amount);
