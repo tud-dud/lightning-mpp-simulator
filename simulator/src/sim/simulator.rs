@@ -1,18 +1,17 @@
 use crate::{
-    core_types::graph::Graph,
-    event::*,
-    payment::{Payment, PaymentShard},
-    time::Time,
-    traversal::pathfinding::PathFinder,
-    PaymentId, PaymentParts, RoutingMetric, ID,
+    core_types::graph::Graph, event::*, payment::Payment, time::Time,
+    traversal::pathfinding::PathFinder, Invoice, PaymentId, PaymentParts, RoutingMetric, ID,
 };
 use log::{debug, error, info};
 use rand::SeedableRng;
-use std::time::Instant;
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Instant,
+};
 
 pub struct Simulation {
     /// Graph describing LN topology
-    graph: Graph,
+    pub(crate) graph: Graph,
     /// Payment amount to simulate
     amount: usize,
     /// Sim seed
@@ -20,13 +19,17 @@ pub struct Simulation {
     /// Number of payments to simulate
     num_pairs: usize,
     /// Fee minimisation or probability maximisation
-    routing_metric: RoutingMetric,
+    pub(crate) routing_metric: RoutingMetric,
     /// Single or multi-path
-    payment_parts: PaymentParts,
+    pub(crate) payment_parts: PaymentParts,
     /// Queue of events to be simulated
     event_queue: EventQueue,
     /// Assigned to each new payment
     current_payment_id: PaymentId,
+    /// Invoices each node has issued; map of <node, <invoice id, invoice>
+    outstanding_invoices: BTreeMap<ID, HashMap<usize, Invoice>>,
+    pub(crate) num_successesful: usize,
+    pub(crate) successful_payments: Vec<Payment>,
 }
 
 impl Simulation {
@@ -46,6 +49,8 @@ impl Simulation {
         let mut rng = crate::RNG.lock().unwrap();
         *rng = SeedableRng::seed_from_u64(run);
         let event_queue = EventQueue::new();
+        let outstanding_invoices: BTreeMap<String, HashMap<usize, Invoice>> = BTreeMap::new();
+        let successful_payments = Vec::new();
         Self {
             graph,
             amount,
@@ -55,10 +60,14 @@ impl Simulation {
             payment_parts,
             event_queue,
             current_payment_id: 0,
+            outstanding_invoices,
+            num_successesful: 0,
+            successful_payments,
         }
     }
 
     // 1. Create and queue payments in event queue
+    //  - create and add invoices for tracking of payments
     // 2. Process event queue
     // 3. Evaluate and report simulation results
     pub fn run(&mut self) {
@@ -69,7 +78,10 @@ impl Simulation {
         let random_pairs_iter = Self::draw_n_pairs_for_simulation(&self.graph, self.num_pairs);
         let mut now = Time::from_secs(0.0); // start simulation at (0)
         for (src, dest) in random_pairs_iter {
-            let payment = Payment::new(self.next_payment_id(), src, dest, self.amount);
+            let payment_id = self.next_payment_id();
+            let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
+            self.add_invoice(invoice);
+            let payment = Payment::new(payment_id, src, dest, self.amount);
             let event = EventType::ScheduledPayment { payment };
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);
@@ -98,50 +110,11 @@ impl Simulation {
         }
     }
 
-    // 2. Send payment (Try each path in order until payment succeeds (the trial-and-error loop))
-    // 2.0. create payment
-    // 2.1. try candidate paths sequentially (trial-and-error loop)
-    // 2.2. record success or failure (where?)
-    // 2.3. update states (node balances, ???)
-    fn send_single_payment(&self, mut payment: &mut Payment) {
-        let graph = Box::new(self.graph.clone());
-        if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
-            // TODO: immediate failure
-        }
-        let mut path_finder = PathFinder::new(
-            payment.source.clone(),
-            payment.dest.clone(),
-            payment.amount_msat,
-            graph,
-            self.routing_metric,
-            self.payment_parts,
-        );
-        let start = Instant::now();
-        if let Some(candidate_paths) = path_finder.find_path() {
-            payment.paths = candidate_paths.clone();
-            let duration_in_ms = start.elapsed().as_millis();
-            info!(
-                "Found {} paths after {} ms.",
-                candidate_paths.len(),
-                duration_in_ms
-            );
-            // fail immediately if sender's balance < amount
-            let payment_shard = payment.to_shard(payment.amount_msat);
-            let success = self.attempt_payment(&payment_shard);
-            if success {
-                // TODO
-                payment.failed = !success;
-            }
-        } else {
-            error!("No paths found.");
-        }
-    }
-
     // 1. Split payment into n parts
     //  - observe min amount
     //  2. Find paths for all parts
     //  TODO: Maybe expect a shard
-    fn send_mpp_payment(&self, mut payment: &mut Payment) {
+    fn send_mpp_payment(&mut self, mut payment: &mut Payment) {
         let graph = Box::new(self.graph.clone());
         if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
             // TODO: immediate failure
@@ -164,8 +137,8 @@ impl Simulation {
                 candidate_paths.len(),
                 duration_in_ms
             );
-            let payment_shard = payment.to_shard(payment.amount_msat);
-            let success = self.attempt_payment(&payment_shard);
+            let mut payment_shard = payment.to_shard(payment.amount_msat);
+            let success = self.attempt_payment(&mut payment_shard, &candidate_paths[0]);
             if success {
                 // TODO
                 payment.failed = success;
@@ -175,14 +148,6 @@ impl Simulation {
                 }
             }
         }
-    }
-
-    fn attempt_payment(&self, payment_shard: &PaymentShard) -> bool {
-        info!(
-            "{} attempting to send {} msats to {}.",
-            payment_shard.source, payment_shard.amount, payment_shard.dest
-        );
-        false
     }
 
     fn draw_n_pairs_for_simulation(
@@ -196,6 +161,41 @@ impl Simulation {
             .map(move |_| g.clone().get_random_pair_of_nodes())
     }
 
+    fn add_invoice(&mut self, invoice: Invoice) {
+        // Has this node already issued invoices?
+        match self.outstanding_invoices.get_mut(&invoice.destination) {
+            Some(node_invoices) => {
+                node_invoices.insert(invoice.id, invoice);
+            }
+            None => {
+                let mut node_invoices = HashMap::new();
+                node_invoices.insert(invoice.id, invoice.clone());
+                self.outstanding_invoices
+                    .insert(invoice.destination, node_invoices);
+            }
+        };
+    }
+
+    /// Invoices each node has issued; map of <node, <invoice id, invoice>
+    pub(crate) fn get_invoices_for_node(&self, node: &ID) -> Option<&HashMap<usize, Invoice>> {
+        match self.outstanding_invoices.get(node) {
+            Some(invoices_map) => Some(invoices_map),
+            None => None,
+        }
+    }
+
+    pub(crate) fn remove_invoice(&mut self, invoice: &Invoice) {
+        let id = invoice.id;
+        match self.outstanding_invoices.get_mut(&invoice.destination) {
+            Some(invoices_map) => {
+                invoices_map.retain(|k, v| k.to_owned() != id && v.id != id);
+                println!("invoices {:?}", self.outstanding_invoices);
+                self.outstanding_invoices.retain(|_, v| !v.is_empty());
+            }
+            None => error!("Requested invoice with id {} not found.", id),
+        };
+    }
+
     fn next_payment_id(&mut self) -> usize {
         let current_id = self.current_payment_id;
         self.current_payment_id += 1;
@@ -205,6 +205,7 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use std::path::Path;
 
@@ -229,5 +230,95 @@ mod tests {
         let n = 2;
         let actual = Simulation::draw_n_pairs_for_simulation(&graph, n);
         assert_eq!(actual.size_hint(), (n, Some(n)));
+    }
+
+    #[test]
+    fn add_invoice() {
+        let seed = 1;
+        let amount = 100;
+        let pairs = 2;
+        let path_to_file = Path::new("../test_data/trivial.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let routing_metric = RoutingMetric::MinFee;
+        let payment_parts = PaymentParts::Single;
+        let mut simulator =
+            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let invoice = Invoice::new(
+            simulator.next_payment_id(),
+            1234,
+            &"alice".to_string(),
+            &"dina".to_string(),
+        );
+        simulator.add_invoice(invoice.clone());
+        let invoice2 = Invoice::new(
+            simulator.next_payment_id(),
+            4321,
+            &"alice".to_string(),
+            &"dina".to_string(),
+        );
+        simulator.add_invoice(invoice2.clone());
+        assert_eq!(simulator.outstanding_invoices.len(), 1);
+        let actual = simulator
+            .outstanding_invoices
+            .get(&"dina".to_owned())
+            .unwrap()
+            .clone();
+        let expected = HashMap::from([(invoice.id, invoice), (invoice2.id, invoice2)]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn get_invoices_for_node() {
+        let seed = 1;
+        let amount = 100;
+        let pairs = 2;
+        let path_to_file = Path::new("../test_data/trivial.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let routing_metric = RoutingMetric::MinFee;
+        let payment_parts = PaymentParts::Single;
+        let mut simulator =
+            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let invoice = Invoice::new(
+            simulator.next_payment_id(),
+            1234,
+            &"alice".to_string(),
+            &"dina".to_string(),
+        );
+        simulator.add_invoice(invoice.clone());
+        let invoice2 = Invoice::new(
+            simulator.next_payment_id(),
+            4321,
+            &"alice".to_string(),
+            &"chan".to_string(),
+        );
+        simulator.add_invoice(invoice2.clone());
+        let actual = simulator.get_invoices_for_node(&"dina".to_string());
+        assert!(actual.is_some());
+        let actual = actual.unwrap().clone();
+        let expected = HashMap::from([(invoice.id, invoice)]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn delete_invoice() {
+        let seed = 1;
+        let amount = 100;
+        let pairs = 2;
+        let path_to_file = Path::new("../test_data/trivial.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let routing_metric = RoutingMetric::MinFee;
+        let payment_parts = PaymentParts::Single;
+        let mut simulator =
+            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let invoice = Invoice::new(
+            simulator.next_payment_id(),
+            1234,
+            &"alice".to_string(),
+            &"dina".to_string(),
+        );
+        simulator.add_invoice(invoice.clone());
+        simulator.remove_invoice(&invoice);
+        let actual = simulator.get_invoices_for_node(&"dina".to_string());
+        assert!(actual.is_none());
     }
 }

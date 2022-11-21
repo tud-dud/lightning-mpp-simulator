@@ -1,5 +1,14 @@
 use crate::{traversal::pathfinding::CandidatePath, PaymentId, ID};
 
+pub(crate) enum Message {
+    /// Offer an HTLC to another node
+    UpdateAddHtlc {},
+    /// Error
+    UpdateFailHtlc,
+    RevokeAndAck,
+    CommitmentSigned,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Payment {
     /// Unique payment identifier
@@ -29,6 +38,7 @@ pub struct PaymentShard {
     pub(crate) dest: ID,
     pub(crate) amount: usize,
     pub(crate) failed: bool,
+    pub(crate) succeeded: bool,
     /// Paths payment can take
     /// unstable, might change
     pub(crate) paths: Vec<CandidatePath>,
@@ -67,6 +77,7 @@ impl PaymentShard {
             failed: payment.failed,
             paths: payment.paths.clone(),
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
+            succeeded: false,
         }
     }
 

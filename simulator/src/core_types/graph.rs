@@ -83,7 +83,7 @@ impl Graph {
         self.nodes.iter().map(|n| n.id.clone()).collect()
     }
 
-    pub(crate) fn get_edges(&self) -> &HashMap<String, Vec<Edge>> {
+    pub(crate) fn get_edges(&self) -> &HashMap<ID, Vec<Edge>> {
         &self.edges
     }
 
@@ -111,6 +111,29 @@ impl Graph {
         } else {
             Vec::default()
         }
+    }
+
+    pub(crate) fn update_channel_balance(
+        &mut self,
+        src_node: &ID,
+        channel_id: &ID,
+        balance: usize,
+    ) {
+        for edge_lists in self.edges.values_mut() {
+            for edge in edge_lists {
+                if edge.channel_id == channel_id.clone() {
+                    edge.balance = balance;
+                }
+            }
+        }
+    }
+
+    pub(crate) fn get_channel_balance(&self, src_node: &ID, channel_id: &ID) -> usize {
+        self.get_outedges(src_node)
+            .iter()
+            .find(|out| out.channel_id == *channel_id)
+            .map(|e| e.balance)
+            .unwrap_or_else(|| 0)
     }
 
     pub(crate) fn get_max_edge_balance(&self, source: &ID, dest: &ID) -> usize {
@@ -484,5 +507,33 @@ mod tests {
                 assert_eq!(actual.len(), 1);
             }
         }
+    }
+
+    #[test]
+    fn get_edge_balance() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let balance = 4711;
+        // Set balance so we can compare
+        for edges in graph.edges.values_mut() {
+            for e in edges {
+                e.balance = balance;
+            }
+        }
+        let node = String::from("alice");
+        let channel_id = String::from("alice1");
+        let actual = graph.get_channel_balance(&node, &channel_id);
+        assert_eq!(balance, actual);
+    }
+
+    #[test]
+    fn update_edge_balance() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let node = String::from("alice");
+        let channel_id = String::from("alice1");
+        let new_balance = 1234;
+        graph.update_channel_balance(&node, &channel_id, new_balance);
+        assert_eq!(new_balance, graph.get_channel_balance(&node, &channel_id));
     }
 }

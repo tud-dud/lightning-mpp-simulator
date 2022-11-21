@@ -99,7 +99,7 @@ mod tests {
             src: String::from("alice"),
             dest: String::from("dina"),
             hops: VecDeque::from([
-                ("alice".to_string(), 0, 0, String::default()),
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
                 ("bob".to_string(), 100, 40, "bob2".to_string()),
                 ("chan".to_string(), 75, 15, "chan2".to_string()),
                 ("dina".to_string(), 0, 0, "".to_string()),
@@ -147,7 +147,7 @@ mod tests {
             src: String::from("alice"),
             dest: String::from("dina"),
             hops: VecDeque::from([
-                ("alice".to_string(), 0, 0, String::default()),
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
                 ("bob".to_string(), 100, 40, "bob2".to_string()),
                 ("chan".to_string(), 75, 15, "chan2".to_string()),
                 ("dina".to_string(), 0, 0, "".to_string()),
@@ -188,7 +188,6 @@ mod tests {
         };
         let mut candidate_path = &mut CandidatePath::new_with_path(path);
         PathFinder::get_aggregated_path_cost(&mut path_finder, &mut candidate_path);
-        println!("final path {:?}", candidate_path.path);
         let (actual_weight, actual_amount, actual_time) = (
             candidate_path.weight,
             candidate_path.amount,

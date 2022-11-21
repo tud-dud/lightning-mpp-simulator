@@ -9,7 +9,7 @@ pub(crate) struct Path {
     pub(crate) src: ID,
     pub(crate) dest: ID,
     /// the edges of the path described from sender to receiver including fees and timelock over
-    /// the edge with the ID
+    /// the edge ID
     pub(crate) hops: VecDeque<(ID, usize, usize, String)>,
 }
 
@@ -168,8 +168,22 @@ impl PathFinder {
             .rev()
             .collect();
         for (idx, node_id) in candidate_path_hops.iter().enumerate() {
-            // TODO: Do we need to do anything when node == src?
-            if node_id.clone() == self.src || node_id.clone() == self.dest {
+            if node_id.clone() == self.src {
+                // Edge from src to first hop
+                // safe because src is always last in the list
+                let (src, dest) = (node_id, candidate_path_hops[idx - 1].clone());
+                let cheapest_edge = match self.get_cheapest_edge(src, &dest) {
+                    None => panic!("Edge in path does not exist! {} -> {}", src, dest),
+                    Some(e) => e,
+                };
+                candidate_path.path.update_hop(
+                    cheapest_edge.source,
+                    accumulated_amount,
+                    accumulated_time,
+                    &cheapest_edge.channel_id,
+                );
+            // TODO: Do we need to do anything when node == dest?
+            } else if node_id.clone() == self.dest {
                 continue;
             } else {
                 let (src, dest) = (node_id, candidate_path_hops[idx - 1].clone());
@@ -205,6 +219,7 @@ impl PathFinder {
         candidate_path.weight = accumulated_weight;
         candidate_path.amount = accumulated_amount;
         candidate_path.time = accumulated_time;
+        println!("candidate_path {:?}", candidate_path);
     }
 
     /// Returns the "cheapest" edge between src and dist bearing the routing me in mind
