@@ -113,12 +113,7 @@ impl Graph {
         }
     }
 
-    pub(crate) fn update_channel_balance(
-        &mut self,
-        src_node: &ID,
-        channel_id: &ID,
-        balance: usize,
-    ) {
+    pub(crate) fn update_channel_balance(&mut self, channel_id: &ID, balance: usize) {
         for edge_lists in self.edges.values_mut() {
             for edge in edge_lists {
                 if edge.channel_id == channel_id.clone() {
@@ -533,7 +528,7 @@ mod tests {
         let node = String::from("alice");
         let channel_id = String::from("alice1");
         let new_balance = 1234;
-        graph.update_channel_balance(&node, &channel_id, new_balance);
+        graph.update_channel_balance(&channel_id, new_balance);
         assert_eq!(new_balance, graph.get_channel_balance(&node, &channel_id));
     }
 }

@@ -28,8 +28,11 @@ pub struct Simulation {
     current_payment_id: PaymentId,
     /// Invoices each node has issued; map of <node, <invoice id, invoice>
     outstanding_invoices: BTreeMap<ID, HashMap<usize, Invoice>>,
-    pub(crate) num_successesful: usize,
+    total_num_payments: usize,
+    pub(crate) num_successful: usize,
     pub(crate) successful_payments: Vec<Payment>,
+    pub(crate) num_failed: usize,
+    pub(crate) failed_payments: Vec<Payment>,
 }
 
 impl Simulation {
@@ -61,8 +64,11 @@ impl Simulation {
             event_queue,
             current_payment_id: 0,
             outstanding_invoices,
-            num_successesful: 0,
+            num_successful: 0,
             successful_payments,
+            num_failed: 0,
+            failed_payments: Vec::new(),
+            total_num_payments: 0,
         }
     }
 
@@ -86,6 +92,7 @@ impl Simulation {
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);
         }
+        self.total_num_payments = self.event_queue.queue_length();
         debug!(
             "Queued {} events for simulation.",
             self.event_queue.queue_length()
@@ -101,20 +108,36 @@ impl Simulation {
                         payment.payment_id,
                         self.event_queue.now()
                     );
-                    match self.payment_parts {
+                    let success = match self.payment_parts {
                         PaymentParts::Single => self.send_single_payment(&mut payment),
                         PaymentParts::Split => self.send_mpp_payment(&mut payment),
+                    };
+                    // TODO: what else to do?
+                    if success {
+                        self.num_successful += 1;
+                        self.successful_payments.push(payment.to_owned());
+                    } else {
+                        self.num_failed += 1;
+                        self.failed_payments.push(payment.to_owned());
                     }
                 }
             }
         }
+        info!(
+            "Completed simulation after {} simulation secs.",
+            now.as_secs(),
+        );
+        info!(
+            "# Total payments = {}, # successful {}, # failed = {}.",
+            self.total_num_payments, self.num_successful, self.num_failed
+        );
     }
 
     // 1. Split payment into n parts
     //  - observe min amount
     //  2. Find paths for all parts
     //  TODO: Maybe expect a shard
-    fn send_mpp_payment(&mut self, mut payment: &mut Payment) {
+    fn send_mpp_payment(&mut self, mut payment: &mut Payment) -> bool {
         let graph = Box::new(self.graph.clone());
         if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
             // TODO: immediate failure
@@ -141,15 +164,16 @@ impl Simulation {
             let success = self.attempt_payment(&mut payment_shard, &candidate_paths[0]);
             if success {
                 // TODO
-                payment.failed = success;
             } else {
                 if let Some(split_shard) = payment_shard.split_payment() {
                     let (shard1, shard2) = (split_shard.0, split_shard.1);
                 }
             }
         }
+        false
     }
 
+    // TODO: pair should be made up of distinct nodes
     fn draw_n_pairs_for_simulation(
         graph: &Graph,
         n: usize,
@@ -161,7 +185,7 @@ impl Simulation {
             .map(move |_| g.clone().get_random_pair_of_nodes())
     }
 
-    fn add_invoice(&mut self, invoice: Invoice) {
+    pub(crate) fn add_invoice(&mut self, invoice: Invoice) {
         // Has this node already issued invoices?
         match self.outstanding_invoices.get_mut(&invoice.destination) {
             Some(node_invoices) => {
@@ -188,8 +212,7 @@ impl Simulation {
         let id = invoice.id;
         match self.outstanding_invoices.get_mut(&invoice.destination) {
             Some(invoices_map) => {
-                invoices_map.retain(|k, v| k.to_owned() != id && v.id != id);
-                println!("invoices {:?}", self.outstanding_invoices);
+                invoices_map.retain(|k, v| *k != id && v.id != id);
                 self.outstanding_invoices.retain(|_, v| !v.is_empty());
             }
             None => error!("Requested invoice with id {} not found.", id),

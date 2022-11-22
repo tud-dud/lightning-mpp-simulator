@@ -1,8 +1,8 @@
 use crate::{
     traversal::pathfinding::{CandidatePath, Path, PathFinder},
-    ID,
+    RoutingMetric, ID,
 };
-use log::{debug, trace};
+use log::trace;
 
 impl PathFinder {
     /// Returns a route, the total amount due and lock time and none if no route is found
@@ -23,7 +23,15 @@ impl PathFinder {
                     .map(|e| {
                         (
                             e.destination.clone(),
-                            Self::get_edge_weight(e, self.amount, self.routing_metric),
+                            if e.source != self.src {
+                                Self::get_edge_weight(e, self.amount, self.routing_metric)
+                            } else {
+                                if self.routing_metric == RoutingMetric::MinFee {
+                                    0
+                                } else {
+                                    1
+                                }
+                            },
                         )
                     })
                     .collect(),
@@ -32,7 +40,6 @@ impl PathFinder {
             succs
         };
         // returns distinct paths including src and dest sorted in ascending cost order
-        // TODO: change source and dest?
         let k_shortest_paths =
             pathfinding::prelude::yen(&self.src, successors, |n| *n == self.dest, crate::K);
         trace!(
@@ -102,7 +109,7 @@ mod tests {
                 ("alice".to_string(), 5175, 55, "alice1".to_string()),
                 ("bob".to_string(), 100, 40, "bob2".to_string()),
                 ("chan".to_string(), 75, 15, "chan2".to_string()),
-                ("dina".to_string(), 0, 0, "".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
             ]),
         };
         let expected: Vec<CandidatePath> = vec![CandidatePath {
@@ -150,7 +157,7 @@ mod tests {
                 ("alice".to_string(), 5175, 55, "alice1".to_string()),
                 ("bob".to_string(), 100, 40, "bob2".to_string()),
                 ("chan".to_string(), 75, 15, "chan2".to_string()),
-                ("dina".to_string(), 0, 0, "".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
             ]),
         };
         let expected: Vec<CandidatePath> = vec![CandidatePath {
