@@ -23,7 +23,7 @@ pub struct Payment {
     pub(crate) num_parts: usize,
     /// Paths payment can take
     /// unstable, might change
-    pub(crate) paths: Vec<CandidatePath>,
+    pub(crate) paths: CandidatePath,
     pub(crate) attempts: usize,
 }
 
@@ -51,7 +51,7 @@ impl Payment {
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             num_parts: 0,
-            paths: Vec::default(),
+            paths: CandidatePath::default(),
             attempts: 0,
         }
     }
@@ -85,7 +85,7 @@ impl PaymentShard {
             succeeded: self.succeeded,
             min_shard_amt: self.min_shard_amt,
             num_parts,
-            paths: vec![self.used_path.clone()],
+            paths: self.used_path.clone(),
             attempts: self.attempts,
         }
     }
@@ -139,7 +139,7 @@ mod tests {
             amount_msat: amount,
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: Vec::default(),
+            paths: CandidatePath::default(),
             num_parts: 0,
             attempts: 0,
         };
@@ -163,7 +163,7 @@ mod tests {
             amount_msat: amount,
             succeeded: true,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: vec![CandidatePath::default()],
+            paths: CandidatePath::default(),
             num_parts: 0,
             attempts: 1,
         };

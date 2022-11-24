@@ -16,7 +16,6 @@ pathfinding = "3.0.14"
 clap = { version = "4.0.22", features = ["derive"]}
 lazy_static = "1.4.0"
 rand = { version = "0.8.5", features = ["small_rng", "alloc"]}
-itertools = "0.10.5"
 
 [[bin]]
 name = "main"

@@ -19,7 +19,7 @@ pub type EdgeWeight = usize;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 /// Number of shortest paths to compute during pathfinding
-pub(crate) static K: usize = 3;
+pub(crate) static _K: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
 pub(crate) static MIN_SHARD_AMOUNT: usize = 100;
 

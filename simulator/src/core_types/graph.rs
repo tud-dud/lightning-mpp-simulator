@@ -3,7 +3,7 @@ use network_parser::{Edge, Node};
 
 use log::{debug, info};
 use pathfinding::directed::strongly_connected_components::strongly_connected_components;
-use rand::{seq::SliceRandom, Rng};
+use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::{cmp, collections::HashMap};
 
@@ -94,6 +94,7 @@ impl Graph {
     }
 
     /// Will try to remove the edge in both directions
+    /// FIXME: This will remove all parallel edges between src and dest. Instead use channel id
     pub(crate) fn remove_edge(&mut self, src: &ID, dest: &ID) {
         // The edge (src, dest) exists
         if let Some(src_edges) = self.edges.get_mut(src) {
@@ -131,10 +132,14 @@ impl Graph {
             .unwrap_or_else(|| 0)
     }
 
-    pub(crate) fn get_max_edge_balance(&self, source: &ID, dest: &ID) -> usize {
-        let out_edges = self.get_all_src_dest_edges(source, dest);
+    pub(crate) fn get_max_node_balance(&self, node: &ID) -> usize {
+        let out_edges = self.get_outedges(node);
         let max_balance = out_edges.iter().map(|e| e.balance).max();
         max_balance.unwrap_or(0)
+    }
+
+    pub(crate) fn get_total_node_balance(&self, node: &ID) -> usize {
+        self.get_outedges(node).iter().map(|e| e.balance).sum()
     }
 
     /// We calculate balances based on the edges' max_sat values using a random uniform
@@ -197,7 +202,7 @@ impl Graph {
     }
 
     /// Use get_all_src_dest_edges to get all such edges
-    fn get_edge(&self, from: &ID, to: &ID) -> Option<Edge> {
+    pub(crate) fn get_edge(&self, from: &ID, to: &ID) -> Option<Edge> {
         let out_edges = self.get_outedges(from);
         // Assumes there is at most one edge from dest to src
         out_edges
@@ -530,5 +535,37 @@ mod tests {
         let new_balance = 1234;
         graph.update_channel_balance(&channel_id, new_balance);
         assert_eq!(new_balance, graph.get_channel_balance(&node, &channel_id));
+    }
+
+    #[test]
+    fn max_send_capacity() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let node = String::from("bob");
+        let channel_id = String::from("bob1");
+        let new_balance = 10000;
+        graph.update_channel_balance(&channel_id, new_balance);
+        let channel_id = String::from("bob2");
+        let new_balance = 50;
+        graph.update_channel_balance(&channel_id, new_balance);
+        let actual = graph.get_max_node_balance(&node);
+        let expected = 10000;
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn total_send_capacity() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let node = String::from("bob");
+        let channel_id = String::from("bob1");
+        let new_balance = 10000;
+        graph.update_channel_balance(&channel_id, new_balance);
+        let channel_id = String::from("bob2");
+        let new_balance = 50;
+        graph.update_channel_balance(&channel_id, new_balance);
+        let actual = graph.get_total_node_balance(&node);
+        let expected = 10050;
+        assert_eq!(actual, expected);
     }
 }

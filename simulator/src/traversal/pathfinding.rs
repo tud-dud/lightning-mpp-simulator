@@ -109,7 +109,7 @@ impl PathFinder {
         }
     }
 
-    pub(crate) fn find_path(&mut self) -> Option<Vec<CandidatePath>> {
+    pub(crate) fn find_path(&mut self) -> Option<CandidatePath> {
         match self.payment_parts {
             PaymentParts::Single => self.find_path_single_payment(),
             PaymentParts::Split => self.find_path_mpp_payment(),

@@ -23,7 +23,7 @@ pub struct Simulation {
     /// Single or multi-path
     pub(crate) payment_parts: PaymentParts,
     /// Queue of events to be simulated
-    event_queue: EventQueue,
+    pub(crate) event_queue: EventQueue,
     /// Assigned to each new payment
     current_payment_id: PaymentId,
     /// Invoices each node has issued; map of <node, <invoice id, invoice>
@@ -108,18 +108,18 @@ impl Simulation {
                         payment.payment_id,
                         self.event_queue.now()
                     );
-                    let success = match self.payment_parts {
+                    let _ = match self.payment_parts {
                         PaymentParts::Single => self.send_single_payment(&mut payment),
                         PaymentParts::Split => self.send_mpp_payment(&mut payment),
                     };
-                    // TODO: what else to do?
-                    if success {
-                        self.num_successful += 1;
-                        self.successful_payments.push(payment.to_owned());
-                    } else {
-                        self.num_failed += 1;
-                        self.failed_payments.push(payment.to_owned());
-                    }
+                }
+                EventType::UpdateFailedPayment { payment } => {
+                    self.num_failed += 1;
+                    self.failed_payments.push(payment.to_owned());
+                }
+                EventType::UpdateSuccesfulPayment { payment } => {
+                    self.num_successful += 1;
+                    self.successful_payments.push(payment.to_owned());
                 }
             }
         }
@@ -139,7 +139,7 @@ impl Simulation {
     //  TODO: Maybe expect a shard
     fn send_mpp_payment(&mut self, mut payment: &mut Payment) -> bool {
         let graph = Box::new(self.graph.clone());
-        if graph.get_max_edge_balance(&payment.source, &payment.dest) < payment.amount_msat {
+        if graph.get_total_node_balance(&payment.source) < payment.amount_msat {
             // TODO: immediate failure
         }
         let mut path_finder = PathFinder::new(
@@ -155,13 +155,9 @@ impl Simulation {
         if let Some(candidate_paths) = path_finder.find_path() {
             payment.paths = candidate_paths.clone();
             let duration_in_ms = start.elapsed().as_millis();
-            info!(
-                "Found {} paths after {} ms.",
-                candidate_paths.len(),
-                duration_in_ms
-            );
+            info!("Found paths after {} ms.", duration_in_ms);
             let mut payment_shard = payment.to_shard(payment.amount_msat);
-            let success = self.attempt_payment(&mut payment_shard, &candidate_paths[0]);
+            let success = self.attempt_payment(&mut payment_shard, &candidate_paths);
             if success {
                 // TODO
             } else {

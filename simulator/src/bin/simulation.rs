@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use env_logger::Env;
 use lightning_simulator::{core_types::graph, sim::Simulation};
-use log::error;
+use log::{error, info};
 
 #[derive(clap::Parser)]
 #[command(name = "lightning-simulator", version, about)]
@@ -28,6 +28,9 @@ struct Cli {
     edge_weight: lightning_simulator::RoutingMetric,
     #[arg(long = "log", short = 'l', default_value = "info")]
     log_level: String,
+    /// Path to directory in which the results will be stored
+    #[arg(long = "out", short = 'o')]
+    output_dir: Option<PathBuf>,
     #[arg(long)]
     verbose: bool,
 }
@@ -57,6 +60,16 @@ fn main() {
             std::process::exit(-1)
         }
     };
+    let output_dir = if let Some(output_dir) = args.output_dir {
+        output_dir
+    } else {
+        PathBuf::from("results")
+    };
+    info!(
+        "Simulation results will be written to {:#?}/ directory.",
+        output_dir
+    );
+
     let mut simulator = Simulation::new(
         seed,
         graph,

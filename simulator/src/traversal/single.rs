@@ -7,9 +7,36 @@ use log::trace;
 impl PathFinder {
     /// Returns a route, the total amount due and lock time and none if no route is found
     /// Search for paths from dest to src
-    pub(super) fn find_path_single_payment(&mut self) -> Option<Vec<CandidatePath>> {
-        let mut candidate_paths = Vec::default();
+    pub(super) fn find_path_single_payment(&mut self) -> Option<CandidatePath> {
         self.remove_inadequate_edges();
+        // returns distinct paths including src and dest sorted in ascending cost order
+        let shortest_path = self.shortest_path_from(&self.src);
+        trace!("Got shortest path between {} and {}.", self.src, self.dest);
+        match shortest_path {
+            None => None,
+            // construct candipaths using k_shortest_path
+            // - calculate total path cost
+            Some(shortest_path) => {
+                trace!(
+                    "Creating candidate path from {:?} shortest path.",
+                    shortest_path
+                );
+                let mut path = Path::new(self.src.clone(), self.dest.clone());
+                // the weights and timelock are set  as the total path costs are calculated
+                path.hops = shortest_path
+                    .0
+                    .into_iter()
+                    .map(|h| (h, usize::default(), usize::default(), String::default()))
+                    .collect();
+                let mut candidate_path = CandidatePath::new_with_path(path);
+                self.get_aggregated_path_cost(&mut candidate_path);
+                Some(candidate_path)
+            }
+        }
+    }
+
+    /// Computes the shortest path beween source and dest using Dijkstra's algorithm
+    fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, usize)> {
         trace!(
             "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
             self.src,
@@ -39,38 +66,7 @@ impl PathFinder {
             };
             succs
         };
-        // returns distinct paths including src and dest sorted in ascending cost order
-        let k_shortest_paths =
-            pathfinding::prelude::yen(&self.src, successors, |n| *n == self.dest, crate::K);
-        trace!(
-            "Got {} shortest paths between {} and {}.",
-            k_shortest_paths.len(),
-            self.src,
-            self.dest
-        );
-        if k_shortest_paths.is_empty() {
-            return None;
-        }
-        // construct candipaths using k_shortest_path
-        // - calculate total path cost
-        for shortest_path in k_shortest_paths {
-            trace!(
-                "Creating candidate path from {:?} shortest path.",
-                shortest_path
-            );
-            let mut path = Path::new(self.src.clone(), self.dest.clone());
-            // the weights and timelock are set  as the total path costs are calculated
-            path.hops = shortest_path
-                .0
-                .into_iter()
-                .map(|h| (h, usize::default(), usize::default(), String::default()))
-                .collect();
-            let mut candidate_path = CandidatePath::new_with_path(path);
-            self.get_aggregated_path_cost(&mut candidate_path);
-            candidate_paths.push(candidate_path);
-        }
-        // sort? already sorted by cost
-        Some(candidate_paths)
+        pathfinding::prelude::dijkstra(node, successors, |n| *n == self.dest)
     }
 }
 
@@ -112,16 +108,13 @@ mod tests {
                 ("dina".to_string(), 5000, 0, "dina1".to_string()),
             ]),
         };
-        let expected: Vec<CandidatePath> = vec![CandidatePath {
+        let expected: CandidatePath = CandidatePath {
             path: expected_path,
             weight: 175,  // fees (b->c, c->d)
             amount: 5175, // amount + fees
             time: 55,
-        }];
-        assert_eq!(actual.len(), expected.len());
-        for (idx, e) in expected.iter().enumerate() {
-            assert_eq!(*e, actual[idx]);
-        }
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]
@@ -160,16 +153,13 @@ mod tests {
                 ("dina".to_string(), 5000, 0, "dina1".to_string()),
             ]),
         };
-        let expected: Vec<CandidatePath> = vec![CandidatePath {
+        let expected: CandidatePath = CandidatePath {
             path: expected_path,
             weight: 1,    // prob (b->c, c->d)
             amount: 5175, // amount + fees
             time: 55,
-        }];
-        assert_eq!(actual.len(), expected.len());
-        for (idx, e) in expected.iter().enumerate() {
-            assert_eq!(*e, actual[idx]);
-        }
+        };
+        assert_eq!(actual, expected);
     }
 
     #[test]

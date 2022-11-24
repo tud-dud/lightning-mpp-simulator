@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum EventType {
     ScheduledPayment { payment: Payment },
+    UpdateFailedPayment { payment: Payment },
+    UpdateSuccesfulPayment { payment: Payment },
 }
 
 pub struct EventQueue {
