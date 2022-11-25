@@ -206,7 +206,7 @@ mod tests {
     fn send_single_path_payment() {
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim();
+        let mut simulator = crate::attempt::tests::init_sim(None);
         let amount_msat = 1000;
         let payment = &mut Payment {
             payment_id: 0,
@@ -218,7 +218,7 @@ mod tests {
             attempts: 0,
             num_parts: 1,
             paths: CandidatePath::default(),
-            succesful_amounts: Vec::default(),
+            failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));

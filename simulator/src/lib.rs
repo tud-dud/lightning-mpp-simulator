@@ -21,7 +21,7 @@ pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 /// Number of shortest paths to compute during pathfinding
 pub(crate) static _K: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
-pub(crate) static MIN_SHARD_AMOUNT: usize = 100;
+pub(crate) static MIN_SHARD_AMOUNT: usize = 1000;
 
 /// Metric to use when looking for a route
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

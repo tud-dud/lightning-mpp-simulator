@@ -96,10 +96,8 @@ impl Simulation {
                 match self.get_invoices_for_node(&id) {
                     Some(invoices) => {
                         if let Some(invoice) = invoices.get(&payment_shard.payment_id) {
-                            // FIXME this will fail for MPP
-                            if invoice.amount == remaining_transferable_amount
-                                && invoice.source == payment_shard.source
-                            {
+                            if invoice.source == payment_shard.source {
+                                //&&invoice.amount == remaining_transferable_amount
                                 let current_balance =
                                     self.graph.get_channel_balance(&id, &channel_id);
                                 self.graph.update_channel_balance(
@@ -186,12 +184,17 @@ pub(crate) mod tests {
     use super::*;
     use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
 
-    pub fn init_sim() -> Simulation {
+    pub fn init_sim(path: Option<String>) -> Simulation {
         let seed = 1;
         let amount = 1000;
         let pairs = 2;
-        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = if let Some(file_path) = path {
+            let file_path = std::path::Path::new(&file_path);
+            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap())
+        } else {
+            let path = std::path::Path::new("../test_data/lnbook_example.json");
+            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap())
+        };
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         // set balances because of rng
@@ -214,7 +217,7 @@ pub(crate) mod tests {
     #[test]
     fn reverse_payment() {
         let balance = 4711;
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         // failed payment from alice to chan
         let amounts_to_reverse = Vec::from([
             ("alice".to_string(), "alice1".to_string(), 130),
@@ -244,7 +247,7 @@ pub(crate) mod tests {
     fn payment_transfer_success() {
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         let amount = 1000;
         let balance = 4711;
         simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
@@ -292,7 +295,7 @@ pub(crate) mod tests {
         let amount = 1000;
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         let graph = Box::new(simulator.graph.clone());
         let mut path_finder = PathFinder::new(
             source.clone(),
@@ -330,7 +333,7 @@ pub(crate) mod tests {
         let dest = "chan".to_string();
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         let graph = Box::new(simulator.graph.clone());
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
@@ -368,7 +371,7 @@ pub(crate) mod tests {
         let dest = "chan".to_string();
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         let graph = Box::new(simulator.graph.clone());
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
@@ -414,7 +417,7 @@ pub(crate) mod tests {
         let source = "alice".to_string();
         let hop = "bob".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim();
+        let mut simulator = init_sim(None);
         let graph = Box::new(simulator.graph.clone());
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let bob_balance = graph.get_channel_balance(&hop, &channel_id);

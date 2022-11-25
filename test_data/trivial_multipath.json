@@ -126,7 +126,7 @@
                 "source": "dave",
                 "destination": "bob",
                 "fee_base_msat": 500000,
-                "fee_proportional_millionths": 0,
+                "fee_proportional_millionths": 1000,
                 "htlc_minimim_msat": 1000,
                 "htlc_maximum_msat": 135000,
                 "cltv_expiry_delta": 40
@@ -136,7 +136,7 @@
                 "source": "dave",
                 "destination": "alice",
                 "fee_base_msat": 500000,
-                "fee_proportional_millionths": 0,
+                "fee_proportional_millionths": 1000,
                 "htlc_minimim_msat": 1000,
                 "htlc_maximum_msat": 135000,
                 "cltv_expiry_delta": 40

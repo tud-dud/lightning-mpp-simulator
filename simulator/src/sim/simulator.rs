@@ -133,42 +133,6 @@ impl Simulation {
         );
     }
 
-    // 1. Split payment into n parts
-    //  - observe min amount
-    //  2. Find paths for all parts
-    //  TODO: Maybe expect a shard
-    fn send_mpp_payment(&mut self, mut payment: &mut Payment) -> bool {
-        let graph = Box::new(self.graph.clone());
-        if graph.get_total_node_balance(&payment.source) < payment.amount_msat {
-            // TODO: immediate failure
-        }
-        let mut path_finder = PathFinder::new(
-            payment.source.clone(),
-            payment.dest.clone(),
-            payment.amount_msat,
-            graph,
-            self.routing_metric,
-            self.payment_parts,
-        );
-
-        let start = Instant::now();
-        if let Some(candidate_paths) = path_finder.find_path() {
-            payment.paths = candidate_paths.clone();
-            let duration_in_ms = start.elapsed().as_millis();
-            info!("Found paths after {} ms.", duration_in_ms);
-            let mut payment_shard = payment.to_shard(payment.amount_msat);
-            let success = self.attempt_payment(&mut payment_shard, &candidate_paths);
-            if success {
-                // TODO
-            } else {
-                if let Some(split_shard) = payment_shard.split_payment() {
-                    let (shard1, shard2) = (split_shard.0, split_shard.1);
-                }
-            }
-        }
-        false
-    }
-
     // TODO: pair should be made up of distinct nodes
     fn draw_n_pairs_for_simulation(
         graph: &Graph,
