@@ -231,6 +231,38 @@ impl PathFinder {
         candidate_path.time = accumulated_time;
     }
 
+    /// Computes the shortest path beween source and dest using Dijkstra's algorithm
+    pub(super) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, usize)> {
+        trace!(
+            "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
+            self.src,
+            self.dest,
+            self.routing_metric
+        );
+        let successors = |node: &ID| -> Vec<(ID, usize)> {
+            let succs = match self.graph.get_edges_for_node(node) {
+                Some(edges) => edges
+                    .iter()
+                    .map(|e| {
+                        (
+                            e.destination.clone(),
+                            if e.source != self.src {
+                                Self::get_edge_weight(e, self.amount, self.routing_metric)
+                            } else if self.routing_metric == RoutingMetric::MinFee {
+                                0
+                            } else {
+                                1
+                            },
+                        )
+                    })
+                    .collect(),
+                None => Vec::default(),
+            };
+            succs
+        };
+        pathfinding::prelude::dijkstra(node, successors, |n| *n == self.dest)
+    }
+
     /// Returns the "cheapest" edge between src and dist bearing the routing me in mind
     /// Used after finding the shortest paths and are therefore interested in routing along the
     /// edge

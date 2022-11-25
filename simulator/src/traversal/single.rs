@@ -1,8 +1,40 @@
 use crate::{
+    core_types::{event::EventType, time::Time},
+    payment::Payment,
     traversal::pathfinding::{CandidatePath, Path, PathFinder},
-    RoutingMetric, ID,
+    Simulation,
 };
-use log::trace;
+
+use log::{error, trace};
+
+impl Simulation {
+    pub(crate) fn send_single_payment(&mut self, payment: &mut Payment) -> bool {
+        let graph = Box::new(self.graph.clone());
+        let mut succeeded = false;
+        let mut failed = false;
+        // fail immediately if sender's balance on each of their edges < amount
+        let max_out_balance = graph.get_max_node_balance(&payment.source);
+        if max_out_balance < payment.amount_msat {
+            error!("Payment failing. Sender has no edge with sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
+            failed = true;
+        }
+        if !failed {
+            succeeded = self.send_one_payment(payment);
+        }
+        let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
+        let event = if succeeded {
+            EventType::UpdateSuccesfulPayment {
+                payment: payment.to_owned(),
+            }
+        } else {
+            EventType::UpdateFailedPayment {
+                payment: payment.to_owned(),
+            }
+        };
+        self.event_queue.schedule(now, event);
+        succeeded
+    }
+}
 
 impl PathFinder {
     /// Returns a route, the total amount due and lock time and none if no route is found
@@ -11,12 +43,15 @@ impl PathFinder {
         self.remove_inadequate_edges();
         // returns distinct paths including src and dest sorted in ascending cost order
         let shortest_path = self.shortest_path_from(&self.src);
-        trace!("Got shortest path between {} and {}.", self.src, self.dest);
         match shortest_path {
-            None => None,
+            None => {
+                trace!("No shortest path between {} and {}.", self.src, self.dest);
+                None
+            }
             // construct candipaths using k_shortest_path
             // - calculate total path cost
             Some(shortest_path) => {
+                trace!("Got shortest path between {} and {}.", self.src, self.dest);
                 trace!(
                     "Creating candidate path from {:?} shortest path.",
                     shortest_path
@@ -34,47 +69,13 @@ impl PathFinder {
             }
         }
     }
-
-    /// Computes the shortest path beween source and dest using Dijkstra's algorithm
-    fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, usize)> {
-        trace!(
-            "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
-            self.src,
-            self.dest,
-            self.routing_metric
-        );
-        let successors = |node: &ID| -> Vec<(ID, usize)> {
-            let succs = match self.graph.get_edges_for_node(node) {
-                Some(edges) => edges
-                    .iter()
-                    .map(|e| {
-                        (
-                            e.destination.clone(),
-                            if e.source != self.src {
-                                Self::get_edge_weight(e, self.amount, self.routing_metric)
-                            } else {
-                                if self.routing_metric == RoutingMetric::MinFee {
-                                    0
-                                } else {
-                                    1
-                                }
-                            },
-                        )
-                    })
-                    .collect(),
-                None => Vec::default(),
-            };
-            succs
-        };
-        pathfinding::prelude::dijkstra(node, successors, |n| *n == self.dest)
-    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use crate::{core_types::graph::Graph, PaymentParts, RoutingMetric};
+    use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
     use std::collections::VecDeque;
 
     #[test]
@@ -199,5 +200,27 @@ mod tests {
         assert_eq!(actual_time, expected_time);
 
         path_finder.routing_metric = RoutingMetric::MaxProb;
+    }
+
+    #[test]
+    fn send_single_path_payment() {
+        let source = "alice".to_string();
+        let dest = "chan".to_string();
+        let mut simulator = crate::attempt::tests::init_sim();
+        let amount_msat = 1000;
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat,
+            succeeded: true,
+            min_shard_amt: 10,
+            attempts: 0,
+            num_parts: 1,
+            paths: CandidatePath::default(),
+            succesful_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
+        assert!(simulator.send_single_payment(payment));
     }
 }

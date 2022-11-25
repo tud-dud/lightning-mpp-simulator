@@ -1,5 +1,4 @@
 use crate::{
-    core_types::{event::EventType, time::Time},
     payment::{Payment, PaymentShard},
     traversal::pathfinding::{CandidatePath, PathFinder},
     Simulation, ID,
@@ -9,26 +8,18 @@ use log::{debug, error, info, trace};
 use std::time::Instant;
 
 impl Simulation {
-    // 2. Send payment (Try each path in order until payment succeeds (the trial-and-error loop))
-    // 2.0. create payment
-    // 2.1. try candidate paths sequentially (trial-and-error loop)
-    // 2.2. record success or failure (where?)
-    // 2.3. update states (node balances, ???)
-    // TODO: Does not need to return anything if we are sending events?
-    pub(crate) fn send_single_payment(&mut self, mut payment: &mut Payment) -> bool {
+    /// Attempts to send a payment until it fails
+    pub(crate) fn send_one_payment(&mut self, payment: &mut Payment) -> bool {
         let graph = Box::new(self.graph.clone());
         let mut succeeded = false;
         let mut failed = false;
         // fail immediately if sender's balance on each of their edges < amount
+        // Checked for single-path payments earlier already but the check is necessary here for
+        // MPP.
         let max_out_balance = graph.get_max_node_balance(&payment.source);
         if max_out_balance < payment.amount_msat {
-            let event = EventType::UpdateFailedPayment {
-                payment: payment.to_owned(),
-            };
-            let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
-            self.event_queue.schedule(now, event);
-            error!("Payment failing. Sender has no edge with sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
-            failed = false;
+            error!("Payment shard failing. Sender has no edge with sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
+            failed = true;
         }
         if !failed {
             let mut path_finder = PathFinder::new(
@@ -46,10 +37,8 @@ impl Simulation {
                     let duration_in_ms = start.elapsed().as_millis();
                     info!("Found paths after {} ms.", duration_in_ms);
                     let mut payment_shard = payment.to_shard(payment.amount_msat);
-                    if !succeeded {
-                        payment_shard.attempts += 1;
-                        succeeded = self.attempt_payment(&mut payment_shard, &candidate_path);
-                    } // to payment
+                    payment_shard.attempts += 1;
+                    succeeded = self.attempt_payment(&mut payment_shard, &candidate_path);
                     *payment = payment_shard.to_payment(1);
                 } else {
                     error!("No paths to destination found.");
@@ -57,20 +46,7 @@ impl Simulation {
                     failed = true;
                 }
             }
-        } else {
-            error!("No paths to destination found.");
         }
-        let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
-        let event = if succeeded {
-            EventType::UpdateSuccesfulPayment {
-                payment: payment.to_owned(),
-            }
-        } else {
-            EventType::UpdateFailedPayment {
-                payment: payment.to_owned(),
-            }
-        };
-        self.event_queue.schedule(now, event);
         succeeded
     }
 
@@ -120,6 +96,7 @@ impl Simulation {
                 match self.get_invoices_for_node(&id) {
                     Some(invoices) => {
                         if let Some(invoice) = invoices.get(&payment_shard.payment_id) {
+                            // FIXME this will fail for MPP
                             if invoice.amount == remaining_transferable_amount
                                 && invoice.source == payment_shard.source
                             {
@@ -175,7 +152,7 @@ impl Simulation {
                         dest,
                         channel_id
                     );
-                    self.graph.remove_edge(&src, &dest);
+                    self.graph.remove_edge(src, &dest);
                     payment_shard.succeeded = false;
                     self.revert_payment(&transferred_amounts);
                     return payment_shard.succeeded;
@@ -204,12 +181,12 @@ impl Simulation {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
 
     use super::*;
     use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
 
-    fn init_sim() -> Simulation {
+    pub fn init_sim() -> Simulation {
         let seed = 1;
         let amount = 1000;
         let pairs = 2;
