@@ -5,64 +5,99 @@ use crate::{
     Simulation,
 };
 
-use log::error;
+use log::{error, info, trace};
 
 impl Simulation {
+    // 1. try full payment
+    // 2. if fails: split payment into parts * 2
+    // 3. try all parts and revert each immediately if failure
+    // 4. if fails: go to 2
+    // break if no paths are returned or cannot split further
+    // send event after ultimate failure or success
+    /// Fails when payment cannot be split into smaller parts
     pub(crate) fn send_mpp_payment(&mut self, payment: &mut Payment) -> bool {
-        let graph = Box::new(self.graph.clone());
         let mut succeeded = false;
         let mut failed = false;
+        let graph = Box::new(self.graph.clone());
         // fail immediately if sender's total balance < amount
         let total_out_balance = graph.get_total_node_balance(&payment.source);
         if total_out_balance < payment.amount_msat {
             error!("Payment failing. {} total balance insufficient for payment. Amount {}, max balance {}", payment.source, payment.amount_msat, total_out_balance);
-            println!("Payment failing. {} total balance insufficient for payment. Amount {}, max balance {}", payment.source, payment.amount_msat, total_out_balance);
             failed = true;
         }
-        if !failed {
-            succeeded = self.send_one_payment(payment);
-        } else {
-            // split payment and try again
-            error!(
-                "Payment from {} to {} of amount {} failed. Will try splitting.",
-                payment.source, payment.dest, payment.amount_msat
-            );
-        }
-        while !succeeded && !failed {
-            payment.failed_amounts.push(payment.amount_msat);
-            if let Some(shard) = Payment::split_payment(payment) {
-                let mut shard1 = shard.0;
-                let mut shard2 = shard.1;
-                payment.num_parts += 2;
-                let shard1_succeeded = self.send_mpp_payment(&mut shard1);
-                let shard2_succeeded = self.send_mpp_payment(&mut shard2);
-                println!(
-                    "shard1_succeeded {}, shard2_succeeded {}",
-                    shard1_succeeded, shard2_succeeded
-                );
-                succeeded = shard1_succeeded && shard2_succeeded;
-                println!(
-                    "succeeded {}, amount1 {}, amount2 {}",
-                    succeeded, shard1.amount_msat, shard2.amount_msat
-                );
-            } else {
-                // final failure
-                error!("Not able to split further.");
-                succeeded = false;
-                failed = true;
+        // we don't care about reversing a single payment since it is already happened in the
+        // returning function if necessary
+        (succeeded, _) = self.send_one_payment(payment);
+
+        let mut split_and_attempt = |payment: &mut Payment| -> (bool, bool) {
+            let num_parts_to_try = payment.num_parts * 2;
+            let parts = num_parts_to_try;
+            let mut parts: Vec<Payment> = Vec::with_capacity(parts);
+            let mut success = false;
+            let mut failure = false;
+            payment.num_parts = num_parts_to_try;
+            // divide the payment amount by num_parts_to_try/2 which should be split equally
+            // among parts
+            let amt_to_split = payment.amount_msat / (num_parts_to_try / 2);
+            // divide by 2 so that split results in num_parts_to_try shards
+            for _ in 0..(num_parts_to_try / 2) {
+                if let Some(shard) = Payment::split_payment(payment, amt_to_split) {
+                    parts.push(shard.0);
+                    parts.push(shard.1);
+                    trace!("Payment split into {} parts.", parts.len());
+                    success = self.send_mpp_shards(&mut parts);
+                    if success {
+                        info!(
+                            "Payment from {} to {} delivered in {} parts.",
+                            payment.source, payment.dest, payment.num_parts
+                        );
+                        break;
+                    } else {
+                        trace!("Will now try {} parts.", num_parts_to_try * 2);
+                    }
+                } else {
+                    error!("Payment splitting has failed. Ending..");
+                    failure = true;
+                    break;
+                }
             }
+            (success, failure)
+        };
+        while !succeeded && !failed {
+            (succeeded, failed) = split_and_attempt(payment);
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
             EventType::UpdateSuccesfulPayment {
                 payment: payment.to_owned(),
             }
-        } else {
+        } else if failed {
             EventType::UpdateFailedPayment {
                 payment: payment.to_owned(),
             }
+        } else {
+            panic!("Unexpected payment status {:?}", payment);
         };
         self.event_queue.schedule(now, event);
+        succeeded
+    }
+
+    // 3. try all parts and revert each immediately if failure
+    // change payment attempt and revert manually so that we can revert here
+    fn send_mpp_shards(&mut self, shards: &mut Vec<Payment>) -> bool {
+        let mut succeeded = true;
+        let mut issued_payments = Vec::new();
+        for shard in shards {
+            let (success, maybe_reverse) = self.send_one_payment(shard);
+            issued_payments.push(maybe_reverse);
+            succeeded &= success;
+        }
+        // some payment failed so all must now be reversed
+        if !succeeded {
+            for transfers in issued_payments {
+                self.revert_payment(&transfers);
+            }
+        }
         succeeded
     }
 }
@@ -83,7 +118,6 @@ mod tests {
     use crate::{Invoice, PaymentParts};
 
     #[test]
-    #[ignore]
     fn send_multipath_payment() {
         let source = "alice".to_string();
         let dest = "bob".to_string();

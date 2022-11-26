@@ -19,7 +19,8 @@ impl Simulation {
             failed = true;
         }
         if !failed {
-            succeeded = self.send_one_payment(payment);
+            // we are not interested in reversing payments here for single path payments
+            succeeded = self.send_one_payment(payment).0;
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {

@@ -1,13 +1,10 @@
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, time::Time,
-    traversal::pathfinding::PathFinder, Invoice, PaymentId, PaymentParts, RoutingMetric, ID,
+    core_types::graph::Graph, event::*, payment::Payment, time::Time, Invoice, PaymentId,
+    PaymentParts, RoutingMetric, ID,
 };
 use log::{debug, error, info};
 use rand::SeedableRng;
-use std::{
-    collections::{BTreeMap, HashMap},
-    time::Instant,
-};
+use std::collections::{BTreeMap, HashMap};
 
 pub struct Simulation {
     /// Graph describing LN topology

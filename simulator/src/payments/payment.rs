@@ -1,6 +1,6 @@
 use crate::{traversal::pathfinding::CandidatePath, PaymentId, ID};
 
-use log::{error, trace};
+use log::error;
 
 pub(crate) enum Message {
     /// Offer an HTLC to another node
@@ -54,7 +54,7 @@ impl Payment {
             amount_msat,
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            num_parts: 0,
+            num_parts: 1,
             paths: CandidatePath::default(),
             attempts: 0,
             failed_amounts: Vec::default(),
@@ -67,34 +67,34 @@ impl Payment {
     }
 
     /// Split payment and return two shards
-    pub(crate) fn split_payment(payment: &Payment) -> Option<(Payment, Payment)> {
-        if payment.amount_msat < crate::MIN_SHARD_AMOUNT
-            || payment.amount_msat / 2 < crate::MIN_SHARD_AMOUNT
-        {
+    pub(crate) fn split_payment(
+        payment: &Payment,
+        amt_to_split: usize,
+    ) -> Option<(Payment, Payment)> {
+        if amt_to_split < crate::MIN_SHARD_AMOUNT || amt_to_split / 2 < crate::MIN_SHARD_AMOUNT {
             error!(
                 "Payment failing as min shard amount has been reached. Min amount {}, amount {}",
                 crate::MIN_SHARD_AMOUNT,
-                payment.amount_msat
+                amt_to_split
             );
             None
-        } else if payment.amount_msat > *payment.failed_amounts.iter().max().unwrap_or(&usize::MAX)
-        {
+        } else if amt_to_split > *payment.failed_amounts.iter().max().unwrap_or(&usize::MAX) {
             error!(
                 "Aborting splitting as larger payments have already failed. Amount {}",
-                payment.amount_msat
+                amt_to_split
             );
             None
         } else {
             // ceil one, floor the either
-            let prev_amt = payment.amount_msat;
+            let prev_amt = amt_to_split;
             let shard1_amount = (prev_amt + 2 - 1) / 2;
             let shard2_amount = prev_amt / 2;
             assert_eq!(
                 shard1_amount + shard2_amount,
-                payment.amount_msat,
+                amt_to_split,
                 "Payment division results unequal to payment amount {}, {}",
                 shard1_amount + shard2_amount,
-                payment.amount_msat
+                amt_to_split
             );
             let shard1 = Payment {
                 amount_msat: shard1_amount,
@@ -172,7 +172,7 @@ mod tests {
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             paths: CandidatePath::default(),
-            num_parts: 0,
+            num_parts: 1,
             attempts: 0,
             failed_amounts: Vec::default(),
         };
@@ -197,7 +197,7 @@ mod tests {
             succeeded: true,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             paths: CandidatePath::default(),
-            num_parts: 0,
+            num_parts: 1,
             attempts: 1,
             failed_amounts: Vec::default(),
         };
@@ -224,11 +224,11 @@ mod tests {
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             paths: CandidatePath::default(),
-            num_parts: 0,
+            num_parts: 1,
             attempts: 1,
             failed_amounts: Vec::default(),
         };
-        let actual = Payment::split_payment(&payment).unwrap();
+        let actual = Payment::split_payment(&payment, payment.amount_msat).unwrap();
         let expected = (
             Payment {
                 amount_msat: 1001,
@@ -255,10 +255,10 @@ mod tests {
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             paths: CandidatePath::default(),
-            num_parts: 0,
+            num_parts: 1,
             attempts: 1,
             failed_amounts: Vec::default(),
         };
-        assert!(Payment::split_payment(&payment).is_none());
+        assert!(Payment::split_payment(&payment, payment.amount_msat).is_none());
     }
 }

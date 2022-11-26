@@ -3,7 +3,7 @@ use network_parser::{Edge, Node};
 
 use log::{debug, info};
 use pathfinding::directed::strongly_connected_components::strongly_connected_components;
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 use std::{cmp, collections::HashMap};
 

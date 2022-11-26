@@ -8,17 +8,23 @@ use log::{debug, error, info, trace};
 use std::time::Instant;
 
 impl Simulation {
-    /// Attempts to send a payment until it fails
-    pub(crate) fn send_one_payment(&mut self, payment: &mut Payment) -> bool {
+    /// Attempts to send a payment until it fails.
+    /// Unsuccessful payments are reversed immediately while we return the successful ones in case
+    /// they should be reversed later
+    pub(crate) fn send_one_payment(
+        &mut self,
+        payment: &mut Payment,
+    ) -> (bool, Vec<(ID, String, usize)>) {
         let graph = Box::new(self.graph.clone());
         let mut succeeded = false;
         let mut failed = false;
+        let mut to_revert = Vec::new();
         // fail immediately if sender's balance on each of their edges < amount
         // Checked for single-path payments earlier already but the check is necessary here for
         // MPP.
         let max_out_balance = graph.get_max_node_balance(&payment.source);
         if max_out_balance < payment.amount_msat {
-            error!("Payment shard failing. Sender has no edge with sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
+            error!("Payment shard failing. Sender does not have sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
             failed = true;
         }
         if !failed {
@@ -35,11 +41,22 @@ impl Simulation {
                 if let Some(candidate_path) = path_finder.find_path() {
                     payment.paths = candidate_path.clone();
                     let duration_in_ms = start.elapsed().as_millis();
-                    info!("Found paths after {} ms.", duration_in_ms);
+                    info!("Found path after {} ms.", duration_in_ms);
+                    // maybe the sender's balance is not enough after we have discovered the full
+                    // path's fees
+                    info!("New paymount amount {}", candidate_path.amount);
+                    if max_out_balance < candidate_path.amount {
+                        error!("Payment shard failing. Sender does not have sufficient balance to cover fees. Amount {}, max balance {}", candidate_path.amount, max_out_balance);
+                        failed = true;
+                    }
                     let mut payment_shard = payment.to_shard(payment.amount_msat);
                     payment_shard.attempts += 1;
-                    succeeded = self.attempt_payment(&mut payment_shard, &candidate_path);
+                    (succeeded, to_revert) =
+                        self.attempt_payment(&mut payment_shard, &candidate_path);
                     *payment = payment_shard.to_payment(1);
+                    if !succeeded {
+                        self.revert_payment(&to_revert);
+                    }
                 } else {
                     error!("No paths to destination found.");
                     succeeded = false;
@@ -47,7 +64,12 @@ impl Simulation {
                 }
             }
         }
-        succeeded
+        if !succeeded {
+            (succeeded, to_revert)
+        } else {
+            (succeeded, Vec::new()) // the payments have already been reversed if the payment was
+                                    // Unsuccessful hence there is nothing to do
+        }
     }
 
     /// Tries to move the funds as is specified in the shard.
@@ -56,7 +78,7 @@ impl Simulation {
         &mut self,
         mut payment_shard: &mut PaymentShard,
         candidate_path: &CandidatePath,
-    ) -> bool {
+    ) -> (bool, Vec<(ID, String, usize)>) {
         let hops = candidate_path.path.hops.clone();
         info!(
             "{} attempting to send {} msats to {} via {} hops.",
@@ -82,11 +104,11 @@ impl Simulation {
                     transferred_amounts.push((id, channel_id, remaining_transferable_amount));
                 } else {
                     error!(
-                        "Payment {:?} failed at source due to insufficient balance",
-                        payment_shard
+                        "Payment {:?} failed at source {} due to insufficient balance",
+                        payment_shard, payment_shard.source
                     );
                     payment_shard.succeeded = false;
-                    return payment_shard.succeeded;
+                    return (payment_shard.succeeded, transferred_amounts);
                 }
             } else if id == payment_shard.dest {
                 // add remaining_amount to the node balance / or capacity
@@ -110,8 +132,8 @@ impl Simulation {
                                     "Successfully delivered payment of {} msats from {} to {}.",
                                     payment_shard.amount, payment_shard.source, payment_shard.dest,
                                 );
-                                // not necessary as we won't be reversing the payment since we got
-                                // this far
+                                // necessary as we may reverse the payment if its part of an MPP
+                                // payment
                                 transferred_amounts.push((
                                     id,
                                     channel_id,
@@ -123,13 +145,12 @@ impl Simulation {
                             } else {
                                 error!("Payment failure at destination. Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
                                 payment_shard.succeeded = false;
-                                self.revert_payment(&transferred_amounts)
+                                // revert here
                             }
                         }
                     }
                     None => {
                         payment_shard.succeeded = false;
-                        self.revert_payment(&transferred_amounts)
                     }
                 };
             // a hop along the path
@@ -152,17 +173,17 @@ impl Simulation {
                     );
                     self.graph.remove_edge(src, &dest);
                     payment_shard.succeeded = false;
-                    self.revert_payment(&transferred_amounts);
-                    return payment_shard.succeeded;
+                    return (payment_shard.succeeded, transferred_amounts);
                 }
             }
         }
-        payment_shard.succeeded
+        (payment_shard.succeeded, transferred_amounts)
     }
 
     /// Credits all edges in the path (Source gains whereas the rest lose)
-    fn revert_payment(&mut self, amounts: &[(ID, String, usize)]) {
-        debug!("Reverting failed payment");
+    pub(crate) fn revert_payment(&mut self, amounts: &[(ID, String, usize)]) {
+        let total: usize = amounts.iter().map(|t| t.2).sum();
+        debug!("Reverting failed payment of {} msats", total);
         for (idx, (node, channel_id, amt)) in amounts.iter().enumerate() {
             // source
             if idx == 0 {
@@ -271,7 +292,7 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             attempts: 0,
         };
-        assert!(simulator.attempt_payment(payment_shard, &candidate_paths));
+        assert!(simulator.attempt_payment(payment_shard, &candidate_paths).0);
         let expected = balance - 1100;
         let actual = simulator
             .graph
@@ -316,7 +337,9 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             attempts: 0,
         };
-        assert!(!simulator.attempt_payment(payment_shard, &candidate_paths));
+        let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
+        simulator.revert_payment(&transferred);
+        assert!(!success);
         for edges in simulator.graph.edges.values() {
             for e in edges {
                 assert_eq!(e.balance, 4711);
@@ -355,7 +378,9 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             attempts: 0,
         };
-        assert!(!simulator.attempt_payment(payment_shard, &candidate_paths));
+        let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
+        simulator.revert_payment(&transferred);
+        assert!(!success);
         assert_eq!(
             simulator
                 .graph
@@ -393,7 +418,7 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             attempts: 0,
         };
-        assert!(!simulator.attempt_payment(payment_shard, &candidate_paths));
+        assert!(!simulator.attempt_payment(payment_shard, &candidate_paths).0);
         assert!(!simulator
             .graph
             .get_edge(&String::from("bob"), &String::from("chan"))
