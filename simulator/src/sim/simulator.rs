@@ -85,7 +85,7 @@ impl Simulation {
             let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
             self.add_invoice(invoice);
             let payment = Payment::new(payment_id, src, dest, self.amount);
-            let event = EventType::ScheduledPayment { payment };
+            let event = PaymentEvent::Scheduled { payment };
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);
         }
@@ -99,7 +99,7 @@ impl Simulation {
         // this is where the actual simulation happens
         while let Some(event) = self.event_queue.next() {
             match event {
-                EventType::ScheduledPayment { mut payment } => {
+                PaymentEvent::Scheduled { mut payment } => {
                     debug!(
                         "Dispatching scheduled payment {} at simulation time = {}.",
                         payment.payment_id,
@@ -110,11 +110,11 @@ impl Simulation {
                         PaymentParts::Split => self.send_mpp_payment(&mut payment),
                     };
                 }
-                EventType::UpdateFailedPayment { payment } => {
+                PaymentEvent::UpdateFailed { payment } => {
                     self.num_failed += 1;
                     self.failed_payments.push(payment.to_owned());
                 }
-                EventType::UpdateSuccesfulPayment { payment } => {
+                PaymentEvent::UpdateSuccesful { payment } => {
                     self.num_successful += 1;
                     self.successful_payments.push(payment.to_owned());
                 }
@@ -165,6 +165,7 @@ impl Simulation {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn remove_invoice(&mut self, invoice: &Invoice) {
         let id = invoice.id;
         match self.outstanding_invoices.get_mut(&invoice.destination) {

@@ -2,15 +2,6 @@ use crate::{traversal::pathfinding::CandidatePath, PaymentId, ID};
 
 use log::error;
 
-pub(crate) enum Message {
-    /// Offer an HTLC to another node
-    UpdateAddHtlc {},
-    /// Error
-    UpdateFailHtlc,
-    RevokeAndAck,
-    CommitmentSigned,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct Payment {
     /// Unique payment identifier
@@ -71,7 +62,11 @@ impl Payment {
         payment: &Payment,
         amt_to_split: usize,
     ) -> Option<(Payment, Payment)> {
-        if amt_to_split < crate::MIN_SHARD_AMOUNT || amt_to_split / 2 < crate::MIN_SHARD_AMOUNT {
+        if amt_to_split < crate::MIN_SHARD_AMOUNT
+            || amt_to_split / 2 < crate::MIN_SHARD_AMOUNT
+            || amt_to_split < payment.min_shard_amt
+            || amt_to_split / 2 < payment.min_shard_amt
+        {
             error!(
                 "Payment failing as min shard amount has been reached. Min amount {}, amount {}",
                 crate::MIN_SHARD_AMOUNT,

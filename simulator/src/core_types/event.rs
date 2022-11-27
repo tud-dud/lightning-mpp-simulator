@@ -5,14 +5,14 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 
 #[derive(Eq, PartialEq, Debug, Clone)]
-pub enum EventType {
-    ScheduledPayment { payment: Payment },
-    UpdateFailedPayment { payment: Payment },
-    UpdateSuccesfulPayment { payment: Payment },
+pub enum PaymentEvent {
+    Scheduled { payment: Payment },
+    UpdateFailed { payment: Payment },
+    UpdateSuccesful { payment: Payment },
 }
 
 pub struct EventQueue {
-    events: BTreeMap<Time, VecDeque<EventType>>,
+    events: BTreeMap<Time, VecDeque<PaymentEvent>>,
     last_tick: Time,
 }
 
@@ -24,7 +24,7 @@ impl EventQueue {
     }
 
     /// Schedules a new event at a specific simtime.
-    pub(crate) fn schedule(&mut self, delay: Time, event: EventType) {
+    pub(crate) fn schedule(&mut self, delay: Time, event: PaymentEvent) {
         let time = self.now() + delay;
         let result = self.events.get_mut(&time);
         match result {
@@ -40,7 +40,7 @@ impl EventQueue {
     }
 
     /// Returns the next event and removes it from the event queue
-    pub(crate) fn next(&mut self) -> Option<EventType> {
+    pub(crate) fn next(&mut self) -> Option<PaymentEvent> {
         let mut tick_done = false;
         let mut result = None;
 
@@ -66,15 +66,6 @@ impl EventQueue {
         self.last_tick
     }
 
-    pub(crate) fn peek_next(&self) -> Option<Time> {
-        let next = if let Some((t, _)) = self.events.iter().next() {
-            Some(*t)
-        } else {
-            None
-        };
-        next
-    }
-
     pub(crate) fn queue_length(&self) -> usize {
         self.events.len()
     }
@@ -90,7 +81,7 @@ mod tests {
         let mut eq = EventQueue::new();
 
         let payment = Payment::default();
-        let e = EventType::ScheduledPayment { payment };
+        let e = PaymentEvent::Scheduled { payment };
 
         let t = Time::from_secs(0.0);
 
@@ -129,19 +120,19 @@ mod tests {
     #[test]
     fn eventqueue_earlier_later_events_work() {
         let mut queue = EventQueue::new();
-        let e0 = EventType::ScheduledPayment {
+        let e0 = PaymentEvent::Scheduled {
             payment: Payment {
                 payment_id: 0,
                 ..Default::default()
             },
         };
-        let e1 = EventType::ScheduledPayment {
+        let e1 = PaymentEvent::Scheduled {
             payment: Payment {
                 payment_id: 1,
                 ..Default::default()
             },
         };
-        let e2 = EventType::ScheduledPayment {
+        let e2 = PaymentEvent::Scheduled {
             payment: Payment {
                 payment_id: 2,
                 ..Default::default()
@@ -180,7 +171,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut eq = EventQueue::new();
 
-        let e = EventType::ScheduledPayment {
+        let e = PaymentEvent::Scheduled {
             payment: Payment {
                 payment_id: 2,
                 ..Default::default()

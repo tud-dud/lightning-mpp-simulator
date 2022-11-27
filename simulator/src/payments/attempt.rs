@@ -91,7 +91,7 @@ impl Simulation {
         // used in case we need to revert
         let mut transferred_amounts: Vec<(ID, String, usize)> = Vec::new();
         for (idx, node) in hops.iter().enumerate() {
-            let (id, fees, timelock, channel_id) = node.clone();
+            let (id, fees, _timelock, channel_id) = node.clone();
             // Subtract paymount amount (includes fees) from source
             if id == payment_shard.source {
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);

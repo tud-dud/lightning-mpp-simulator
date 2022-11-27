@@ -1,5 +1,5 @@
 use crate::{
-    core_types::{event::EventType, time::Time},
+    core_types::{event::PaymentEvent, time::Time},
     payment::Payment,
     traversal::pathfinding::{CandidatePath, Path, PathFinder},
     Simulation,
@@ -8,6 +8,9 @@ use crate::{
 use log::{error, trace};
 
 impl Simulation {
+    /// Sends a single path payment and fails when payment cannot be delivered
+    /// Triggers an event either way
+    /// Includes pathfinding and ultimate routing
     pub(crate) fn send_single_payment(&mut self, payment: &mut Payment) -> bool {
         let graph = Box::new(self.graph.clone());
         let mut succeeded = false;
@@ -24,11 +27,11 @@ impl Simulation {
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
-            EventType::UpdateSuccesfulPayment {
+            PaymentEvent::UpdateSuccesful {
                 payment: payment.to_owned(),
             }
         } else {
-            EventType::UpdateFailedPayment {
+            PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }
         };

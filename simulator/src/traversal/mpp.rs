@@ -1,5 +1,5 @@
 use crate::{
-    core_types::{event::EventType, time::Time},
+    core_types::{event::PaymentEvent, time::Time},
     payment::Payment,
     traversal::pathfinding::{CandidatePath, PathFinder},
     Simulation,
@@ -8,13 +8,9 @@ use crate::{
 use log::{error, info, trace};
 
 impl Simulation {
-    // 1. try full payment
-    // 2. if fails: split payment into parts * 2
-    // 3. try all parts and revert each immediately if failure
-    // 4. if fails: go to 2
-    // break if no paths are returned or cannot split further
-    // send event after ultimate failure or success
-    /// Fails when payment cannot be split into smaller parts
+    /// Sends an MPP and fails when payment can no longer be split into smaller parts
+    /// Triggers an event either way
+    /// Includes pathfinding and ultimate routing
     pub(crate) fn send_mpp_payment(&mut self, payment: &mut Payment) -> bool {
         let mut succeeded = false;
         let mut failed = false;
@@ -27,7 +23,9 @@ impl Simulation {
         }
         // we don't care about reversing a single payment since it is already happened in the
         // returning function if necessary
-        (succeeded, _) = self.send_one_payment(payment);
+        if !succeeded {
+            (succeeded, _) = self.send_one_payment(payment);
+        }
 
         let mut split_and_attempt = |payment: &mut Payment| -> (bool, bool) {
             let num_parts_to_try = payment.num_parts * 2;
@@ -68,11 +66,11 @@ impl Simulation {
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
-            EventType::UpdateSuccesfulPayment {
+            PaymentEvent::UpdateSuccesful {
                 payment: payment.to_owned(),
             }
         } else if failed {
-            EventType::UpdateFailedPayment {
+            PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }
         } else {

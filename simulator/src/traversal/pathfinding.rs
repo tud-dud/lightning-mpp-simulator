@@ -52,11 +52,6 @@ impl Path {
         self.hops.iter().map(|h| h.0.clone()).collect()
     }
 
-    fn add_hop(&mut self, hop: ID, fees: usize, timelock: usize, edge_id: String) {
-        // use with self.hops.pop_front()
-        self.hops.push_back((hop, fees, timelock, edge_id));
-    }
-
     fn update_hop(&mut self, hop_id: ID, fees: usize, timelock: usize, edge_id: &String) {
         for hop in self.hops.iter_mut() {
             if hop.0 == hop_id {
@@ -67,18 +62,6 @@ impl Path {
 }
 
 impl CandidatePath {
-    fn new(src: ID, dest: ID, amount: usize) -> Self {
-        let path = Path::new(src, dest);
-        let time = 0;
-        let weight = 0;
-        CandidatePath {
-            path,
-            weight,
-            amount,
-            time,
-        }
-    }
-
     pub(crate) fn new_with_path(path: Path) -> Self {
         CandidatePath {
             path,

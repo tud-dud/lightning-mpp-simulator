@@ -11,14 +11,16 @@ static SIMTIME_SCALING_FACTOR_SECS: f32 = 1000000.0; // in nano secs.
 static SIMTIME_SCALING_FACTOR_MILLIS: f32 = 1000.0;
 
 impl Time {
-    pub fn as_secs(&self) -> f32 {
+    pub(crate) fn as_secs(&self) -> f32 {
         self.0 as f32 / SIMTIME_SCALING_FACTOR_SECS
     }
 
+    #[allow(unused)]
     pub fn as_millis(&self) -> f32 {
         self.0 as f32 / SIMTIME_SCALING_FACTOR_MILLIS
     }
 
+    #[allow(unused)]
     pub fn as_nanos(&self) -> f32 {
         self.0 as f32
     }
@@ -33,6 +35,7 @@ impl Time {
         Time(nanos as u64)
     }
 
+    #[allow(unused)]
     pub fn from_nanos(nanos: f32) -> Self {
         Time(nanos as u64)
     }
