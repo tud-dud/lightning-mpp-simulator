@@ -145,7 +145,104 @@ mod tests {
             .graph
             .update_channel_balance(&String::from("alice-dave"), 250000);
 
-        simulator.payment_parts = PaymentParts::Single;
+        simulator.payment_parts = PaymentParts::Split;
         assert!(simulator.send_mpp_payment(payment));
+        assert!(payment.num_parts > 1);
+    }
+
+    #[test]
+    // all edges except bob have 10k balance. Bob has a total of 15k spread across 3 channels and
+    // want to send alice 12k.
+    // We confirm that a single payment will fail then expect it to succeed when using MPP.
+    fn mpp_success_min_three_paths() {
+        let json_file = "../test_data/trivial_multipath.json";
+        let source = "bob".to_string();
+        let dest = "alice".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let balance = 10000;
+        for edges in simulator.graph.edges.values_mut() {
+            for e in edges {
+                e.balance = balance;
+            }
+        }
+        let bob_eve_channel = String::from("bob-eve");
+        let bob_carol_channel = String::from("bob-carol");
+        let bob_dave_channel = String::from("bob-dave");
+        let bob_total_balance = 15000;
+        simulator
+            .graph
+            .update_channel_balance(&bob_eve_channel, bob_total_balance / 3);
+        simulator
+            .graph
+            .update_channel_balance(&bob_carol_channel, bob_total_balance / 3);
+        simulator
+            .graph
+            .update_channel_balance(&bob_dave_channel, bob_total_balance / 3);
+        let amount_msat = 12000;
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat,
+            succeeded: false,
+            min_shard_amt: 10,
+            attempts: 0,
+            num_parts: 1,
+            paths: CandidatePath::default(),
+            failed_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
+        simulator.payment_parts = PaymentParts::Single;
+        assert!(!simulator.send_single_payment(payment));
+        simulator.payment_parts = PaymentParts::Split;
+        assert!(simulator.send_mpp_payment(payment));
+        assert!(payment.num_parts >= 3);
+    }
+
+    #[test]
+    // all edges except bob have 1k balance. Bob has a total of 15k spread across 3 channels and
+    // wants to send alice 12k.
+    fn mpp_failure_hops_no_funds() {
+        let json_file = "../test_data/trivial_multipath.json";
+        let source = "bob".to_string();
+        let dest = "alice".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let balance = 1000;
+        for edges in simulator.graph.edges.values_mut() {
+            for e in edges {
+                e.balance = balance;
+            }
+        }
+        let bob_eve_channel = String::from("bob-eve");
+        let bob_carol_channel = String::from("bob-carol");
+        let bob_dave_channel = String::from("bob-dave");
+        let bob_total_balance = 15000;
+        simulator
+            .graph
+            .update_channel_balance(&bob_eve_channel, bob_total_balance / 3);
+        simulator
+            .graph
+            .update_channel_balance(&bob_carol_channel, bob_total_balance / 3);
+        simulator
+            .graph
+            .update_channel_balance(&bob_dave_channel, bob_total_balance / 3);
+        let amount_msat = 12000;
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat,
+            succeeded: false,
+            min_shard_amt: 10,
+            attempts: 0,
+            num_parts: 1,
+            paths: CandidatePath::default(),
+            failed_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
+        simulator.payment_parts = PaymentParts::Single;
+        assert!(!simulator.send_single_payment(payment));
+        simulator.payment_parts = PaymentParts::Split;
+        assert!(!simulator.send_mpp_payment(payment));
     }
 }
