@@ -15,7 +15,7 @@ impl Simulation {
         &mut self,
         payment: &mut Payment,
     ) -> (bool, Vec<(ID, String, usize)>) {
-        let graph = Box::new(self.graph.clone());
+        let graph = self.graph.clone();
         let mut succeeded = false;
         let mut failed = false;
         let mut to_revert = Vec::new();
@@ -27,28 +27,31 @@ impl Simulation {
             error!("Payment shard failing. Sender does not have sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
             failed = true;
         }
+        let graph_copy = self.graph.clone();
         if !failed {
             let mut path_finder = PathFinder::new(
                 payment.source.clone(),
                 payment.dest.clone(),
                 payment.amount_msat,
-                graph,
+                &graph_copy,
                 self.routing_metric,
                 self.payment_parts,
             );
-            let start = Instant::now();
+            path_finder.graph.edges = path_finder.remove_inadequate_edges(payment.amount_msat);
             while !succeeded && !failed {
+                let start = Instant::now();
                 if let Some(candidate_path) = path_finder.find_path() {
                     payment.paths = candidate_path.clone();
                     let duration_in_ms = start.elapsed().as_millis();
                     info!("Found path after {} ms.", duration_in_ms);
                     // maybe the sender's balance is not enough after we have discovered the full
                     // path's fees
-                    info!("New paymount amount {}", candidate_path.amount);
-                    if max_out_balance < candidate_path.amount {
+                    let hops = candidate_path.path.hops.clone();
+                    let (sender, out_channel) = (&hops[0].0, &hops[0].3);
+                    if self.graph.get_channel_balance(sender, out_channel) < candidate_path.amount {
                         error!("Payment shard failing. Sender does not have sufficient balance to cover fees. Amount {}, max balance {}", candidate_path.amount, max_out_balance);
                         failed = true;
-                    }
+                    };
                     let mut payment_shard = payment.to_shard(payment.amount_msat);
                     payment_shard.attempts += 1;
                     (succeeded, to_revert) =
@@ -64,7 +67,7 @@ impl Simulation {
                 }
             }
         }
-        if !succeeded {
+        if succeeded {
             (succeeded, to_revert)
         } else {
             (succeeded, Vec::new()) // the payments have already been reversed if the payment was
@@ -88,11 +91,11 @@ impl Simulation {
             hops.len()
         );
         let mut remaining_transferable_amount = 0;
-        // used in case we need to revert
+        // used in case we need to revert (node, channel_id, amount)
         let mut transferred_amounts: Vec<(ID, String, usize)> = Vec::new();
         for (idx, node) in hops.iter().enumerate() {
             let (id, fees, _timelock, channel_id) = node.clone();
-            // Subtract paymount amount (includes fees) from source
+            // Subtract payment amount (includes fees) from source
             if id == payment_shard.source {
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);
                 if current_balance > candidate_path.amount {
@@ -104,8 +107,8 @@ impl Simulation {
                     transferred_amounts.push((id, channel_id, remaining_transferable_amount));
                 } else {
                     error!(
-                        "Payment {:?} failed at source {} due to insufficient balance",
-                        payment_shard, payment_shard.source
+                        "Payment {} failed at source {} due to insufficient balance. available balamce {}, total amount {}",
+                        payment_shard.payment_id, payment_shard.source, current_balance, candidate_path.amount,
                     );
                     payment_shard.succeeded = false;
                     return (payment_shard.succeeded, transferred_amounts);
@@ -150,6 +153,10 @@ impl Simulation {
                         }
                     }
                     None => {
+                        error!(
+                            "No invoice for payment {}. Failing at destination.",
+                            payment_shard.payment_id
+                        );
                         payment_shard.succeeded = false;
                     }
                 };
@@ -157,7 +164,7 @@ impl Simulation {
             } else {
                 // subtract fee and add to own balance
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);
-                if current_balance >= (remaining_transferable_amount - fees) {
+                if current_balance > (remaining_transferable_amount - fees) {
                     self.graph
                         .update_channel_balance(&channel_id, current_balance + fees);
                     remaining_transferable_amount -= fees;
@@ -165,13 +172,17 @@ impl Simulation {
                 } else {
                     let src = &id;
                     let dest = hops[idx + 1].0.clone();
+                    error!(
+                        "Payment {} failing along the way to due to insufficient funds at {}.",
+                        payment_shard.payment_id, id
+                    );
                     trace!(
                         "Discarding channel {} between {} and {}",
+                        channel_id,
                         src,
                         dest,
-                        channel_id
                     );
-                    self.graph.remove_edge(src, &dest);
+                    self.graph.remove_edge(src, &hops[idx - 1].0);
                     payment_shard.succeeded = false;
                     return (payment_shard.succeeded, transferred_amounts);
                 }
@@ -182,8 +193,8 @@ impl Simulation {
 
     /// Credits all edges in the path (Source gains whereas the rest lose)
     pub(crate) fn revert_payment(&mut self, amounts: &[(ID, String, usize)]) {
-        let total: usize = amounts.iter().map(|t| t.2).sum();
-        debug!("Reverting failed payment of {} msats", total);
+        let total: usize = amounts.iter().map(|t| t.2).sum::<usize>();
+        debug!("Reverting msats {}.", total);
         for (idx, (node, channel_id, amt)) in amounts.iter().enumerate() {
             // source
             if idx == 0 {
@@ -277,7 +288,7 @@ pub(crate) mod tests {
             source.clone(),
             dest.clone(),
             amount,
-            graph,
+            &graph,
             RoutingMetric::MinFee,
             PaymentParts::Single,
         );
@@ -322,7 +333,7 @@ pub(crate) mod tests {
             source.clone(),
             dest.clone(),
             amount,
-            graph,
+            &graph,
             RoutingMetric::MinFee,
             PaymentParts::Single,
         );
@@ -357,13 +368,13 @@ pub(crate) mod tests {
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
         let mut simulator = init_sim(None);
-        let graph = Box::new(simulator.graph.clone());
+        let graph = simulator.graph.clone();
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
             source.clone(),
             dest.clone(),
             amount,
-            graph,
+            &graph,
             RoutingMetric::MinFee,
             PaymentParts::Single,
         );
@@ -385,7 +396,7 @@ pub(crate) mod tests {
             simulator
                 .graph
                 .get_channel_balance(&"alice".to_string(), &"alice1".to_string()),
-            4711
+            0
         );
     }
 
@@ -397,13 +408,13 @@ pub(crate) mod tests {
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
         let mut simulator = init_sim(None);
-        let graph = Box::new(simulator.graph.clone());
+        let graph = simulator.graph.clone();
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
             source.clone(),
             dest.clone(),
             amount,
-            graph,
+            &graph,
             RoutingMetric::MinFee,
             PaymentParts::Single,
         );
@@ -421,29 +432,67 @@ pub(crate) mod tests {
         assert!(!simulator.attempt_payment(payment_shard, &candidate_paths).0);
         assert!(!simulator
             .graph
-            .get_edge(&String::from("bob"), &String::from("chan"))
+            .get_edge(&String::from("alice"), &String::from("bob"))
             .is_some());
         // 0 because edges have been removed and get_balance returns 0 if edge is not found
         assert_eq!(
             simulator
                 .graph
-                .get_channel_balance(&"bob".to_string(), &"bob2".to_string()),
+                .get_channel_balance(&"alice".to_string(), &"alice1".to_string()),
             0
         );
         assert_eq!(
             simulator
                 .graph
-                .get_channel_balance(&"chan".to_string(), &"chan1".to_string()),
+                .get_channel_balance(&"bob".to_string(), &"bob1".to_string()),
             0
         );
     }
+
+    #[test]
+    #[ignore] // takes too long
+    fn failing_channel_is_removed() {
+        let seed = 2;
+        let amount = 500000;
+        let pairs = 1;
+        let path = std::path::Path::new("../data/gossip-20210906_1000UTC.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let routing_metric = RoutingMetric::MaxProb;
+        let payment_parts = PaymentParts::Single;
+        let mut simulator = Simulation::new(
+            seed,
+            graph.clone(),
+            amount,
+            pairs,
+            routing_metric,
+            payment_parts,
+        );
+        let source =
+            "03c45cf25622ec07c56d13b7043e59c8c27ca822be58140b213edaea6849380349".to_string();
+        let dest = "0329ae9a574b7120456d2ebf6626506e6a75255edd91ac4ea03ea008b9bad67bd2".to_string();
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat: amount,
+            succeeded: false,
+            min_shard_amt: 10,
+            attempts: 0,
+            num_parts: 1,
+            paths: CandidatePath::default(),
+            failed_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
+        assert!(simulator.send_single_payment(payment));
+    }
+
     #[ignore]
     fn payment_failure_max_channel_capacity() {
         let source = "alice".to_string();
         let hop = "bob".to_string();
         let dest = "chan".to_string();
         let mut simulator = init_sim(None);
-        let graph = Box::new(simulator.graph.clone());
+        let graph = simulator.graph.clone();
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let bob_balance = graph.get_channel_balance(&hop, &channel_id);
         let capacity = graph.get_edge(&hop, &dest).unwrap().htlc_maximum_msat;
@@ -453,7 +502,7 @@ pub(crate) mod tests {
             source.clone(),
             dest.clone(),
             amount,
-            graph,
+            &graph,
             RoutingMetric::MinFee,
             PaymentParts::Single,
         );

@@ -10,7 +10,8 @@ pub(crate) struct Path {
     pub(crate) dest: ID,
     /// the edges of the path described from sender to receiver including fees and timelock over
     /// the edge ID
-    /// The dest's hop describes the channel whose balnce will increase and used for reverting.
+    /// The dest's hop describes the channel whose balance will increase and used for reverting.
+    /// Format: (hop, fees, timelock, channel_id)
     pub(crate) hops: VecDeque<(ID, usize, usize, String)>,
 }
 
@@ -78,12 +79,12 @@ impl PathFinder {
         src: ID,
         dest: ID,
         amount: usize,
-        graph: Box<Graph>,
+        graph: &Graph,
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
     ) -> Self {
         Self {
-            graph,
+            graph: Box::new(graph.clone()),
             src,
             dest,
             amount,
@@ -250,7 +251,7 @@ impl PathFinder {
     /// Used after finding the shortest paths and are therefore interested in routing along the
     /// edge
     /// Necessary as we account for possible parallel edges
-    fn get_cheapest_edge(&mut self, from: &ID, to: &ID) -> Option<Edge> {
+    pub(crate) fn get_cheapest_edge(&mut self, from: &ID, to: &ID) -> Option<Edge> {
         trace!("Looking for cheapest edge between {} and {}.", from, to);
         let from_to_outedges = self.graph.get_all_src_dest_edges(from, to);
         let mut cheapest_edge = None;
@@ -266,19 +267,24 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    pub(super) fn remove_inadequate_edges(&mut self) {
+    pub(crate) fn remove_inadequate_edges(
+        &mut self,
+        amount: usize,
+    ) -> std::collections::HashMap<String, Vec<Edge>> {
         debug!("Removing edges with insufficient funds.");
+        let mut copy = self.graph.clone();
         let mut ctr = 0;
-        for edge in self.graph.edges.clone() {
+        for edge in self.graph.edges.iter() {
             // iter each node's edges
             for e in edge.1 {
-                if e.balance < self.amount {
+                if e.balance < amount {
                     ctr += 1;
-                    self.graph.remove_edge(&e.source, &e.destination);
+                    copy.remove_edge(&e.source, &e.destination);
                 }
             }
         }
         trace!("Removed {} edges with insufficient funds.", ctr);
+        copy.edges
     }
 }
 
@@ -358,14 +364,13 @@ mod tests {
                 e.balance = balance;
             }
         }
-        let graph = Box::new(graph);
         let src = String::from("alice");
         let dest = String::from("dina");
         let amount = 5000;
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let mut path_finder =
-            PathFinder::new(src, dest, amount, graph, routing_metric, payment_parts);
+            PathFinder::new(src, dest, amount, &graph, routing_metric, payment_parts);
         let actual = path_finder.find_path();
         assert!(actual.is_some());
         let actual = actual.unwrap();
@@ -398,7 +403,6 @@ mod tests {
                 e.balance = balance;
             }
         }
-        let graph = Box::new(graph);
         let src = String::from("alice");
         let dest = String::from("dina");
         let amount = 5000;
@@ -407,7 +411,7 @@ mod tests {
             src,
             dest,
             amount,
-            graph,
+            &graph,
             routing_metric,
             PaymentParts::Single,
         );

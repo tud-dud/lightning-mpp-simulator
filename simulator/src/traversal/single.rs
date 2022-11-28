@@ -12,17 +12,16 @@ impl Simulation {
     /// Triggers an event either way
     /// Includes pathfinding and ultimate routing
     pub(crate) fn send_single_payment(&mut self, payment: &mut Payment) -> bool {
-        let graph = Box::new(self.graph.clone());
         let mut succeeded = false;
         let mut failed = false;
         // fail immediately if sender's balance on each of their edges < amount
-        let max_out_balance = graph.get_max_node_balance(&payment.source);
+        let max_out_balance = self.graph.get_max_node_balance(&payment.source);
         if max_out_balance < payment.amount_msat {
             error!("Payment failing. Sender has no edge with sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
             failed = true;
         }
+        // we are not interested in reversing payments here for single path payments
         if !failed {
-            // we are not interested in reversing payments here for single path payments
             succeeded = self.send_one_payment(payment).0;
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
@@ -44,7 +43,6 @@ impl PathFinder {
     /// Returns a route, the total amount due and lock time and none if no route is found
     /// Search for paths from dest to src
     pub(super) fn find_path_single_payment(&mut self) -> Option<CandidatePath> {
-        self.remove_inadequate_edges();
         // returns distinct paths including src and dest sorted in ascending cost order
         let shortest_path = self.shortest_path_from(&self.src);
         match shortest_path {

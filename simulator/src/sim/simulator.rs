@@ -120,6 +120,11 @@ impl Simulation {
                 }
             }
         }
+        assert_eq!(
+            self.num_successful + self.num_failed,
+            self.total_num_payments,
+            "Something went wrong. Expected a different number of payments."
+        );
         info!(
             "Completed simulation after {} simulation secs.",
             now.as_secs(),

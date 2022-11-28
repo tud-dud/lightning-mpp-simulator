@@ -67,7 +67,7 @@ impl Edge {
             None
         } else {
             Some(Edge {
-                channel_id: raw_edge.channel_id.clone().unwrap_or_default(),
+                channel_id: raw_edge.channel_id.clone().expect("scid not found"),
                 source: raw_edge.source.clone().unwrap_or_default(),
                 destination: raw_edge.destination.clone().unwrap_or_default(),
                 features: raw_edge.features.clone().unwrap_or_default(),

@@ -106,6 +106,14 @@ impl Graph {
         }
     }
 
+    /// Discard the given channel_id from the graph
+    pub(crate) fn remove_channel(&mut self, channel_id: &ID) {
+        for node in self.edges.iter_mut() {
+            node.1
+                .retain(|edges| edges.channel_id != channel_id.clone())
+        }
+    }
+
     pub(crate) fn get_outedges(&self, node_id: &ID) -> Vec<Edge> {
         if let Some(out_edges) = self.edges.get(node_id) {
             out_edges.clone()
@@ -567,5 +575,18 @@ mod tests {
         let actual = graph.get_total_node_balance(&node);
         let expected = 10050;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn delete_channel() {
+        let json_str = json_str();
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let node1 = String::from("random1");
+        let channel_id = String::from("714116x477x0/0");
+        let node1_edge_len = graph.edges[&node1].len();
+        println!("edge len {}", node1_edge_len);
+        graph.remove_channel(&channel_id);
+        let node1_edge_new_len = graph.edges[&node1].len();
+        assert_eq!(node1_edge_len - 1, node1_edge_new_len);
     }
 }
