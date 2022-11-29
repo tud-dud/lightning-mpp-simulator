@@ -8,7 +8,7 @@ use log::{debug, error, info, trace};
 use std::time::Instant;
 
 impl Simulation {
-    /// Attempts to send a payment until it fails.
+    /// attempts to send a payment until it fails.
     /// Unsuccessful payments are reversed immediately while we return the successful ones in case
     /// they should be reversed later
     pub(crate) fn send_one_payment(
@@ -41,7 +41,6 @@ impl Simulation {
             while !succeeded && !failed {
                 let start = Instant::now();
                 if let Some(candidate_path) = path_finder.find_path() {
-                    payment.paths = candidate_path.clone();
                     let duration_in_ms = start.elapsed().as_millis();
                     info!("Found path after {} ms.", duration_in_ms);
                     // maybe the sender's balance is not enough after we have discovered the full
@@ -53,12 +52,13 @@ impl Simulation {
                         failed = true;
                     };
                     let mut payment_shard = payment.to_shard(payment.amount_msat);
-                    payment_shard.attempts += 1;
                     (succeeded, to_revert) =
                         self.attempt_payment(&mut payment_shard, &candidate_path);
                     *payment = payment_shard.to_payment(1);
                     if !succeeded {
                         self.revert_payment(&to_revert);
+                    } else {
+                        payment.used_paths = vec![payment_shard.used_path];
                     }
                 } else {
                     error!("No paths to destination found.");
@@ -105,6 +105,7 @@ impl Simulation {
                     );
                     remaining_transferable_amount = candidate_path.amount;
                     transferred_amounts.push((id, channel_id, remaining_transferable_amount));
+                    payment_shard.htlc_attempts += 1;
                 } else {
                     error!(
                         "Payment {} failed at source {} due to insufficient balance. available balamce {}, total amount {}",
@@ -164,6 +165,7 @@ impl Simulation {
             } else {
                 // subtract fee and add to own balance
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);
+                payment_shard.htlc_attempts += 1;
                 if current_balance > (remaining_transferable_amount - fees) {
                     self.graph
                         .update_channel_balance(&channel_id, current_balance + fees);
@@ -182,6 +184,7 @@ impl Simulation {
                         src,
                         dest,
                     );
+                    // this is the failing edge
                     self.graph.remove_edge(src, &hops[idx - 1].0);
                     payment_shard.succeeded = false;
                     return (payment_shard.succeeded, transferred_amounts);
@@ -219,7 +222,6 @@ pub(crate) mod tests {
     pub fn init_sim(path: Option<String>) -> Simulation {
         let seed = 1;
         let amount = 1000;
-        let pairs = 2;
         let mut graph = if let Some(file_path) = path {
             let file_path = std::path::Path::new(&file_path);
             Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap())
@@ -236,14 +238,7 @@ pub(crate) mod tests {
                 e.balance = balance;
             }
         }
-        Simulation::new(
-            seed,
-            graph.clone(),
-            amount,
-            pairs,
-            routing_metric,
-            payment_parts,
-        )
+        Simulation::new(seed, graph.clone(), amount, routing_metric, payment_parts)
     }
 
     #[test]
@@ -301,7 +296,7 @@ pub(crate) mod tests {
             succeeded: true,
             used_path: candidate_paths.clone(),
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
         };
         assert!(simulator.attempt_payment(payment_shard, &candidate_paths).0);
         let expected = balance - 1100;
@@ -346,7 +341,7 @@ pub(crate) mod tests {
             succeeded: true,
             used_path: candidate_paths.clone(),
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
         };
         let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
         simulator.revert_payment(&transferred);
@@ -387,7 +382,7 @@ pub(crate) mod tests {
             succeeded: false,
             used_path: candidate_paths.clone(),
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
         };
         let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
         simulator.revert_payment(&transferred);
@@ -427,7 +422,7 @@ pub(crate) mod tests {
             succeeded: false,
             used_path: candidate_paths.clone(),
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
         };
         assert!(!simulator.attempt_payment(payment_shard, &candidate_paths).0);
         assert!(!simulator
@@ -454,19 +449,12 @@ pub(crate) mod tests {
     fn failing_channel_is_removed() {
         let seed = 2;
         let amount = 500000;
-        let pairs = 1;
         let path = std::path::Path::new("../data/gossip-20210906_1000UTC.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
-        let mut simulator = Simulation::new(
-            seed,
-            graph.clone(),
-            amount,
-            pairs,
-            routing_metric,
-            payment_parts,
-        );
+        let mut simulator =
+            Simulation::new(seed, graph.clone(), amount, routing_metric, payment_parts);
         let source =
             "03c45cf25622ec07c56d13b7043e59c8c27ca822be58140b213edaea6849380349".to_string();
         let dest = "0329ae9a574b7120456d2ebf6626506e6a75255edd91ac4ea03ea008b9bad67bd2".to_string();
@@ -477,9 +465,9 @@ pub(crate) mod tests {
             amount_msat: amount,
             succeeded: false,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
             num_parts: 1,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
@@ -515,7 +503,7 @@ pub(crate) mod tests {
             succeeded: false,
             used_path: candidate_paths,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
         };
     }
 }

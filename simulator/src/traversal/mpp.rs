@@ -50,7 +50,7 @@ impl Simulation {
             }
             trace!("Payment split into {} parts.", parts.len());
             if !failure {
-                success = self.send_mpp_shards(&mut parts);
+                success = self.send_mpp_shards(payment, &mut parts);
                 if !success {
                     trace!("Will now try {} parts.", num_parts_to_try * 2);
                 }
@@ -82,11 +82,12 @@ impl Simulation {
     }
 
     /// Expects a list of shards belonging to one payment and tries to send them atomically
-    fn send_mpp_shards(&mut self, shards: &mut Vec<Payment>) -> bool {
+    fn send_mpp_shards(&mut self, root: &mut Payment, shards: &mut Vec<Payment>) -> bool {
         let mut succeeded = true;
         let mut issued_payments = Vec::new();
-        for shard in shards {
+        for shard in shards.iter_mut() {
             let (success, maybe_reverse) = self.send_one_payment(shard);
+            root.htlc_attempts += shard.htlc_attempts;
             issued_payments.push(maybe_reverse);
             succeeded &= success;
         }
@@ -94,6 +95,10 @@ impl Simulation {
         if !succeeded {
             for transfers in issued_payments {
                 self.revert_payment(&transfers);
+            }
+        } else {
+            for shard in shards {
+                root.used_paths.extend(shard.used_paths.clone());
             }
         }
         succeeded
@@ -112,8 +117,10 @@ impl PathFinder {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
-    use crate::{Invoice, PaymentParts};
+    use crate::{traversal::pathfinding::Path, Invoice, PaymentParts};
 
     #[test]
     fn send_multipath_payment() {
@@ -129,9 +136,9 @@ mod tests {
             amount_msat,
             succeeded: false,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
             num_parts: 1,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
@@ -149,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    // all edges except bob have 10k balance. Bob has a total of 15k spread across 3 channels and
+    // all edges have 10k balance. Bob has a total of 30k spread across 3 channels and
     // want to send alice 12k.
     // We confirm that a single payment will fail then expect it to succeed when using MPP.
     fn mpp_success_min_three_paths() {
@@ -163,20 +170,6 @@ mod tests {
                 e.balance = balance;
             }
         }
-        let bob_eve_channel = String::from("bob-eve");
-        let bob_carol_channel = String::from("bob-carol");
-        let bob_dave_channel = String::from("bob-dave");
-        let bob_total_balance = 15000;
-        /*simulator
-            .graph
-            .update_channel_balance(&bob_eve_channel, bob_total_balance / 3);
-        simulator
-            .graph
-            .update_channel_balance(&bob_carol_channel, bob_total_balance / 3);
-        simulator
-            .graph
-            .update_channel_balance(&bob_dave_channel, bob_total_balance / 3);*/
-
         let amount_msat = 12000;
         let payment = &mut Payment {
             payment_id: 0,
@@ -185,9 +178,9 @@ mod tests {
             amount_msat,
             succeeded: false,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
             num_parts: 1,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
@@ -234,9 +227,9 @@ mod tests {
             amount_msat,
             succeeded: false,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
             num_parts: 1,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
@@ -244,5 +237,72 @@ mod tests {
         assert!(!simulator.send_single_payment(payment));
         simulator.payment_parts = PaymentParts::Split;
         assert!(!simulator.send_mpp_payment(payment));
+    }
+
+    #[test]
+    fn successful_mpp_payment_contains_correct_info() {
+        let json_file = "../test_data/trivial_multipath.json";
+        let source = "bob".to_string();
+        let dest = "alice".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let balance = 10000;
+        for edges in simulator.graph.edges.values_mut() {
+            for e in edges {
+                e.balance = balance;
+            }
+        }
+        let amount_msat = 12000;
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat,
+            succeeded: false,
+            min_shard_amt: 10,
+            htlc_attempts: 0,
+            num_parts: 1,
+            used_paths: Vec::default(),
+            failed_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
+        assert!(!simulator.send_single_payment(payment));
+        simulator.payment_parts = PaymentParts::Split;
+        assert!(simulator.send_mpp_payment(payment));
+        let expected_used_path = vec![
+            CandidatePath {
+                path: Path {
+                    src: "bob".to_string(),
+                    dest: "alice".to_string(),
+                    hops: VecDeque::from([
+                        ("bob".to_string(), 6010, 5, "bob-carol".to_string()),
+                        ("carol".to_string(), 10, 5, "carol-alice".to_string()),
+                        ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
+                    ]),
+                },
+                weight: 10,
+                amount: 6010,
+                time: 5,
+            },
+            CandidatePath {
+                path: Path {
+                    src: "bob".to_string(),
+                    dest: "alice".to_string(),
+                    hops: VecDeque::from([
+                        ("bob".to_string(), 6030, 10, "bob-eve".to_string()),
+                        ("eve".to_string(), 20, 5, "eve-carol".to_string()),
+                        ("carol".to_string(), 10, 5, "carol-alice".to_string()),
+                        ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
+                    ]),
+                },
+                weight: 30,
+                amount: 6030,
+                time: 10,
+            },
+        ];
+        assert_eq!(payment.htlc_attempts, 5);
+        assert!(payment.succeeded);
+        assert_eq!(payment.num_parts, 2);
+        assert_eq!(payment.used_paths.len(), 2);
+        assert_eq!(expected_used_path, payment.used_paths);
     }
 }

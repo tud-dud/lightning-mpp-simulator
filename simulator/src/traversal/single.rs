@@ -76,6 +76,8 @@ impl PathFinder {
 #[cfg(test)]
 mod tests {
 
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::Invoice;
 
@@ -92,12 +94,53 @@ mod tests {
             amount_msat,
             succeeded: true,
             min_shard_amt: 10,
-            attempts: 0,
+            htlc_attempts: 0,
             num_parts: 1,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             failed_amounts: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
+    }
+
+    #[test]
+    fn successful_payment_contains_correct_info() {
+        let source = "alice".to_string();
+        let dest = "chan".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(None);
+        let amount_msat = 1000;
+        let payment = &mut Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat,
+            succeeded: true,
+            min_shard_amt: 10,
+            htlc_attempts: 0,
+            num_parts: 1,
+            used_paths: Vec::default(),
+            failed_amounts: Vec::default(),
+        };
+        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
+        assert!(simulator.send_single_payment(payment));
+        let expected_used_path = CandidatePath {
+            path: Path {
+                src: "alice".to_string(),
+                dest: "chan".to_string(),
+                hops: VecDeque::from([
+                    ("alice".to_string(), 1100, 40, "alice1".to_string()),
+                    ("bob".to_string(), 100, 40, "bob2".to_string()),
+                    ("chan".to_string(), 1000, 0, "chan1".to_string()),
+                ]),
+            },
+            weight: 100,
+            amount: 1100,
+            time: 40,
+        };
+        assert_eq!(payment.htlc_attempts, 2); //last hop is not included
+        assert!(payment.succeeded);
+        assert_eq!(payment.used_paths.len(), 1);
+        assert_eq!(payment.num_parts, 1);
+        assert_eq!(expected_used_path, payment.used_paths[0]);
     }
 }

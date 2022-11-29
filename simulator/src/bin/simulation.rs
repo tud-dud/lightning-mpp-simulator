@@ -72,11 +72,11 @@ fn main() {
 
     let mut simulator = Simulation::new(
         seed,
-        graph,
+        graph.clone(),
         paymeny_amt,
-        number_of_sim_pairs,
         routing_metric,
         split_payments,
     );
-    simulator.run();
+    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
+    _ = simulator.run(pairs);
 }

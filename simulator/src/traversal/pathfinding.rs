@@ -60,6 +60,10 @@ impl Path {
             }
         }
     }
+
+    pub(crate) fn path_length(&self) -> usize {
+        self.hops.len()
+    }
 }
 
 impl CandidatePath {

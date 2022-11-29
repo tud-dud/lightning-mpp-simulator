@@ -1,6 +1,6 @@
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, time::Time, Invoice, PaymentId,
-    PaymentParts, RoutingMetric, ID,
+    core_types::graph::Graph, event::*, io::Report, payment::Payment, time::Time, Invoice,
+    PaymentId, PaymentParts, RoutingMetric, WeightPartsCombi, ID,
 };
 use log::{debug, error, info};
 use rand::SeedableRng;
@@ -13,8 +13,6 @@ pub struct Simulation {
     amount: usize,
     /// Sim seed
     run: u64,
-    /// Number of payments to simulate
-    num_pairs: usize,
     /// Fee minimisation or probability maximisation
     pub(crate) routing_metric: RoutingMetric,
     /// Single or multi-path
@@ -37,15 +35,10 @@ impl Simulation {
         run: u64,
         graph: Graph,
         amount: usize,
-        num_pairs: usize,
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
     ) -> Self {
         info!("Initialising simulation...");
-        info!(
-            "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
-            num_pairs, routing_metric, payment_parts
-        );
         let mut rng = crate::RNG.lock().unwrap();
         *rng = SeedableRng::seed_from_u64(run);
         let event_queue = EventQueue::new();
@@ -55,7 +48,6 @@ impl Simulation {
             graph,
             amount,
             run,
-            num_pairs,
             routing_metric,
             payment_parts,
             event_queue,
@@ -69,18 +61,31 @@ impl Simulation {
         }
     }
 
-    // 1. Create and queue payments in event queue
-    //  - create and add invoices for tracking of payments
-    // 2. Process event queue
-    // 3. Evaluate and report simulation results
-    pub fn run(&mut self) {
+    pub fn new_batch_simulator(
+        run: u64,
+        graph: Graph,
+        amount: usize,
+        weight_parts: WeightPartsCombi,
+        num_pairs: usize,
+    ) -> Self {
+        let (routing_metric, payment_parts) = match weight_parts {
+            WeightPartsCombi::MinFeeSingle => (RoutingMetric::MinFee, PaymentParts::Single),
+            WeightPartsCombi::MinFeeMulti => (RoutingMetric::MinFee, PaymentParts::Split),
+            WeightPartsCombi::MaxProbSingle => (RoutingMetric::MaxProb, PaymentParts::Single),
+            WeightPartsCombi::MaxProbMulti => (RoutingMetric::MaxProb, PaymentParts::Split),
+        };
+        Self::new(run, graph, amount, routing_metric, payment_parts)
+    }
+
+    pub fn run(&mut self, payment_pairs: impl Iterator<Item = (ID, ID)> + Clone) -> Report {
         info!(
-            "Drawing {} sender-receiver pairs for simulation.",
-            self.num_pairs
+            "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
+            payment_pairs.size_hint().0,
+            self.routing_metric,
+            self.payment_parts
         );
-        let random_pairs_iter = Self::draw_n_pairs_for_simulation(&self.graph, self.num_pairs);
         let mut now = Time::from_secs(0.0); // start simulation at (0)
-        for (src, dest) in random_pairs_iter {
+        for (src, dest) in payment_pairs {
             let payment_id = self.next_payment_id();
             let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
             self.add_invoice(invoice);
@@ -123,7 +128,7 @@ impl Simulation {
         assert_eq!(
             self.num_successful + self.num_failed,
             self.total_num_payments,
-            "Something went wrong. Expected a different number of payments."
+            "Something went wrong. Expected a different number simulation events."
         );
         info!(
             "Completed simulation after {} simulation secs.",
@@ -133,13 +138,37 @@ impl Simulation {
             "# Total payments = {}, # successful {}, # failed = {}.",
             self.total_num_payments, self.num_successful, self.num_failed
         );
+        let scenario = if self.routing_metric == RoutingMetric::MinFee
+            && self.payment_parts == PaymentParts::Single
+        {
+            WeightPartsCombi::MinFeeSingle
+        } else if self.routing_metric == RoutingMetric::MinFee
+            && self.payment_parts == PaymentParts::Split
+        {
+            WeightPartsCombi::MinFeeMulti
+        } else if self.routing_metric == RoutingMetric::MaxProb
+            && self.payment_parts == PaymentParts::Single
+        {
+            WeightPartsCombi::MaxProbSingle
+        } else {
+            WeightPartsCombi::MaxProbMulti
+        };
+        Report {
+            run: self.run,
+            amount: self.amount,
+            total_num: self.total_num_payments,
+            successful_payments: self.successful_payments.clone(),
+            failed_payments: self.failed_payments.clone(),
+            scenario,
+        }
     }
 
     // TODO: pair should be made up of distinct nodes
-    fn draw_n_pairs_for_simulation(
+    pub fn draw_n_pairs_for_simulation(
         graph: &Graph,
         n: usize,
     ) -> (impl Iterator<Item = (ID, ID)> + Clone) {
+        info!("Drawing {} sender-receiver pairs for simulation.", n,);
         let g = graph.clone();
         (0..n)
             .collect::<Vec<_>>()
@@ -199,12 +228,11 @@ mod tests {
     fn init_simulator() {
         let seed = 1;
         let amount = 100;
-        let pairs = 2;
         let path_to_file = Path::new("../test_data/trivial.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let actual = Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let actual = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
         assert_eq!(actual.amount, amount);
         assert_eq!(actual.run, seed);
     }
@@ -222,13 +250,11 @@ mod tests {
     fn add_invoice() {
         let seed = 1;
         let amount = 100;
-        let pairs = 2;
         let path_to_file = Path::new("../test_data/trivial.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let mut simulator =
-            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,
@@ -257,13 +283,11 @@ mod tests {
     fn get_invoices_for_node() {
         let seed = 1;
         let amount = 100;
-        let pairs = 2;
         let path_to_file = Path::new("../test_data/trivial.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let mut simulator =
-            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,
@@ -289,13 +313,11 @@ mod tests {
     fn delete_invoice() {
         let seed = 1;
         let amount = 100;
-        let pairs = 2;
         let path_to_file = Path::new("../test_data/trivial.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let mut simulator =
-            Simulation::new(seed, graph, amount, pairs, routing_metric, payment_parts);
+        let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,

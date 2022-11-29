@@ -16,8 +16,8 @@ pub struct Payment {
     pub(crate) num_parts: usize,
     /// Paths payment can take
     /// unstable, might change
-    pub(crate) paths: CandidatePath,
-    pub(crate) attempts: usize,
+    pub(crate) used_paths: Vec<CandidatePath>,
+    pub(crate) htlc_attempts: usize,
     /// Payment amounts that have already succeed, used for MPP payments
     pub(crate) failed_amounts: Vec<usize>,
 }
@@ -30,10 +30,10 @@ pub struct PaymentShard {
     pub(crate) dest: ID,
     pub(crate) amount: usize,
     pub(crate) succeeded: bool,
-    /// Path the payment took. COntains fee and weight information
+    /// Path the payment took. Contains fee and weight information
     pub(crate) used_path: CandidatePath,
     pub(crate) min_shard_amt: usize,
-    pub(crate) attempts: usize,
+    pub(crate) htlc_attempts: usize,
 }
 
 impl Payment {
@@ -46,8 +46,8 @@ impl Payment {
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             num_parts: 1,
-            paths: CandidatePath::default(),
-            attempts: 0,
+            used_paths: Vec::default(),
+            htlc_attempts: 0,
             failed_amounts: Vec::default(),
         }
     }
@@ -114,7 +114,7 @@ impl PaymentShard {
             used_path: CandidatePath::default(),
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             succeeded: payment.succeeded,
-            attempts: payment.attempts,
+            htlc_attempts: payment.htlc_attempts,
         }
     }
 
@@ -127,8 +127,8 @@ impl PaymentShard {
             succeeded: self.succeeded,
             min_shard_amt: self.min_shard_amt,
             num_parts,
-            paths: self.used_path.clone(),
-            attempts: self.attempts,
+            used_paths: vec![self.used_path.clone()],
+            htlc_attempts: self.htlc_attempts,
             failed_amounts: Vec::default(),
         }
     }
@@ -166,15 +166,15 @@ mod tests {
             amount_msat: amount,
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             num_parts: 1,
-            attempts: 0,
+            htlc_attempts: 0,
             failed_amounts: Vec::default(),
         };
         assert_eq!(actual, expected);
         assert_eq!(actual.succeeded, expected.succeeded);
         assert_eq!(actual.min_shard_amt, expected.min_shard_amt);
-        assert_eq!(actual.attempts, expected.attempts);
+        assert_eq!(actual.htlc_attempts, expected.htlc_attempts);
     }
 
     #[test]
@@ -191,9 +191,9 @@ mod tests {
             amount_msat: amount,
             succeeded: true,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             num_parts: 1,
-            attempts: 1,
+            htlc_attempts: 1,
             failed_amounts: Vec::default(),
         };
         let shard = payment.to_shard(amount);
@@ -203,7 +203,7 @@ mod tests {
         let actual = shard.to_payment(num_parts);
         assert_eq!(actual.payment_id, payment.payment_id);
         assert_eq!(actual.succeeded, payment.succeeded);
-        assert_eq!(actual.attempts, payment.attempts);
+        assert_eq!(actual.htlc_attempts, payment.htlc_attempts);
     }
 
     #[test]
@@ -218,9 +218,9 @@ mod tests {
             amount_msat: amount,
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             num_parts: 1,
-            attempts: 1,
+            htlc_attempts: 1,
             failed_amounts: Vec::default(),
         };
         let actual = Payment::split_payment(&payment, payment.amount_msat).unwrap();
@@ -249,9 +249,9 @@ mod tests {
             amount_msat: amount,
             succeeded: false,
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
-            paths: CandidatePath::default(),
+            used_paths: Vec::default(),
             num_parts: 1,
-            attempts: 1,
+            htlc_attempts: 1,
             failed_amounts: Vec::default(),
         };
         assert!(Payment::split_payment(&payment, payment.amount_msat).is_none());

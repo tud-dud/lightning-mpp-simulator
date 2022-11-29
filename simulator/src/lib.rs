@@ -3,6 +3,7 @@ use rand::{rngs::SmallRng, SeedableRng};
 use std::sync::Mutex;
 
 pub mod core_types;
+pub mod io;
 pub mod payments;
 pub mod sim;
 pub(crate) mod traversal;
@@ -39,6 +40,14 @@ pub enum PaymentParts {
     Single,
     /// Split the payment into multiple payments and route independently
     Split,
+}
+/// Enum combining RoutingMetric and PaymentParts enums- used to eval different scnerios
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum WeightPartsCombi {
+    MinFeeSingle,
+    MinFeeMulti,
+    MaxProbSingle,
+    MaxProbMulti,
 }
 
 lazy_static! {
