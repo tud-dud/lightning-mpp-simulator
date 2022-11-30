@@ -1,5 +1,5 @@
 use crate::{
-    core_types::graph::Graph, event::*, io::Report, payment::Payment, time::Time, Invoice,
+    core_types::graph::Graph, event::*, payment::Payment, sim::SimResult, time::Time, Invoice,
     PaymentId, PaymentParts, RoutingMetric, WeightPartsCombi, ID,
 };
 use log::{debug, error, info};
@@ -77,7 +77,7 @@ impl Simulation {
         Self::new(run, graph, amount, routing_metric, payment_parts)
     }
 
-    pub fn run(&mut self, payment_pairs: impl Iterator<Item = (ID, ID)> + Clone) -> Report {
+    pub fn run(&mut self, payment_pairs: impl Iterator<Item = (ID, ID)> + Clone) -> SimResult {
         info!(
             "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
             payment_pairs.size_hint().0,
@@ -138,28 +138,14 @@ impl Simulation {
             "# Total payments = {}, # successful {}, # failed = {}.",
             self.total_num_payments, self.num_successful, self.num_failed
         );
-        let scenario = if self.routing_metric == RoutingMetric::MinFee
-            && self.payment_parts == PaymentParts::Single
-        {
-            WeightPartsCombi::MinFeeSingle
-        } else if self.routing_metric == RoutingMetric::MinFee
-            && self.payment_parts == PaymentParts::Split
-        {
-            WeightPartsCombi::MinFeeMulti
-        } else if self.routing_metric == RoutingMetric::MaxProb
-            && self.payment_parts == PaymentParts::Single
-        {
-            WeightPartsCombi::MaxProbSingle
-        } else {
-            WeightPartsCombi::MaxProbMulti
-        };
-        Report {
+        SimResult {
             run: self.run,
             amount: self.amount,
             total_num: self.total_num_payments,
+            num_succesful: self.num_successful,
+            num_failed: self.num_failed,
             successful_payments: self.successful_payments.clone(),
             failed_payments: self.failed_payments.clone(),
-            scenario,
         }
     }
 

@@ -1,14 +1,15 @@
 use crate::{traversal::pathfinding::CandidatePath, PaymentId, ID};
 
 use log::error;
+use serde::Serialize;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct Payment {
     /// Unique payment identifier
     pub(crate) payment_id: PaymentId,
     pub(crate) source: ID,
     pub(crate) dest: ID,
-    /// Total amount issued by this payment (fees + amount)
+    /// Amount issued by this payment
     pub(crate) amount_msat: usize,
     pub(crate) succeeded: bool,
     pub(crate) min_shard_amt: usize,

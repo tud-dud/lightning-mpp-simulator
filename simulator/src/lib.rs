@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use rand::{rngs::SmallRng, SeedableRng};
+use serde::Serialize;
 use std::sync::Mutex;
 
 pub mod core_types;
@@ -42,7 +43,7 @@ pub enum PaymentParts {
     Split,
 }
 /// Enum combining RoutingMetric and PaymentParts enums- used to eval different scnerios
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum WeightPartsCombi {
     MinFeeSingle,
     MinFeeMulti,

@@ -1,10 +1,11 @@
 use crate::{graph::Graph, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
 
 use log::{debug, trace};
+use serde::Serialize;
 use std::collections::VecDeque;
 
 /// Describes a path between two nodes
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub(crate) struct Path {
     pub(crate) src: ID,
     pub(crate) dest: ID,
@@ -31,7 +32,7 @@ pub(crate) struct PathFinder {
 }
 
 /// A path that we may use to route from src to dest
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub(crate) struct CandidatePath {
     pub(crate) path: Path,
     /// The aggregated path weight (fees or probability) describing how costly the path is

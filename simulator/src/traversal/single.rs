@@ -43,7 +43,7 @@ impl PathFinder {
     /// Returns a route, the total amount due and lock time and none if no route is found
     /// Search for paths from dest to src
     pub(super) fn find_path_single_payment(&mut self) -> Option<CandidatePath> {
-        // returns distinct paths including src and dest sorted in ascending cost order
+        // shortest path from src to dest including src and dest sorted in ascending cost order
         let shortest_path = self.shortest_path_from(&self.src);
         match shortest_path {
             None => {

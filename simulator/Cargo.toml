@@ -16,11 +16,7 @@ pathfinding = "3.0.14"
 clap = { version = "4.0.22", features = ["derive"]}
 lazy_static = "1.4.0"
 rand = { version = "0.8.5", features = ["small_rng", "alloc"]}
-csv = {version = "1.1", optional = true}
-chrono = {version = "0.4", features = ["clock"], optional = true}
-
-[features]
-experiments = ["csv", "chrono"]
+chrono = {version = "0.4", features = ["clock"]}
 
 [[bin]]
 name = "main"
@@ -33,4 +29,3 @@ path = "src/bin/simulation.rs"
 [[bin]]
 name = "batch-simulator"
 path = "src/bin/batch_simulator.rs"
-required-features = ["experiments"]
