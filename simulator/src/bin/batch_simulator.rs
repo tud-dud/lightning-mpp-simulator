@@ -66,7 +66,6 @@ fn main() {
     let amounts = vec![
         100, 500, 1000, 5000, 10000, 50000, 100000, 5000000, 1000000, 5000000, 10000000,
     ];
-    let amounts = vec![100, 500];
     let weight_parts = vec![
         WeightPartsCombi::MinFeeSingle,
         WeightPartsCombi::MaxProbSingle,

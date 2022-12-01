@@ -58,7 +58,7 @@ impl Simulation {
                     if !succeeded {
                         self.revert_payment(&to_revert);
                     } else {
-                        payment.used_paths = vec![payment_shard.used_path];
+                        payment.used_paths.push(payment_shard.used_path);
                     }
                 } else {
                     error!("No paths to destination found.");
