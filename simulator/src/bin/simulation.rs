@@ -54,7 +54,7 @@ fn main() {
         lightning_simulator::PaymentParts::Single
     };
     let graph = match g {
-        Ok(graph) => graph::Graph::to_sim_graph(&graph),
+        Ok(graph) => graph::Graph::to_sim_graph(&graph, seed),
         Err(e) => {
             error!("Error in graph file {}. Exiting.", e);
             std::process::exit(-1)
@@ -77,6 +77,6 @@ fn main() {
         routing_metric,
         split_payments,
     );
-    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
+    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs, seed);
     _ = simulator.run(pairs);
 }

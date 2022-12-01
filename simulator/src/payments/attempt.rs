@@ -220,14 +220,15 @@ pub(crate) mod tests {
     use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
 
     pub fn init_sim(path: Option<String>) -> Simulation {
-        let seed = 1;
+        let seed = 0;
         let amount = 1000;
+        let seed = 0;
         let mut graph = if let Some(file_path) = path {
             let file_path = std::path::Path::new(&file_path);
-            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap())
+            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap(), seed)
         } else {
             let path = std::path::Path::new("../test_data/lnbook_example.json");
-            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap())
+            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap(), seed)
         };
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -447,10 +448,10 @@ pub(crate) mod tests {
     #[test]
     #[ignore] // takes too long
     fn failing_channel_is_removed() {
-        let seed = 2;
+        let seed = 0;
         let amount = 500000;
         let path = std::path::Path::new("../data/gossip-20210906_1000UTC.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap(), seed);
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
         let mut simulator =

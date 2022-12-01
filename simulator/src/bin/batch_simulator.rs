@@ -45,7 +45,7 @@ fn main() {
     let seed = args.run;
     let number_of_sim_pairs = args.num_pairs;
     let graph = match g {
-        Ok(graph) => Graph::to_sim_graph(&graph),
+        Ok(graph) => Graph::to_sim_graph(&graph, seed),
         Err(e) => {
             error!("Error in graph file {}. Exiting.", e);
             std::process::exit(-1)
@@ -73,13 +73,13 @@ fn main() {
         WeightPartsCombi::MinFeeMulti,
         WeightPartsCombi::MaxProbMulti,
     ];
-    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
+    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs, seed);
     let mut results = Vec::with_capacity(4);
     for combi in weight_parts {
         let mut sim_results: Vec<SimResult> = Vec::with_capacity(amounts.len());
         for amount in &amounts {
             let start = Instant::now();
-            let sim = init_sim(seed, graph.clone(), *amount, combi, number_of_sim_pairs);
+            let sim = init_sim(seed, graph.clone(), *amount, combi);
             info!(
                 "Starting {:?} simulation of {} pairs of {} msats.",
                 combi, number_of_sim_pairs, amount
@@ -97,14 +97,8 @@ fn main() {
     report_to_file(&results, output_dir, seed).expect("Writing to report failed.");
 }
 
-fn init_sim(
-    seed: u64,
-    graph: Graph,
-    amount: usize,
-    weight_parts: WeightPartsCombi,
-    num_pairs: usize,
-) -> Simulation {
-    Simulation::new_batch_simulator(seed, graph, amount, weight_parts, num_pairs)
+fn init_sim(seed: u64, graph: Graph, amount: usize, weight_parts: WeightPartsCombi) -> Simulation {
+    Simulation::new_batch_simulator(seed, graph, amount, weight_parts)
 }
 
 fn simulate(

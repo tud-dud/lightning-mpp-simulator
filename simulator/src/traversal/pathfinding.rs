@@ -361,8 +361,10 @@ mod tests {
 
     #[test]
     fn find_min_fee_paths() {
+        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph =
+            Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
             for e in edges {
@@ -400,8 +402,10 @@ mod tests {
 
     #[test]
     fn find_max_prob_paths() {
+        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph =
+            Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
             for e in edges {
@@ -444,8 +448,9 @@ mod tests {
 
     #[test]
     fn aggregated_path_cost() {
+        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
         let mut path_finder = PathFinder {
             graph: Box::new(graph),
             src: "dina".to_string(),

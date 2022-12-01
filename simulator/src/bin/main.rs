@@ -25,11 +25,12 @@ fn main() {
     let _res = buf_reader
         .read_to_string(&mut contents)
         .expect("Could not read from file");
+    let seed = 2983;
     let graph = network_parser::from_json_str(&contents);
     info!("Got graph");
     match graph {
         Ok(graph) => {
-            let graph = Graph::to_sim_graph(&graph);
+            let graph = Graph::to_sim_graph(&graph, seed);
             info!("Greatest SCC with {} nodes.", graph.node_count());
             info!("Greatest SCC with {} edges ", graph.edge_count());
         }
