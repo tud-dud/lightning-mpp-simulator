@@ -83,6 +83,7 @@ impl Edge {
                 id: raw_edge.id.clone().unwrap_or_default(),
                 balance: 0,
                 liquidity: 0,
+                capacity: 0,
             })
         }
     }
@@ -235,6 +236,7 @@ mod tests {
             id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d".to_string(),
             balance: 0,
             liquidity: 0,
+            capacity: 0,
         }]);
         let actual = graph.edges.get("validnode").unwrap().clone();
         assert_eq!(expected, actual);

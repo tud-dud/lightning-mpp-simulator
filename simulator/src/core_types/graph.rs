@@ -140,6 +140,18 @@ impl Graph {
             .unwrap_or_else(|| 0)
     }
 
+    /// True if the channel's balance after transferring the amount will not exceed the channel capacity
+    pub(crate) fn channel_can_receive_amount(&self, channel_id: &ID, amount: usize) -> bool {
+        for edges in self.get_edges().values() {
+            for edge in edges {
+                if edge.channel_id.eq_ignore_ascii_case(channel_id) {
+                    return edge.capacity > (edge.balance + amount);
+                }
+            }
+        }
+        false
+    }
+
     pub(crate) fn get_max_node_balance(&self, node: &ID) -> usize {
         let out_edges = self.get_outedges(node);
         let max_balance = out_edges.iter().map(|e| e.balance).max();
@@ -168,6 +180,8 @@ impl Graph {
                         let max_src_htlc = &out_edge.htlc_maximum_msat;
                         let max_dest_htlc = reverse_edge.htlc_maximum_msat;
                         let capacity = *cmp::min(max_src_htlc, &max_dest_htlc) as f32;
+                        out_edge.capacity = capacity as usize;
+                        reverse_edge.capacity = capacity as usize;
                         let src_balance = (src_capacity_dist * capacity).round();
                         let dest_balance = capacity - src_balance;
                         reverse_edge.balance = dest_balance as usize;
@@ -463,6 +477,7 @@ mod tests {
             id: String::default(),
             balance: actual.clone().unwrap().balance, // hacky because it depends on the RNG
             liquidity: 0,
+            capacity: 0,
         });
         assert_eq!(actual, expected);
     }
@@ -487,6 +502,7 @@ mod tests {
             id: String::default(),
             balance: 0,
             liquidity: 0,
+            capacity: 0,
         }];
         assert_eq!(actual, expected);
     }
@@ -522,7 +538,7 @@ mod tests {
         for edges in graph.edges.into_values() {
             for e in edges {
                 assert!(e.balance != usize::default());
-                assert!(e.balance <= e.htlc_maximum_msat);
+                assert!(e.balance <= e.capacity);
             }
         }
     }
@@ -627,5 +643,27 @@ mod tests {
         graph.remove_channel(&channel_id);
         let node1_edge_new_len = graph.edges[&node1].len();
         assert_eq!(node1_edge_len - 1, node1_edge_new_len);
+    }
+
+    #[test]
+    fn channel_can_receive() {
+        let seed = 0;
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph =
+            Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
+        let capacity = 5000;
+        let balance = capacity / 2;
+        // Set balance so we can compare
+        for edges in graph.edges.values_mut() {
+            for e in edges {
+                e.capacity = capacity;
+                e.balance = balance;
+            }
+        }
+        let amount = 2000;
+        let channel_id = "alice1".to_string();
+        assert!(graph.channel_can_receive_amount(&channel_id, amount));
+        let amount = capacity * 2;
+        assert!(!graph.channel_can_receive_amount(&channel_id, amount));
     }
 }

@@ -124,32 +124,39 @@ impl Simulation {
                         if let Some(invoice) = invoices.get(&payment_shard.payment_id) {
                             if invoice.source == payment_shard.source {
                                 //&&invoice.amount == remaining_transferable_amount
-                                let current_balance =
-                                    self.graph.get_channel_balance(&id, &channel_id);
-                                self.graph.update_channel_balance(
+                                if self.graph.channel_can_receive_amount(
                                     &channel_id,
-                                    current_balance + remaining_transferable_amount,
-                                );
-                                payment_shard.used_path = candidate_path.to_owned();
-                                // TODO: remove invoice
-                                info!(
-                                    "Successfully delivered payment of {} msats from {} to {}.",
-                                    payment_shard.amount, payment_shard.source, payment_shard.dest,
-                                );
-                                // necessary as we may reverse the payment if its part of an MPP
-                                // payment
-                                transferred_amounts.push((
-                                    id,
-                                    channel_id,
                                     remaining_transferable_amount,
-                                ));
-                                payment_shard.succeeded = true;
-                                //TODO: fail if dest has all the channel capacity already (and
-                                //check for all intermediate hops)
+                                ) {
+                                    let current_balance =
+                                        self.graph.get_channel_balance(&id, &channel_id);
+                                    self.graph.update_channel_balance(
+                                        &channel_id,
+                                        current_balance + remaining_transferable_amount,
+                                    );
+                                    payment_shard.used_path = candidate_path.to_owned();
+                                    // TODO: remove invoice
+                                    info!(
+                                        "Successfully delivered payment of {} msats from {} to {}.",
+                                        payment_shard.amount,
+                                        payment_shard.source,
+                                        payment_shard.dest,
+                                    );
+                                    // necessary as we may reverse the payment if its part of an MPP
+                                    // payment
+                                    transferred_amounts.push((
+                                        id,
+                                        channel_id,
+                                        remaining_transferable_amount,
+                                    ));
+                                    payment_shard.succeeded = true;
+                                } else {
+                                    error!("Payment failure at destination due to max capacity. Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
+                                    payment_shard.succeeded = false;
+                                }
                             } else {
                                 error!("Payment failure at destination. Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
                                 payment_shard.succeeded = false;
-                                // revert here
                             }
                         }
                     }
@@ -166,7 +173,11 @@ impl Simulation {
                 // subtract fee and add to own balance
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);
                 payment_shard.htlc_attempts += 1;
-                if current_balance > (remaining_transferable_amount - fees) {
+                if current_balance > (remaining_transferable_amount - fees)
+                    && self
+                        .graph
+                        .channel_can_receive_amount(&channel_id, remaining_transferable_amount)
+                {
                     self.graph
                         .update_channel_balance(&channel_id, current_balance + fees);
                     remaining_transferable_amount -= fees;
@@ -475,36 +486,28 @@ pub(crate) mod tests {
         assert!(simulator.send_single_payment(payment));
     }
 
-    #[ignore]
+    #[test]
     fn payment_failure_max_channel_capacity() {
         let source = "alice".to_string();
         let hop = "bob".to_string();
         let dest = "chan".to_string();
         let mut simulator = init_sim(None);
         let graph = simulator.graph.clone();
-        let channel_id = "bob2".to_string(); // channel from bob to chan
-        let bob_balance = graph.get_channel_balance(&hop, &channel_id);
-        let capacity = graph.get_edge(&hop, &dest).unwrap().htlc_maximum_msat;
-        let amount = capacity - bob_balance;
+        let capacity = graph.get_edge(&hop, &dest).unwrap().capacity;
+        let amount = capacity * 2;
         simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
-        let mut path_finder = PathFinder::new(
-            source.clone(),
-            dest.clone(),
-            amount,
-            &graph,
-            RoutingMetric::MinFee,
-            PaymentParts::Single,
-        );
-        let candidate_paths = path_finder.find_path().unwrap();
-        let payment_shard = &mut PaymentShard {
+        let payment = &mut Payment {
             payment_id: 0,
-            source,
-            dest,
-            amount,
+            source: source.clone(),
+            dest: dest.clone(),
+            amount_msat: amount,
             succeeded: false,
-            used_path: candidate_paths,
             min_shard_amt: 10,
             htlc_attempts: 0,
+            num_parts: 1,
+            used_paths: Vec::default(),
+            failed_amounts: Vec::default(),
         };
+        assert!(!simulator.send_single_payment(payment));
     }
 }
