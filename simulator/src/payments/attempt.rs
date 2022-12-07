@@ -50,6 +50,7 @@ impl Simulation {
                     if self.graph.get_channel_balance(sender, out_channel) < candidate_path.amount {
                         error!("Payment shard failing. Sender does not have sufficient balance to cover fees. Amount {}, max balance {}", candidate_path.amount, max_out_balance);
                         failed = true;
+                        break;
                     };
                     let mut payment_shard = payment.to_shard(payment.amount_msat);
                     (succeeded, to_revert) =
@@ -124,10 +125,23 @@ impl Simulation {
                         if let Some(invoice) = invoices.get(&payment_shard.payment_id) {
                             if invoice.source == payment_shard.source {
                                 //&&invoice.amount == remaining_transferable_amount
-                                if self.graph.channel_can_receive_amount(
+
+                                // receiver would exceed channel capacity
+                                if !self.graph.channel_can_receive_amount(
                                     &channel_id,
                                     remaining_transferable_amount,
                                 ) {
+                                    error!(
+                                        "Payment {} failing at destination due to max capacity.",
+                                        payment_shard.payment_id
+                                    );
+                                    payment_shard.succeeded = false;
+                                    let src = &id;
+                                    let dest = hops[idx - 1].0.clone();
+                                    // this is the failing edge
+                                    self.graph.remove_edge(src, &dest);
+                                    trace!("Discarding channel {} due to max capacity", channel_id,);
+                                } else {
                                     let current_balance =
                                         self.graph.get_channel_balance(&id, &channel_id);
                                     self.graph.update_channel_balance(
@@ -150,12 +164,9 @@ impl Simulation {
                                         remaining_transferable_amount,
                                     ));
                                     payment_shard.succeeded = true;
-                                } else {
-                                    error!("Payment failure at destination due to max capacity. Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
-                                    payment_shard.succeeded = false;
                                 }
                             } else {
-                                error!("Payment failure at destination. Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
+                                error!("Payment failure at destination (no invoice). Payment {:?}, remaining_amount {}, invoice {:?}", payment_shard, remaining_transferable_amount, invoice);
                                 payment_shard.succeeded = false;
                             }
                         }

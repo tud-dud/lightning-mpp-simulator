@@ -139,7 +139,7 @@ mod tests {
         };
         assert_eq!(payment.htlc_attempts, 2); //last hop is not included
         assert!(payment.succeeded);
-        assert_eq!(payment.used_paths.len(), 1);
+        assert_eq!(payment.used_paths.len(), 2);
         assert_eq!(payment.num_parts, 1);
         assert_eq!(expected_used_path, payment.used_paths[0]);
     }
