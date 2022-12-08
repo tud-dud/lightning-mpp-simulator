@@ -299,11 +299,10 @@ mod tests {
                 time: 10,
             },
         ];
-        println!("payment {:?}", payment.used_paths);
-        assert_eq!(payment.htlc_attempts, 5);
+        assert_eq!(payment.htlc_attempts, 2);
         assert!(payment.succeeded);
         assert_eq!(payment.num_parts, 2);
-        assert_eq!(payment.used_paths.len(), 5);
+        assert_eq!(payment.used_paths.len(), 2);
         assert_eq!(expected_used_path, payment.used_paths);
     }
 }

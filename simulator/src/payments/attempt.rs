@@ -58,8 +58,6 @@ impl Simulation {
                     *payment = payment_shard.to_payment(1);
                     if !succeeded {
                         self.revert_payment(&to_revert);
-                    } else {
-                        payment.used_paths.push(payment_shard.used_path);
                     }
                 } else {
                     error!("No paths to destination found.");
@@ -183,7 +181,6 @@ impl Simulation {
             } else {
                 // subtract fee and add to own balance
                 let current_balance = self.graph.get_channel_balance(&id, &channel_id);
-                payment_shard.htlc_attempts += 1;
                 if current_balance > (remaining_transferable_amount - fees)
                     && self
                         .graph
