@@ -5,7 +5,7 @@ use crate::{
     Simulation,
 };
 
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 
 impl Simulation {
     /// Sends an MPP and fails when payment can no longer be split into smaller parts
@@ -21,48 +21,20 @@ impl Simulation {
             error!("Payment failing. {} total balance insufficient for payment. Amount {}, max balance {}", payment.source, payment.amount_msat, total_out_balance);
             failed = true;
         }
-        // we don't care about reversing a single payment since it is already happened in the
-        // returning function if necessary
-        if !succeeded {
-            (succeeded, _) = self.send_one_payment(payment);
-        }
 
-        let mut split_and_attempt = |payment: &mut Payment| -> (bool, bool) {
-            let num_parts_to_try = payment.num_parts * 2;
-            let parts = num_parts_to_try;
-            let mut parts: Vec<Payment> = Vec::with_capacity(parts);
-            let mut success = false;
-            let mut failure = false;
-            payment.num_parts = num_parts_to_try;
-            // divide the payment amount by num_parts_to_try/2 which should be split equally
-            // among parts
-            let amt_to_split = payment.amount_msat / (num_parts_to_try / 2);
-            // divide by 2 so that split results in num_parts_to_try shards
-            for _ in 0..(num_parts_to_try / 2) {
-                if let Some(shard) = Payment::split_payment(payment, amt_to_split) {
-                    parts.push(shard.0);
-                    parts.push(shard.1);
-                } else {
-                    error!("Payment splitting has failed. Ending..");
-                    failure = true;
-                    break;
-                }
-            }
-            trace!("Payment split into {} parts.", parts.len());
-            if !failure {
-                success = self.send_mpp_shards(payment, &mut parts);
-                if !success {
-                    trace!("Will now try {} parts.", num_parts_to_try * 2);
-                }
-            }
-            (success, failure)
-        };
-        while !succeeded && !failed {
-            (succeeded, failed) = split_and_attempt(payment);
+        if !succeeded && !failed {
+            payment.used_paths = Vec::new();
+            payment.num_parts = 0;
+            succeeded = self.send_mpp_shards(payment);
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
+            // hacky because the recursive function messes this up
+            payment.num_parts = payment.used_paths.len();
             payment.succeeded = true;
+            assert!(payment.succeeded);
+            // no longer needed - used to revert payments
+            payment.successful_shards = vec![];
             info!(
                 "Payment from {} to {} delivered in {} parts.",
                 payment.source, payment.dest, payment.num_parts
@@ -70,48 +42,72 @@ impl Simulation {
             PaymentEvent::UpdateSuccesful {
                 payment: payment.to_owned(),
             }
-        } else if failed {
+        } else {
+            assert!(!payment.succeeded);
             PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }
-        } else {
-            panic!("Unexpected payment status {:?}", payment);
         };
         self.event_queue.schedule(now, event);
         succeeded
     }
 
-    /// Expects a list of shards belonging to one payment and tries to send them atomically
-    fn send_mpp_shards(&mut self, root: &mut Payment, shards: &mut Vec<Payment>) -> bool {
-        let mut succeeded = true;
-        let mut issued_payments = Vec::new();
-        for shard in shards.iter_mut() {
-            let (success, maybe_reverse) = self.send_one_payment(shard);
-            root.htlc_attempts += shard.htlc_attempts;
-            issued_payments.push(maybe_reverse);
-            succeeded &= success;
-        }
+    /// Splits a payment into a list of shards belonging to one payment and tries to send them atomically
+    fn send_mpp_shards(&mut self, root: &mut Payment) -> bool {
+        trace!(
+            "Attempting MPP payment {} worth {} msat.",
+            root.payment_id,
+            root.amount_msat
+        );
+        let (success, mut to_reverse) = self.send_one_payment(root);
+        let succeeded = if success {
+            root.succeeded = true;
+            root.successful_shards.append(&mut to_reverse);
+            true
+        } else {
+            root.failed_amounts.push(root.amount_msat);
+            trace!(
+                "Splitting payment {} worth {} msat into {} parts.",
+                root.payment_id,
+                root.amount_msat,
+                2
+            );
+            if let Some(shards) = Payment::split_payment(root) {
+                root.num_parts += 2;
+                let (mut shard1, mut shard2) = (shards.0, shards.1);
+                let shard1_succeeded = self.send_mpp_shards(&mut shard1);
+                root.htlc_attempts += shard1.htlc_attempts;
+                root.num_parts += shard1.num_parts;
+                if shard1_succeeded {
+                    root.used_paths.append(&mut shard1.used_paths);
+                }
+                let shard2_succeeded = self.send_mpp_shards(&mut shard2);
+                root.htlc_attempts += shard2.htlc_attempts;
+                if shard2_succeeded {
+                    root.used_paths.append(&mut shard2.used_paths);
+                }
+                shard1_succeeded && shard2_succeeded
+            } else {
+                warn!(
+                    "Splitting payment {} worth {} msat into {} parts failed.",
+                    root.payment_id, root.amount_msat, 2
+                );
+                false
+            }
+        };
+        // total failure so revert succesful payments
         // some payment failed so all must now be reversed
         if !succeeded {
-            for transfers in issued_payments {
-                self.revert_payment(&transfers);
-            }
-        } else {
-            for shard in shards {
-                root.used_paths.extend(shard.used_paths.clone());
-            }
+            self.revert_payment(&root.successful_shards);
         }
+        //root.succeeded = succeeded; //?
         succeeded
     }
 }
 
 impl PathFinder {
     pub(super) fn find_path_mpp_payment(&mut self) -> Option<CandidatePath> {
-        // copy the graph so that deleted edges remain in the next attempt
-        let graph_copy = self.graph.clone();
-        let candidate_path = self.find_path_single_payment();
-        self.graph = graph_copy;
-        candidate_path
+        self.find_path_single_payment()
     }
 }
 
@@ -140,6 +136,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(!simulator.send_single_payment(payment));
@@ -182,6 +179,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         simulator.payment_parts = PaymentParts::Single;
@@ -231,6 +229,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         simulator.payment_parts = PaymentParts::Single;
@@ -263,6 +262,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(!simulator.send_single_payment(payment));
@@ -279,7 +279,7 @@ mod tests {
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 10,
+                weight: 10.0,
                 amount: 6010,
                 time: 5,
             },
@@ -294,7 +294,7 @@ mod tests {
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 30,
+                weight: 30.0,
                 amount: 6030,
                 time: 10,
             },

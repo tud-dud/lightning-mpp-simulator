@@ -45,7 +45,7 @@ fn main() {
     let seed = args.run;
     let number_of_sim_pairs = args.num_pairs;
     let graph = match g {
-        Ok(graph) => Graph::to_sim_graph(&graph, seed),
+        Ok(graph) => Graph::to_sim_graph(&graph),
         Err(e) => {
             error!("Error in graph file {}. Exiting.", e);
             std::process::exit(-1)
@@ -72,7 +72,7 @@ fn main() {
         WeightPartsCombi::MinFeeMulti,
         WeightPartsCombi::MaxProbMulti,
     ];
-    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs, seed);
+    let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     let mut results = Vec::with_capacity(4);
     for combi in weight_parts {
         let mut sim_results: Vec<SimResult> = Vec::with_capacity(amounts.len());

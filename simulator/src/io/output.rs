@@ -31,7 +31,7 @@ impl Output {
         output_path: PathBuf,
         run: u64,
     ) -> Result<(), Box<dyn Error>> {
-        if let Ok(_) = Self::create_dir(&output_path) {
+        if Self::create_dir(&output_path).is_ok() {
             info!("Writing CSV files to {:#?}/.", output_path);
             let output = Output(results);
             output.to_json_file(output_path, run)?;

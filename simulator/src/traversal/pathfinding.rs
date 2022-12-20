@@ -1,8 +1,8 @@
-use crate::{graph::Graph, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
+use crate::{graph::Graph, payment::Payment, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
 
 use log::{debug, trace};
 use serde::Serialize;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 /// Describes a path between two nodes
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
@@ -36,7 +36,7 @@ pub(crate) struct PathFinder {
 pub(crate) struct CandidatePath {
     pub(crate) path: Path,
     /// The aggregated path weight (fees or probability) describing how costly the path is
-    pub(crate) weight: EdgeWeight,
+    pub(crate) weight: f32,
     /// The aggregated amount due when using this path (amount + fees)
     pub(crate) amount: usize,
     /// The aggregated timelock
@@ -71,10 +71,16 @@ impl CandidatePath {
     pub(crate) fn new_with_path(path: Path) -> Self {
         CandidatePath {
             path,
-            weight: EdgeWeight::default(),
+            weight: f32::default(),
             amount: usize::default(),
             time: usize::default(),
         }
+    }
+
+    /// Returns the fees paid. For MPP payments, we consider the parts' amounts and not the total
+    /// payment amount which works since all MPP payments (currently) are divided equally
+    pub(crate) fn path_fees(&self, payment: &Payment) -> usize {
+        self.amount - (payment.amount_msat / payment.num_parts)
     }
 }
 
@@ -121,7 +127,7 @@ impl PathFinder {
         let base_fee = edge.fee_base_msat;
         let prop_fee = amount * edge.fee_proportional_millionths / millionths;
         let time_lock_penalty = amount * edge.cltv_expiry_delta * risk_factor / billionths;
-        base_fee + prop_fee + time_lock_penalty
+        ordered_float::OrderedFloat((base_fee + prop_fee + time_lock_penalty) as f32)
     }
 
     /// Returns the edge failure probabilty (amt/ cap) of given amount so that the shortest path
@@ -129,10 +135,9 @@ impl PathFinder {
     /// The higher the returned value, the lower the chances of success
     /// https://github.com/lnbook/lnbook/blob/develop/12_path_finding.asciidoc#liquidity-uncertainty-and-probability
     fn get_edge_failure_probabilty(edge: &Edge, amount: usize) -> EdgeWeight {
-        let success_prob: f32 = ((edge.htlc_maximum_msat as f32 + 1.0 - amount as f32)
-            / (edge.htlc_maximum_msat as f32 + 1.0))
-            .ceil();
-        1 - (success_prob as usize)
+        let success_prob: f32 = (edge.htlc_maximum_msat as f32 + 1.0 - amount as f32)
+            / (edge.htlc_maximum_msat as f32 + 1.0);
+        ordered_float::OrderedFloat(1.0 - success_prob)
     }
 
     /// Calculates the total probabilty along a given path starting from dest to src
@@ -146,9 +151,9 @@ impl PathFinder {
         );
         let mut accumulated_amount = self.amount; //amount + due fees
         let mut accumulated_weight = if self.routing_metric == RoutingMetric::MinFee {
-            0
+            0.0
         } else {
-            1
+            1.0
         };
         let mut accumulated_time = 0; // full timelock delta
         let candidate_path_hops: VecDeque<ID> = candidate_path
@@ -194,16 +199,17 @@ impl PathFinder {
                 };
                 match self.routing_metric {
                     RoutingMetric::MaxProb => {
-                        accumulated_weight *= 1 - Self::get_edge_failure_probabilty(
-                            &cheapest_edge,
-                            accumulated_amount,
-                        )
+                        accumulated_weight *= 1.0
+                            - Self::get_edge_failure_probabilty(&cheapest_edge, accumulated_amount)
+                                .into_inner()
                     }
                     RoutingMetric::MinFee => {
-                        accumulated_weight += Self::get_edge_fee(&cheapest_edge, accumulated_amount)
+                        accumulated_weight +=
+                            Self::get_edge_fee(&cheapest_edge, accumulated_amount).into_inner()
                     }
                 };
-                let edge_fee = Self::get_edge_fee(&cheapest_edge, accumulated_amount);
+                let edge_fee =
+                    Self::get_edge_fee(&cheapest_edge, accumulated_amount).into_inner() as usize;
                 accumulated_amount += edge_fee;
                 let edge_timelock = cheapest_edge.cltv_expiry_delta;
                 accumulated_time += edge_timelock;
@@ -221,14 +227,14 @@ impl PathFinder {
     }
 
     /// Computes the shortest path beween source and dest using Dijkstra's algorithm
-    pub(super) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, usize)> {
+    pub(super) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, EdgeWeight)> {
         trace!(
             "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
             self.src,
             self.dest,
             self.routing_metric
         );
-        let successors = |node: &ID| -> Vec<(ID, usize)> {
+        let successors = |node: &ID| -> Vec<(ID, EdgeWeight)> {
             let succs = match self.graph.get_edges_for_node(node) {
                 Some(edges) => edges
                     .iter()
@@ -238,9 +244,9 @@ impl PathFinder {
                             if e.source != self.src {
                                 Self::get_edge_weight(e, self.amount, self.routing_metric)
                             } else if self.routing_metric == RoutingMetric::MinFee {
-                                0
+                                ordered_float::OrderedFloat(0.0)
                             } else {
-                                1
+                                ordered_float::OrderedFloat(1.0)
                             },
                         )
                     })
@@ -257,10 +263,9 @@ impl PathFinder {
     /// edge
     /// Necessary as we account for possible parallel edges
     pub(crate) fn get_cheapest_edge(&mut self, from: &ID, to: &ID) -> Option<Edge> {
-        trace!("Looking for cheapest edge between {} and {}.", from, to);
         let from_to_outedges = self.graph.get_all_src_dest_edges(from, to);
         let mut cheapest_edge = None;
-        let mut min_weight = usize::MAX;
+        let mut min_weight = ordered_float::OrderedFloat(f32::MAX);
         for edge in from_to_outedges.into_iter() {
             let edge_weight = Self::get_edge_weight(&edge, self.amount, self.routing_metric);
             if edge_weight < min_weight {
@@ -272,10 +277,7 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    pub(crate) fn remove_inadequate_edges(
-        &mut self,
-        amount: usize,
-    ) -> std::collections::HashMap<String, Vec<Edge>> {
+    pub(crate) fn remove_inadequate_edges(&mut self, amount: usize) -> HashMap<String, Vec<Edge>> {
         debug!("Removing edges with insufficient funds.");
         let mut copy = self.graph.clone();
         let mut ctr = 0;
@@ -298,6 +300,7 @@ mod tests {
 
     use super::*;
     use crate::{core_types::graph::Graph, PaymentParts, RoutingMetric};
+    use approx::*;
     use std::collections::VecDeque;
 
     #[test]
@@ -332,12 +335,12 @@ mod tests {
         };
         let amount = 1;
         let actual = PathFinder::get_edge_failure_probabilty(&edge, amount);
-        let expected = 0;
-        assert_eq!(actual, expected);
+        let expected = 0.0;
+        assert_abs_diff_eq!(actual.into_inner(), expected, epsilon = 0.2f32);
         let amount = 600;
         let actual = PathFinder::get_edge_failure_probabilty(&edge, amount);
-        let expected = 1;
-        assert_eq!(actual, expected);
+        let expected = 1.0;
+        assert_abs_diff_eq!(actual.into_inner(), expected, epsilon = 0.2f32);
     }
 
     #[test]
@@ -351,20 +354,18 @@ mod tests {
         };
         let amount = 1;
         let actual = PathFinder::get_edge_fee(&edge, amount);
-        let expected = 100;
+        let expected = 100.0;
         assert_eq!(actual, expected);
         let amount = 600;
         let actual = PathFinder::get_edge_fee(&edge, amount);
-        let expected = 100;
+        let expected = 100.0;
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn find_min_fee_paths() {
-        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
             for e in edges {
@@ -393,8 +394,8 @@ mod tests {
         };
         let expected: CandidatePath = CandidatePath {
             path: expected_path,
-            weight: 175,  // fees (b->c, c->d)
-            amount: 5175, // amount + fees
+            weight: 175.0, // fees (b->c, c->d)
+            amount: 5175,  // amount + fees
             time: 55,
         };
         assert_eq!(actual, expected);
@@ -402,10 +403,8 @@ mod tests {
 
     #[test]
     fn find_max_prob_paths() {
-        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
             for e in edges {
@@ -439,18 +438,20 @@ mod tests {
         };
         let expected: CandidatePath = CandidatePath {
             path: expected_path,
-            weight: 1,    // prob (b->c, c->d)
+            weight: 1.0,  // prob (b->c, c->d)
             amount: 5175, // amount + fees
             time: 55,
         };
-        assert_eq!(actual, expected);
+        // a and b equal if |a - b| <= epsilon
+        assert_abs_diff_eq!(expected.weight, actual.weight, epsilon = 0.1f32);
+        assert_eq!(actual.amount, expected.amount);
+        assert_eq!(actual.time, expected.time);
     }
 
     #[test]
     fn aggregated_path_cost() {
-        let seed = 0;
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
         let mut path_finder = PathFinder {
             graph: Box::new(graph),
             src: "dina".to_string(),
@@ -475,7 +476,7 @@ mod tests {
             candidate_path.amount,
             candidate_path.time,
         );
-        let expected_weight = 100;
+        let expected_weight = 100.0;
         let expected_amount = 10100;
         let expected_time = 20;
 

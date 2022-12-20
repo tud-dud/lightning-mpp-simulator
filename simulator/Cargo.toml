@@ -17,6 +17,8 @@ clap = { version = "4.0.22", features = ["derive"]}
 lazy_static = "1.4.0"
 rand = { version = "0.8.5", features = ["small_rng", "alloc"]}
 chrono = {version = "0.4", features = ["clock"]}
+itertools = "0.10.5"
+ordered-float = "3.4.0"
 
 [[bin]]
 name = "main"
@@ -29,3 +31,6 @@ path = "src/bin/simulation.rs"
 [[bin]]
 name = "batch-simulator"
 path = "src/bin/batch_simulator.rs"
+
+[dev-dependencies]
+approx = "0.5"

@@ -41,8 +41,7 @@ pub(crate) struct PaymentInfo {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PathInfo {
-    /// The aggregated path weight (fees or probability) describing how costly the path is
-    pub(crate) total_weight: usize,
+    /// The aggregated path fees describing how costly the path is
     pub(crate) total_fees: usize,
     pub(crate) total_time: usize,
     pub(crate) path_len: usize,
@@ -55,8 +54,7 @@ impl PathInfo {
                 .used_paths
                 .iter()
                 .map(|path| Self {
-                    total_weight: path.weight,
-                    total_fees: (path.amount - payment.amount_msat),
+                    total_fees: path.path_fees(payment),
                     total_time: path.time,
                     path_len: path.path.path_length(),
                 })
@@ -66,7 +64,6 @@ impl PathInfo {
                 .used_paths
                 .iter()
                 .map(|path| Self {
-                    total_weight: path.weight,
                     total_fees: 0,
                     total_time: path.time,
                     path_len: path.path.path_length(),
@@ -108,7 +105,7 @@ mod tests {
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 10,
+                weight: 10.0,
                 amount: 2010,
                 time: 5,
             },
@@ -123,7 +120,7 @@ mod tests {
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 30,
+                weight: 30.0,
                 amount: 2030,
                 time: 10,
             },
@@ -142,6 +139,7 @@ mod tests {
             num_parts: 1,
             used_paths,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         let actual = PaymentInfo::from_payment(&payment);
         let expected = PaymentInfo {
@@ -151,13 +149,11 @@ mod tests {
             succeeded: false,
             paths: vec![
                 PathInfo {
-                    total_weight: 10,
                     total_fees: 10,
                     total_time: 5,
                     path_len: 2,
                 },
                 PathInfo {
-                    total_weight: 30,
                     total_fees: 30,
                     total_time: 10,
                     path_len: 3,

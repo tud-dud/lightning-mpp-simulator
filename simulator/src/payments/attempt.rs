@@ -24,7 +24,7 @@ impl Simulation {
         // MPP.
         let max_out_balance = graph.get_max_node_balance(&payment.source);
         if max_out_balance < payment.amount_msat {
-            error!("Payment shard failing. Sender does not have sufficient balance. Amount {}, max balance {}", payment.amount_msat, max_out_balance);
+            error!("Payment shard failing. Sender {} does not have sufficient balance. Amount {}, max balance {}",  payment.source, payment.amount_msat, max_out_balance);
             failed = true;
         }
         let graph_copy = self.graph.clone();
@@ -47,17 +47,36 @@ impl Simulation {
                     // path's fees
                     let hops = candidate_path.path.hops.clone();
                     let (sender, out_channel) = (&hops[0].0, &hops[0].3);
-                    if self.graph.get_channel_balance(sender, out_channel) < candidate_path.amount {
-                        error!("Payment shard failing. Sender does not have sufficient balance to cover fees. Amount {}, max balance {}", candidate_path.amount, max_out_balance);
+                    let channel_balance = self.graph.get_channel_balance(sender, out_channel);
+                    if channel_balance < candidate_path.amount {
+                        error!("Payment shard failing. Sender does not have sufficient balance to cover fees. Amount {}, channel balance {}", candidate_path.amount, channel_balance);
+                        succeeded = false;
                         failed = true;
-                        break;
-                    };
-                    let mut payment_shard = payment.to_shard(payment.amount_msat);
-                    (succeeded, to_revert) =
-                        self.attempt_payment(&mut payment_shard, &candidate_path);
-                    *payment = payment_shard.to_payment(1);
-                    if !succeeded {
-                        self.revert_payment(&to_revert);
+                    }
+                    // edge's receive capacity not sufficient?
+                    let receive_channel = &hops[hops.len() - 1].3;
+                    if !self
+                        .graph
+                        .channel_can_receive_amount(receive_channel, payment.amount_msat)
+                    {
+                        error!(
+                            "Payment {} of {} msat failing at destination due to max capacity. Not trying to deliver..",
+                            payment.payment_id, payment.amount_msat
+                        );
+                        succeeded = false;
+                        failed = true;
+                    }
+                    if !failed {
+                        let mut payment_shard = payment.to_shard(payment.amount_msat);
+                        (succeeded, to_revert) = self.attempt_payment(
+                            &mut payment_shard,
+                            &candidate_path,
+                            &mut path_finder,
+                        );
+                        *payment = payment_shard.to_payment(1);
+                        if !succeeded {
+                            self.revert_payment(&to_revert);
+                        }
                     }
                 } else {
                     error!("No paths to destination found.");
@@ -80,6 +99,7 @@ impl Simulation {
         &mut self,
         mut payment_shard: &mut PaymentShard,
         candidate_path: &CandidatePath,
+        path_finder: &mut PathFinder,
     ) -> (bool, Vec<(ID, String, usize)>) {
         let hops = candidate_path.path.hops.clone();
         info!(
@@ -124,7 +144,8 @@ impl Simulation {
                             if invoice.source == payment_shard.source {
                                 //&&invoice.amount == remaining_transferable_amount
 
-                                // receiver would exceed channel capacity
+                                // receiver would exceed channel capacity - should never get this
+                                // far as we check before attempting
                                 if !self.graph.channel_can_receive_amount(
                                     &channel_id,
                                     remaining_transferable_amount,
@@ -137,8 +158,9 @@ impl Simulation {
                                     let src = &id;
                                     let dest = hops[idx - 1].0.clone();
                                     // this is the failing edge
-                                    self.graph.remove_edge(src, &dest);
                                     trace!("Discarding channel {} due to max capacity", channel_id,);
+                                    path_finder.graph.remove_channel(&channel_id);
+                                    path_finder.graph.remove_edge(src, &dest);
                                 } else {
                                     let current_balance =
                                         self.graph.get_channel_balance(&id, &channel_id);
@@ -204,7 +226,8 @@ impl Simulation {
                         dest,
                     );
                     // this is the failing edge
-                    self.graph.remove_edge(src, &hops[idx - 1].0);
+                    path_finder.graph.remove_channel(&channel_id);
+                    path_finder.graph.remove_edge(src, &hops[idx - 1].0);
                     payment_shard.succeeded = false;
                     return (payment_shard.succeeded, transferred_amounts);
                 }
@@ -216,7 +239,7 @@ impl Simulation {
     /// Credits all edges in the path (Source gains whereas the rest lose)
     pub(crate) fn revert_payment(&mut self, amounts: &[(ID, String, usize)]) {
         let total: usize = amounts.iter().map(|t| t.2).sum::<usize>();
-        debug!("Reverting msats {}.", total);
+        debug!("Reverting {} msat.", total);
         for (idx, (node, channel_id, amt)) in amounts.iter().enumerate() {
             // source
             if idx == 0 {
@@ -241,13 +264,12 @@ pub(crate) mod tests {
     pub fn init_sim(path: Option<String>) -> Simulation {
         let seed = 0;
         let amount = 1000;
-        let seed = 0;
         let mut graph = if let Some(file_path) = path {
             let file_path = std::path::Path::new(&file_path);
-            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap(), seed)
+            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap())
         } else {
             let path = std::path::Path::new("../test_data/lnbook_example.json");
-            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap(), seed)
+            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap())
         };
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -318,7 +340,11 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             htlc_attempts: 0,
         };
-        assert!(simulator.attempt_payment(payment_shard, &candidate_paths).0);
+        assert!(
+            simulator
+                .attempt_payment(payment_shard, &candidate_paths, &mut path_finder)
+                .0
+        );
         let expected = balance - 1100;
         let actual = simulator
             .graph
@@ -363,7 +389,8 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             htlc_attempts: 0,
         };
-        let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
+        let (success, transferred) =
+            simulator.attempt_payment(payment_shard, &candidate_paths, &mut path_finder);
         simulator.revert_payment(&transferred);
         assert!(!success);
         for edges in simulator.graph.edges.values() {
@@ -404,11 +431,12 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             htlc_attempts: 0,
         };
-        let (success, transferred) = simulator.attempt_payment(payment_shard, &candidate_paths);
+        let (success, transferred) =
+            simulator.attempt_payment(payment_shard, &candidate_paths, &mut path_finder);
         simulator.revert_payment(&transferred);
         assert!(!success);
         assert_eq!(
-            simulator
+            path_finder
                 .graph
                 .get_channel_balance(&"alice".to_string(), &"alice1".to_string()),
             0
@@ -416,7 +444,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn failing_edge_is_discarded() {
+    fn failing_edge_is_not_discarded_from_sim() {
         let amount = 1000;
         let source = "alice".to_string();
         let dest = "chan".to_string();
@@ -444,20 +472,29 @@ pub(crate) mod tests {
             min_shard_amt: 10,
             htlc_attempts: 0,
         };
-        assert!(!simulator.attempt_payment(payment_shard, &candidate_paths).0);
-        assert!(!simulator
+        assert!(
+            !simulator
+                .attempt_payment(payment_shard, &candidate_paths, &mut path_finder)
+                .0
+        );
+        // edge is still there for future payments
+        assert!(simulator
+            .graph
+            .get_edge(&String::from("alice"), &String::from("bob"))
+            .is_some());
+        assert!(!path_finder
             .graph
             .get_edge(&String::from("alice"), &String::from("bob"))
             .is_some());
         // 0 because edges have been removed and get_balance returns 0 if edge is not found
         assert_eq!(
-            simulator
+            path_finder
                 .graph
                 .get_channel_balance(&"alice".to_string(), &"alice1".to_string()),
             0
         );
         assert_eq!(
-            simulator
+            path_finder
                 .graph
                 .get_channel_balance(&"bob".to_string(), &"bob1".to_string()),
             0
@@ -470,7 +507,7 @@ pub(crate) mod tests {
         let seed = 0;
         let amount = 500000;
         let path = std::path::Path::new("../data/gossip-20210906_1000UTC.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
         let mut simulator =
@@ -489,6 +526,7 @@ pub(crate) mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
         assert!(simulator.send_single_payment(payment));
@@ -515,6 +553,7 @@ pub(crate) mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         assert!(!simulator.send_single_payment(payment));
     }

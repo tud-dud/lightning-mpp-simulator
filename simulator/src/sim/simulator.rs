@@ -152,11 +152,10 @@ impl Simulation {
     pub fn draw_n_pairs_for_simulation(
         graph: &Graph,
         n: usize,
-        seed: u64,
     ) -> (impl Iterator<Item = (ID, ID)> + Clone) {
         info!("Drawing {} sender-receiver pairs for simulation.", n,);
         let g = graph.clone();
-        g.get_random_pairs_of_nodes(seed, n)
+        g.get_random_pairs_of_nodes(n)
     }
 
     pub(crate) fn add_invoice(&mut self, invoice: Invoice) {
@@ -212,8 +211,7 @@ mod tests {
         let seed = 0;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let actual = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
@@ -223,12 +221,10 @@ mod tests {
 
     #[test]
     fn get_n_random_node_pairs() {
-        let seed = 0;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let n = 2;
-        let actual = Simulation::draw_n_pairs_for_simulation(&graph, n, seed);
+        let actual = Simulation::draw_n_pairs_for_simulation(&graph, n);
         assert_eq!(actual.size_hint(), (n, Some(n)));
     }
 
@@ -237,8 +233,7 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
@@ -271,8 +266,7 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);
@@ -302,8 +296,7 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph =
-            Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap(), seed);
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let mut simulator = Simulation::new(seed, graph, amount, routing_metric, payment_parts);

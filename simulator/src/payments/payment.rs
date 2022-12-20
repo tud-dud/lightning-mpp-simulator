@@ -21,6 +21,7 @@ pub struct Payment {
     pub(crate) htlc_attempts: usize,
     /// Payment amounts that have already succeed, used for MPP payments
     pub(crate) failed_amounts: Vec<usize>,
+    pub(crate) successful_shards: Vec<(ID, String, usize)>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +51,7 @@ impl Payment {
             used_paths: Vec::default(),
             htlc_attempts: 0,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         }
     }
 
@@ -59,10 +61,8 @@ impl Payment {
     }
 
     /// Split payment and return two shards
-    pub(crate) fn split_payment(
-        payment: &Payment,
-        amt_to_split: usize,
-    ) -> Option<(Payment, Payment)> {
+    pub(crate) fn split_payment(payment: &Payment) -> Option<(Payment, Payment)> {
+        let amt_to_split = payment.amount_msat;
         if amt_to_split < crate::MIN_SHARD_AMOUNT
             || amt_to_split / 2 < crate::MIN_SHARD_AMOUNT
             || amt_to_split < payment.min_shard_amt
@@ -74,9 +74,9 @@ impl Payment {
                 amt_to_split
             );
             None
-        } else if amt_to_split > *payment.failed_amounts.iter().max().unwrap_or(&usize::MAX) {
+        } else if amt_to_split > *payment.failed_amounts.iter().min().unwrap_or(&usize::MAX) {
             error!(
-                "Aborting splitting as larger payments have already failed. Amount {}",
+                "Aborting splitting as smaller payments have already failed. Amount {}",
                 amt_to_split
             );
             None
@@ -94,10 +94,12 @@ impl Payment {
             );
             let shard1 = Payment {
                 amount_msat: shard1_amount,
+                htlc_attempts: 0,
                 ..payment.clone()
             };
             let shard2 = Payment {
                 amount_msat: shard2_amount,
+                htlc_attempts: 0,
                 ..payment.clone()
             };
             Some((shard1, shard2))
@@ -131,6 +133,7 @@ impl PaymentShard {
             used_paths: vec![self.used_path.clone()],
             htlc_attempts: self.htlc_attempts,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         }
     }
 }
@@ -171,6 +174,7 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 0,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         assert_eq!(actual, expected);
         assert_eq!(actual.succeeded, expected.succeeded);
@@ -196,6 +200,7 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         let shard = payment.to_shard(amount);
         assert_eq!(shard.payment_id, id);
@@ -211,7 +216,7 @@ mod tests {
     fn successfully_split() {
         let source = "source".to_string();
         let dest = "dest".to_string();
-        let amount = 2001;
+        let amount = 20001;
         let payment = Payment {
             payment_id: 0,
             source: source.clone(),
@@ -223,19 +228,21 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
-        let actual = Payment::split_payment(&payment, payment.amount_msat).unwrap();
+        let actual = Payment::split_payment(&payment).unwrap();
         let expected = (
             Payment {
-                amount_msat: 1001,
+                amount_msat: 10001,
                 ..payment.clone()
             },
             Payment {
-                amount_msat: 1000,
+                amount_msat: 10000,
                 ..payment.clone()
             },
         );
-        assert_eq!(actual, expected);
+        assert_eq!(actual.0.amount_msat, expected.0.amount_msat);
+        assert_eq!(actual.1.amount_msat, expected.1.amount_msat);
     }
 
     #[test]
@@ -254,7 +261,8 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
-        assert!(Payment::split_payment(&payment, payment.amount_msat).is_none());
+        assert!(Payment::split_payment(&payment).is_none());
     }
 }

@@ -10,6 +10,7 @@ pub(crate) struct Invoice {
     /// Unique invoice id (represents the hash)
     pub(crate) id: usize,
     /// Amount that is due
+    #[allow(unused)]
     pub(crate) amount: usize,
     /// payment source
     pub(crate) source: ID,

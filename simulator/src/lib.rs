@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use rand::{rngs::SmallRng, SeedableRng};
+use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 use std::sync::Mutex;
 
@@ -17,7 +17,7 @@ pub type ID = String;
 pub type PaymentId = usize;
 pub type Node = network_parser::Node;
 pub type Edge = network_parser::Edge;
-pub type EdgeWeight = usize;
+pub type EdgeWeight = ordered_float::OrderedFloat<f32>;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 /// Number of shortest paths to compute during pathfinding
@@ -52,9 +52,9 @@ pub enum WeightPartsCombi {
 }
 
 lazy_static! {
-    static ref RNG: Mutex<SmallRng> = {
-        let small_rng = SmallRng::from_entropy();
-        Mutex::new(small_rng)
+    static ref RNG: Mutex<StdRng> = {
+        let std_rng = StdRng::from_entropy();
+        Mutex::new(std_rng)
     };
 }
 

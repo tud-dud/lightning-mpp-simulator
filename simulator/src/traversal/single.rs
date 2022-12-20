@@ -98,6 +98,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
@@ -120,6 +121,7 @@ mod tests {
             num_parts: 1,
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
@@ -133,7 +135,7 @@ mod tests {
                     ("chan".to_string(), 1000, 0, "chan1".to_string()),
                 ]),
             },
-            weight: 100,
+            weight: 100.0,
             amount: 1100,
             time: 40,
         };
