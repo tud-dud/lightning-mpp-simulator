@@ -21,6 +21,11 @@ impl Simulation {
             error!("Payment failing. {} total balance insufficient for payment. Amount {}, max balance {}", payment.source, payment.amount_msat, total_out_balance);
             failed = true;
         }
+        let max_receive_balance = graph.get_max_receive_amount(&payment.dest);
+        if max_receive_balance < payment.amount_msat {
+            error!("Payment failing due to insufficient receive capacity. Payment amount {}, max receive {}", payment.amount_msat, max_receive_balance);
+            failed = true;
+        }
 
         if !succeeded && !failed {
             payment.used_paths = Vec::new();
@@ -77,6 +82,7 @@ impl Simulation {
                 let (mut shard1, mut shard2) = (shards.0, shards.1);
                 let shard1_succeeded = self.send_mpp_shards(&mut shard1);
                 root.htlc_attempts += shard1.htlc_attempts;
+                // TODO
                 root.num_parts += shard1.num_parts;
                 if shard1_succeeded {
                     root.used_paths.append(&mut shard1.used_paths);

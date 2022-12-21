@@ -179,6 +179,21 @@ impl Graph {
         self.get_outedges(node).iter().map(|e| e.balance).sum()
     }
 
+    // Get all edges going to 'node' then check how much of the channel capacity is already with
+    // 'node'.
+    pub(crate) fn get_max_receive_amount(&self, node: &ID) -> usize {
+        let mut max_receive = 0;
+       for n in self.get_node_ids() {
+           if n != *node {
+                let edges_to_node = self.get_all_src_dest_edges(&n, node);
+                for e in edges_to_node {
+                    max_receive += e.capacity - e.balance;
+                }
+           }
+       }
+       max_receive
+    }
+
     /// We calculate balances based on the edges' max_sat values using a random uniform
     /// distribution. We set the liquidity to the calculated balance
     fn set_channel_balances(&mut self) {
@@ -658,5 +673,28 @@ mod tests {
         assert!(graph.channel_can_receive_amount(&channel_id, amount));
         let amount = capacity * 2;
         assert!(!graph.channel_can_receive_amount(&channel_id, amount));
+    }
+
+    #[test]
+    fn max_node_can_receive() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let capacity = 5000;
+        let balance = capacity / 2;
+        // Set balance so we can compare
+        for edges in graph.edges.values_mut() {
+            for e in edges {
+                e.capacity = capacity;
+                e.balance = balance;
+            }
+        }
+        let node = "bob".to_string();
+        let actual = graph.get_max_receive_amount(&node);
+        let expected = 5000;
+        assert_eq!(actual, expected);
+        let node = "alice".to_string();
+        let actual = graph.get_max_receive_amount(&node);
+        let expected = 2500;
+        assert_eq!(actual, expected);
     }
 }
