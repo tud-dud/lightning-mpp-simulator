@@ -4,7 +4,7 @@ use serde::Serialize;
 mod simulator;
 pub use simulator::*;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct SimResult {
     pub run: u64,
     pub amount: usize,

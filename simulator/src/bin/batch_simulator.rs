@@ -6,7 +6,9 @@ use lightning_simulator::{
     WeightPartsCombi,
 };
 
+use rayon::prelude::*;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::{error::Error, time::Instant};
 
 use clap::Parser;
@@ -75,8 +77,8 @@ fn main() {
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     let mut results = Vec::with_capacity(4);
     for combi in weight_parts {
-        let mut sim_results: Vec<SimResult> = Vec::with_capacity(amounts.len());
-        for amount in &amounts {
+        let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
+        amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
             let sim = init_sim(seed, graph.clone(), *amount, combi);
             info!(
@@ -89,9 +91,14 @@ fn main() {
                 "Simulation {:?} of amount {} completed after {} ms.",
                 combi, amount, duration_in_ms
             );
-            sim_results.push(sim_result);
-        }
-        results.push(Output::to_results_type(&sim_results, combi, seed));
+            sim_results.lock().unwrap().push(sim_result);
+        });
+        let combi_sim_results = if let Ok(s) = sim_results.lock() {
+            s.clone()
+        } else {
+            vec![]
+        };
+        results.push(Output::to_results_type(&combi_sim_results, combi, seed));
     }
     report_to_file(&results, output_dir, seed).expect("Writing to report failed.");
 }
