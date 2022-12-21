@@ -1,4 +1,4 @@
-use crate::{graph::Graph, payment::Payment, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
+use crate::{graph::Graph, Edge, EdgeWeight, PaymentParts, RoutingMetric, ID};
 
 use log::{debug, trace};
 use serde::Serialize;
@@ -79,8 +79,14 @@ impl CandidatePath {
 
     /// Returns the fees paid. For MPP payments, we consider the parts' amounts and not the total
     /// payment amount which works since all MPP payments (currently) are divided equally
-    pub(crate) fn path_fees(&self, payment: &Payment) -> usize {
-        self.amount - (payment.amount_msat / payment.num_parts)
+    pub(crate) fn path_fees(&self) -> usize {
+        // because some empty paths show up in MPP payments
+        // TODO: Correct num parts too
+        if !self.path.hops.is_empty() {
+            self.path.hops[0].1 - self.path.hops[self.path.hops.len() - 1].1
+        } else {
+            0
+        }
     }
 }
 
@@ -485,5 +491,35 @@ mod tests {
         assert_eq!(actual_time, expected_time);
 
         path_finder.routing_metric = RoutingMetric::MaxProb;
+    }
+
+    // see above tests for calculations
+    #[test]
+    fn get_fees() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let balance = 70000; // ensure balances are not the reason for failure
+        for (_, edges) in graph.edges.iter_mut() {
+            for e in edges {
+                e.balance = balance;
+            }
+        }
+        let src = String::from("alice");
+        let dest = String::from("dina");
+        let amount = 5000;
+        let routing_metric = RoutingMetric::MaxProb;
+        let mut path_finder = PathFinder::new(
+            src,
+            dest,
+            amount,
+            &graph,
+            routing_metric,
+            PaymentParts::Single,
+        );
+        if let Some(candidate_path) = path_finder.find_path() {
+            let actual = candidate_path.path_fees();
+            let expected = 175;
+            assert_eq!(actual, expected);
+        }
     }
 }

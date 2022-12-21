@@ -10,7 +10,7 @@ pub struct Simulation {
     /// Graph describing LN topology
     pub(crate) graph: Graph,
     /// Payment amount to simulate
-    amount: usize,
+    pub(crate) amount: usize,
     /// Sim seed
     run: u64,
     /// Fee minimisation or probability maximisation

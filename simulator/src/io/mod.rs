@@ -54,7 +54,7 @@ impl PathInfo {
                 .used_paths
                 .iter()
                 .map(|path| Self {
-                    total_fees: path.path_fees(payment),
+                    total_fees: path.path_fees(),
                     total_time: path.time,
                     path_len: path.path.path_length(),
                 })

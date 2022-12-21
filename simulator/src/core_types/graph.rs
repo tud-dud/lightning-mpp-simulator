@@ -183,15 +183,15 @@ impl Graph {
     // 'node'.
     pub(crate) fn get_max_receive_amount(&self, node: &ID) -> usize {
         let mut max_receive = 0;
-       for n in self.get_node_ids() {
-           if n != *node {
+        for n in self.get_node_ids() {
+            if n != *node {
                 let edges_to_node = self.get_all_src_dest_edges(&n, node);
                 for e in edges_to_node {
                     max_receive += e.capacity - e.balance;
                 }
-           }
-       }
-       max_receive
+            }
+        }
+        max_receive
     }
 
     /// We calculate balances based on the edges' max_sat values using a random uniform

@@ -35,9 +35,9 @@ impl Simulation {
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
             // hacky because the recursive function messes this up
-            payment.num_parts = payment.used_paths.len();
             payment.succeeded = true;
             assert!(payment.succeeded);
+            assert!(payment.num_parts == payment.used_paths.len());
             // no longer needed - used to revert payments
             payment.successful_shards = vec![];
             info!(
@@ -71,6 +71,14 @@ impl Simulation {
             true
         } else {
             root.failed_amounts.push(root.amount_msat);
+            // Hacky way of making sure we don't exceed max parts
+            if self.amount / root.amount_msat >= crate::MAX_PARTS {
+                error!(
+                    "Aborting splitting as max parts of {} has been reached.",
+                    crate::MAX_PARTS
+                );
+                return false;
+            }
             trace!(
                 "Splitting payment {} worth {} msat into {} parts.",
                 root.payment_id,
@@ -78,18 +86,34 @@ impl Simulation {
                 2
             );
             if let Some(shards) = Payment::split_payment(root) {
-                root.num_parts += 2;
                 let (mut shard1, mut shard2) = (shards.0, shards.1);
                 let shard1_succeeded = self.send_mpp_shards(&mut shard1);
                 root.htlc_attempts += shard1.htlc_attempts;
-                // TODO
                 root.num_parts += shard1.num_parts;
+                // because some empty paths show up in MPP payments
                 if shard1_succeeded {
+                    let mut i = 0;
+                    while i < shard1.used_paths.len() {
+                        if shard1.used_paths[i].path.hops.is_empty() {
+                            root.num_parts -= 1;
+                            shard1.used_paths.remove(i);
+                        }
+                        i += 1;
+                    }
                     root.used_paths.append(&mut shard1.used_paths);
                 }
                 let shard2_succeeded = self.send_mpp_shards(&mut shard2);
                 root.htlc_attempts += shard2.htlc_attempts;
+                root.num_parts += shard2.num_parts;
                 if shard2_succeeded {
+                    let mut i = 0;
+                    while i < shard2.used_paths.len() {
+                        if shard2.used_paths[i].path.hops.is_empty() {
+                            root.num_parts -= 1;
+                            shard2.used_paths.remove(i);
+                        }
+                        i += 1;
+                    }
                     root.used_paths.append(&mut shard2.used_paths);
                 }
                 shard1_succeeded && shard2_succeeded
