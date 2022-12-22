@@ -9,7 +9,7 @@ stages:
   - build
   - test
   - fmt
-#  - clippy
+  - clippy
 
 workflow:
   rules:
@@ -35,9 +35,9 @@ pretty:
     - rustup component add rustfmt
     - cargo fmt --all -- --check
 
-#code-quality:
-#  stage: clippy
-#  script:
-#    - echo "Running cargo clippy"
-#    - rustup component add clippy
-#    - cargo clippy --release -- -D warnings
+code-quality:
+  stage: clippy
+  script:
+    - echo "Running cargo clippy"
+    - rustup component add clippy
+    - cargo clippy --release -- -D warnings
