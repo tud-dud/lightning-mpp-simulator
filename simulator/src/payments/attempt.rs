@@ -212,6 +212,7 @@ impl Simulation {
                         .update_channel_balance(&channel_id, current_balance + fees);
                     remaining_transferable_amount -= fees;
                     transferred_amounts.push((id, channel_id, fees));
+                    payment_shard.htlc_attempts += 1;
                 } else {
                     let src = &id;
                     let dest = hops[idx + 1].0.clone();

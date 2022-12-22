@@ -329,7 +329,7 @@ mod tests {
                 time: 10,
             },
         ];
-        assert_eq!(payment.htlc_attempts, 2);
+        assert_eq!(payment.htlc_attempts, 5);
         assert!(payment.succeeded);
         assert_eq!(payment.num_parts, 2);
         assert_eq!(payment.used_paths.len(), 2);
