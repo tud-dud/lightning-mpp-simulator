@@ -49,27 +49,15 @@ pub(crate) struct PathInfo {
 
 impl PathInfo {
     pub(super) fn from_payment(payment: &Payment) -> Vec<Self> {
-        if payment.succeeded {
-            payment
-                .used_paths
-                .iter()
-                .map(|path| Self {
-                    total_fees: path.path_fees(),
-                    total_time: path.time,
-                    path_len: path.path.path_length(),
-                })
-                .collect()
-        } else {
-            payment
-                .used_paths
-                .iter()
-                .map(|path| Self {
-                    total_fees: 0,
-                    total_time: path.time,
-                    path_len: path.path.path_length(),
-                })
-                .collect()
-        }
+        payment
+            .used_paths
+            .iter()
+            .map(|path| Self {
+                total_fees: path.path_fees(),
+                total_time: path.time,
+                path_len: path.path.path_length(),
+            })
+            .collect()
     }
 }
 

@@ -80,6 +80,12 @@ impl Payment {
                 amt_to_split
             );
             None
+        } else if payment.num_parts >= crate::MAX_PARTS {
+            error!(
+                "Aborting splitting as max parts of {} has been reached.",
+                crate::MAX_PARTS
+            );
+            None
         } else {
             // ceil one, floor the either
             let prev_amt = amt_to_split;

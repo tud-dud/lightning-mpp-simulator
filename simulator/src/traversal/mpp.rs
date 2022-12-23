@@ -5,7 +5,7 @@ use crate::{
     Simulation,
 };
 
-use log::{error, info, trace, warn};
+use log::{error, info, trace};
 
 impl Simulation {
     /// Sends an MPP and fails when payment can no longer be split into smaller parts
@@ -34,12 +34,13 @@ impl Simulation {
         }
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
-            // hacky because the recursive function messes this up
-            payment.succeeded = true;
             assert!(payment.succeeded);
-            assert!(payment.num_parts == payment.used_paths.len());
-            // no longer needed - used to revert payments
-            payment.successful_shards = vec![];
+            assert_eq!(
+                payment.num_parts,
+                payment.used_paths.len(),
+                "More paths than parts {:?}",
+                payment
+            );
             info!(
                 "Payment from {} to {} delivered in {} parts.",
                 payment.source, payment.dest, payment.num_parts
@@ -64,73 +65,58 @@ impl Simulation {
             root.payment_id,
             root.amount_msat
         );
-        let (success, mut to_reverse) = self.send_one_payment(root);
-        let succeeded = if success {
-            root.succeeded = true;
-            root.successful_shards.append(&mut to_reverse);
-            true
-        } else {
-            root.failed_amounts.push(root.amount_msat);
-            // Hacky way of making sure we don't exceed max parts
-            if self.amount / root.amount_msat >= crate::MAX_PARTS {
-                error!(
-                    "Aborting splitting as max parts of {} has been reached.",
-                    crate::MAX_PARTS
-                );
-                return false;
-            }
-            trace!(
-                "Splitting payment {} worth {} msat into {} parts.",
-                root.payment_id,
-                root.amount_msat,
-                2
-            );
-            if let Some(shards) = Payment::split_payment(root) {
-                let (mut shard1, mut shard2) = (shards.0, shards.1);
-                let shard1_succeeded = self.send_mpp_shards(&mut shard1);
-                root.htlc_attempts += shard1.htlc_attempts;
-                root.num_parts += shard1.num_parts;
-                // because some empty paths show up in MPP payments
-                if shard1_succeeded {
-                    let mut i = 0;
-                    while i < shard1.used_paths.len() {
-                        if shard1.used_paths[i].path.hops.is_empty() {
-                            root.num_parts -= 1;
-                            shard1.used_paths.remove(i);
-                        }
-                        i += 1;
+        let mut succeeded = false;
+        let mut failed = false;
+        let mut stack = vec![];
+        stack.push(root.clone());
+        while let Some(mut current_shard) = stack.pop() {
+            if !succeeded && !failed {
+                let (success, mut to_reverse) = self.send_one_payment(&mut current_shard);
+                root.htlc_attempts += current_shard.htlc_attempts;
+                if !success && !failed {
+                    root.failed_amounts.push(current_shard.amount_msat);
+                    trace!(
+                        "Splitting payment {} worth {} msat into {} parts.",
+                        root.payment_id,
+                        root.amount_msat,
+                        2
+                    );
+                    if let Some(shards) = Payment::split_payment(&current_shard) {
+                        let (mut shard1, mut shard2) = (shards.0, shards.1);
+                        shard1.failed_amounts = root.failed_amounts.clone();
+                        shard2.failed_amounts = root.failed_amounts.clone();
+                        stack.push(shard1);
+                        stack.push(shard2);
+                    } else {
+                        // Splitting failed so we know at least some part wont succeed
+                        failed = true;
                     }
-                    root.used_paths.append(&mut shard1.used_paths);
+                } else {
+                    root.num_parts += 1;
+                    root.used_paths
+                        .append(&mut current_shard.used_paths.clone());
+                    root.successful_shards.append(&mut to_reverse);
                 }
-                let shard2_succeeded = self.send_mpp_shards(&mut shard2);
-                root.htlc_attempts += shard2.htlc_attempts;
-                root.num_parts += shard2.num_parts;
-                if shard2_succeeded {
-                    let mut i = 0;
-                    while i < shard2.used_paths.len() {
-                        if shard2.used_paths[i].path.hops.is_empty() {
-                            root.num_parts -= 1;
-                            shard2.used_paths.remove(i);
-                        }
-                        i += 1;
-                    }
-                    root.used_paths.append(&mut shard2.used_paths);
-                }
-                shard1_succeeded && shard2_succeeded
-            } else {
-                warn!(
-                    "Splitting payment {} worth {} msat into {} parts failed.",
-                    root.payment_id, root.amount_msat, 2
-                );
-                false
             }
-        };
+            // the value of successful parts tells us if the entire payment succeeded
+            let mut amount_received = 0;
+            for s in root.successful_shards.iter() {
+                if s.0 == root.dest {
+                    amount_received += s.2;
+                }
+            }
+            if amount_received == root.amount_msat {
+                root.succeeded = true;
+                succeeded = true;
+                // no longer needed - used to revert payments
+                root.successful_shards = vec![];
+            }
+        }
         // total failure so revert succesful payments
         // some payment failed so all must now be reversed
         if !succeeded {
             self.revert_payment(&root.successful_shards);
         }
-        //root.succeeded = succeeded; //?
         succeeded
     }
 }

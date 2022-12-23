@@ -148,7 +148,6 @@ impl Simulation {
         }
     }
 
-    // TODO: pair should be made up of distinct nodes
     pub fn draw_n_pairs_for_simulation(
         graph: &Graph,
         n: usize,
