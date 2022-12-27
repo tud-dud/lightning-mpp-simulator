@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
+from re import X
+from numpy.random import laplace
 import pandas as pd
 import matplotlib.pyplot as plt
+from seaborn.external.husl import xyz_to_luv
 from constants import *
 import matplotlib.patches as mpatches
 import os
+import numpy as np
 
 """
 Expects a JSON file for each run
@@ -71,7 +75,7 @@ def scatter_plot(df, ylabel, xlabel, output_path):
         plt.plot([amt, amt], [y[0], y[1]], "--", color="gray", alpha=0.5)
         plt.plot([amt, amt], [y[1], y[2]], "--", color="gray", alpha=0.5)
         plt.plot([amt, amt], [y[2], y[3]], "--", color="gray", alpha=0.5)
-    plt.xticks(x_ticks, x_ticks_labels, rotation=45)
+    plt.xticks(x_ticks, X_TICKS_LABELS, rotation=45)
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
@@ -79,7 +83,7 @@ def scatter_plot(df, ylabel, xlabel, output_path):
     ax.legend(
         # loc="upper center",
         handles=[l1, l2, l3, l4],
-        fontsize=8,
+        fontsize=3,
         frameon=False,
     )
     plt.xlabel(xlabel)
@@ -106,28 +110,59 @@ def plot(
         LINESTYLE_MinFeeMulti,
         LINESTYLE_MinFeeSingle,
     ],
-    logy=False,
 ):
     plt.style.use("default")
-    plt.minorticks_off()
-    cycler = plt.cycler(linestyle=linestyles, color=colours)
+    plt.tight_layout()
     ax = plt.gca()
-    ax.set_prop_cycle(cycler)
-    ax = df.plot(
-        kind=kind,
-        logy=logy,
-        stacked=False,
+    ax = df["MaxProbSingle"].plot(
+        x="amount",
+        c=COLOUR_MaxProbSingle,
+        linestyle=LINESTYLE_MaxProbSingle,
+        label="Probability/ Single",
         ax=ax,
+        marker="o",
+        markersize=3,
+        stacked=False,
     )
+    ax = df["MaxProbMulti"].plot(
+        x="amount",
+        c=COLOUR_MaxProbMulti,
+        linestyle=LINESTYLE_MaxProbMulti,
+        label="Probability/ Multi",
+        ax=ax,
+        marker="o",
+        markersize=3,
+        stacked=False,
+    )
+    ax = df["MinFeeSingle"].plot(
+        x="amount",
+        c=COLOUR_MinFeeSingle,
+        linestyle=LINESTYLE_MinFeeSingle,
+        label="Fee/ Single",
+        ax=ax,
+        marker="o",
+        markersize=3,
+        stacked=False,
+    )
+    ax = df["MinFeeMulti"].plot(
+        c=COLOUR_MinFeeMulti,
+        linestyle=LINESTYLE_MinFeeMulti,
+        label="Fee/ Multi",
+        ax=ax,
+        marker="o",
+        markersize=3,
+        stacked=False,
+    )
+    ax.tick_params("x", labelrotation=45)
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, 1.1),
-        ncol=2,
-        fontsize=8,
+        bbox_to_anchor=(0.75, 1.1),
+        handlelength=2,
+        ncol=4,
         frameon=False,
+        fontsize=5,
     )
-    x_ticks = list(range(0, len(df)))
-    x_ticks_labels = [
+    plt.locator_params(axis="x", nbins=11)
+    x_ticks = [
         100,
         500,
         1000,
@@ -135,11 +170,14 @@ def plot(
         10000,
         50000,
         100000,
+        500000,
         1000000,
         5000000,
         10000000,
     ]
-    # plt.xticks(x_ticks, x_ticks_labels, rotation=45)
+    locs, labels = plt.xticks()
+    labels = X_TICKS_LABELS
+    ax.set_xticklabels(labels)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.savefig(output_path)

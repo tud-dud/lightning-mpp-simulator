@@ -39,5 +39,19 @@ COLOUR_MAP_NAME = "Paired"
 COLOUR_MAP = get_cmap(COLOUR_MAP_NAME).colors
 COLOUR_MinFeeSingle = COLOUR_MAP[1]
 COLOUR_MinFeeMulti = COLOUR_MAP[0]
-COLOUR_MaxProbSingle = COLOUR_MAP[3]
-COLOUR_MaxProbMulti = COLOUR_MAP[2]
+COLOUR_MaxProbSingle = COLOUR_MAP[5]
+COLOUR_MaxProbMulti = COLOUR_MAP[4]
+
+X_TICKS_LABELS = [
+    "100",
+    "500",
+    "1.000",
+    "5.000",
+    "10.000",
+    "50.000",
+    "100.000",
+    "500.000",
+    "1.000.000",
+    "5,000.000",
+    f"{10000000:,}",
+]

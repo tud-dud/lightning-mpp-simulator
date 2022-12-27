@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from constants import *
 import matplotlib.patches as mpatches
 import seaborn as sns
+import numpy as np
 
 
 def plot_path_len(
@@ -43,6 +44,12 @@ def plot_path_len(
 
     print("Evaluating distribution of path lengths")
     # distributions
+    yticks = [
+        np.arange(0, 45, 10),
+        np.arange(0, 45, 10),
+        np.arange(0, 85, 10),
+        np.arange(0, 85, 10),
+    ]
     hue_orders = ["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"]
     for i in range(0, 4):
         ax = sns.boxplot(
@@ -74,10 +81,14 @@ def plot_path_len(
             marker="o",
             size=2,
             jitter=True,
+            zorder=-20,
         )
+        ax.set_yticks(yticks[i])
+        ax.set_rasterization_zorder(-10)
         ax.get_legend().remove()
         ax.set_xlabel("")
         ax.tick_params("x", labelrotation=45)
+        ax.set_xticklabels(X_TICKS_LABELS)
         ax.set_ylabel("Hop count")
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
@@ -87,7 +98,7 @@ def plot_path_len(
     plt.xlabel("Payment amount in msat")
     plt.legend(
         handles=[l1, l2, l3, l4],
-        bbox_to_anchor=(0.75, 5.8),
+        bbox_to_anchor=(0.75, 5.9),
         ncol=4,
         fontsize=8,
         frameon=False,

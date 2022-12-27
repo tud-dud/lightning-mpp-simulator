@@ -20,7 +20,7 @@ def plot_fees(
 ):
     print("Evaluating transaction fees data.")
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 8))
+    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 10))
     axes = axes.flatten()
     plt.tight_layout()
     ax0 = sns.boxplot(
@@ -63,6 +63,7 @@ def plot_fees(
     )
     ax1.set_yscale("log")
     ax1.tick_params("x", labelrotation=45)
+    ax1.set_xticklabels(X_TICKS_LABELS)
     ax1.set_ylabel("Relative fees in msat")
     ax1.get_legend().remove()
 
@@ -72,7 +73,7 @@ def plot_fees(
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
     plt.legend(
         handles=[l1, l2, l3, l4],
-        bbox_to_anchor=(0.75, 2.175),
+        bbox_to_anchor=(0.75, 2.15),
         ncol=4,
         fontsize=8,
         frameon=False,
@@ -95,7 +96,7 @@ def plot_fee_distributions(
     print("Evaluating fee distribution data.")
     plt.tight_layout()
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    fig, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 8))
+    fig, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 10))
     axes = axes.flatten()
     plt.tight_layout()
     hue_orders = ["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"]
@@ -127,14 +128,18 @@ def plot_fee_distributions(
             dodge=True,
             palette=[colours[i]],
             marker="o",
-            size=2,
+            size=1,
             jitter=True,
+            zorder=-20,
         )
-        ax.set_yscale("log")
+        ax.set_rasterization_zorder(-10)
+        ax.set_yscale("symlog")
+        ax.set_ylim([1e-3, 1e7])
         ax.tick_params("x", labelrotation=45)
         ax.set_ylabel("Fees in msat")
         ax.set_xlabel("")
         ax.get_legend().remove()
+        ax.set_xticklabels(X_TICKS_LABELS)
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
@@ -142,7 +147,7 @@ def plot_fee_distributions(
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
     plt.legend(
         handles=[l1, l2, l3, l4],
-        bbox_to_anchor=(0.75, 4.75),
+        bbox_to_anchor=(0.75, 4.6),
         ncol=4,
         fontsize=8,
         frameon=False,

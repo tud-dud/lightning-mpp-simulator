@@ -3,7 +3,8 @@
 import matplotlib.pyplot as plt
 from constants import *
 import matplotlib.patches as mpatches
-import seaborn as sns
+import matplotlib.ticker as ticker
+import numpy as np
 
 """
 the total number(runs, scenario, amount) of HTLC attempts performed by the simulation
@@ -27,7 +28,7 @@ def plot_htlc_attempts(
         .unstack()
         .reset_index()
     )
-    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 8))
+    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 10))
     x_ticks = []
     x_ticks_labels = []
     for amt in range(0, len(df_abs["amount"])):
@@ -47,8 +48,9 @@ def plot_htlc_attempts(
         axes[0].plot([amt, amt], [y[0], y[1]], "--", color="gray", alpha=0.5)
         axes[0].plot([amt, amt], [y[1], y[2]], "--", color="gray", alpha=0.5)
         axes[0].plot([amt, amt], [y[2], y[3]], "--", color="gray", alpha=0.5)
-    axes[0].set_xticks(x_ticks, x_ticks_labels, rotation=45)
-    axes[0].set_yscale("log")
+    axes[0].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
+    yticks = np.arange(50000, 200001, 50000)
+    axes[0].set_yticks(yticks)
     axes[0].set_ylabel("Total number of HTLC attempts")
 
     # relative: #successful of total attempts
@@ -83,9 +85,10 @@ def plot_htlc_attempts(
         axes[1].plot([amt, amt], [y[0], y[1]], "--", color="gray", alpha=0.5)
         axes[1].plot([amt, amt], [y[1], y[2]], "--", color="gray", alpha=0.5)
         axes[1].plot([amt, amt], [y[2], y[3]], "--", color="gray", alpha=0.5)
-    axes[1].set_xticks(x_ticks, x_ticks_labels, rotation=45)
+    axes[1].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
     axes[1].tick_params("x", labelrotation=45)
     # axes[1].set_yscale("log")
+    axes[1].set_yticks(np.arange(65, 105, 5))
     axes[1].set_ylabel("Percentage of successful HTLC attempts")
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
