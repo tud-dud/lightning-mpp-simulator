@@ -130,6 +130,7 @@ impl Simulation {
                         "Payment {} failed at source {} due to insufficient balance. available balamce {}, total amount {}",
                         payment_shard.payment_id, payment_shard.source, current_balance, candidate_path.amount,
                     );
+                    payment_shard.htlc_attempts += 1;
                     payment_shard.succeeded = false;
                     return (payment_shard.succeeded, transferred_amounts);
                 }
