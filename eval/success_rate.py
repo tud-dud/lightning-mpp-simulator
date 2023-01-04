@@ -41,13 +41,13 @@ def plot_success_rate(json_data, output_path):
     df = df.groupby(["amount", "scenario"])["success_rate"].median().unstack()
     plot(
         df,
-        xlabel="Amount in msats",
+        xlabel="Amount in sats",
         ylabel="Success rate",
         output_path=os.path.join(output_path, "success_rate_line.pdf"),
     )
     scatter_plot(
         df,
-        xlabel="Amount in msats",
+        xlabel="Amount in sats",
         ylabel="Success rate",
         output_path=os.path.join(output_path, "success_rate_scatter.pdf"),
     )
@@ -80,15 +80,17 @@ def scatter_plot(df, ylabel, xlabel, output_path):
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
-    ax.legend(
-        # loc="upper center",
+    plt.legend(
         handles=[l1, l2, l3, l4],
-        fontsize=3,
+        bbox_to_anchor=(0.75, 1.05),
+        handlelength=2,
+        ncol=4,
         frameon=False,
+        fontsize=8,
     )
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.savefig(output_path)
+    plt.savefig(output_path, bbox_inches="tight")
     print("{} written to {}".format(ylabel, output_path))
 
 
@@ -97,88 +99,67 @@ def plot(
     ylabel,
     xlabel,
     output_path,
-    kind="line",
-    colours=[
-        COLOUR_MaxProbMulti,
-        COLOUR_MaxProbSingle,
-        COLOUR_MinFeeMulti,
-        COLOUR_MinFeeSingle,
-    ],
-    linestyles=[
-        LINESTYLE_MaxProbMulti,
-        LINESTYLE_MaxProbSingle,
-        LINESTYLE_MinFeeMulti,
-        LINESTYLE_MinFeeSingle,
-    ],
 ):
-    plt.style.use("default")
-    plt.tight_layout()
-    ax = plt.gca()
-    ax = df["MaxProbSingle"].plot(
-        x="amount",
-        c=COLOUR_MaxProbSingle,
-        linestyle=LINESTYLE_MaxProbSingle,
-        label="Probability/ Single",
-        ax=ax,
-        marker="o",
-        markersize=3,
-        stacked=False,
-    )
-    ax = df["MaxProbMulti"].plot(
-        x="amount",
-        c=COLOUR_MaxProbMulti,
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+    df = df.reset_index()
+    x_ticks = []
+    x_ticks_labels = []
+    mpm = list()
+    mps = list()
+    mfm = list()
+    mfs = list()
+    for amt in range(0, len(df["amount"])):
+        amount = df["amount"][amt]
+        x_ticks.append(amt)
+        x_ticks_labels.append(amount)
+        mpm.append(df["MaxProbMulti"][amt])
+        mps.append(df["MaxProbSingle"][amt])
+        mfm.append(df["MinFeeMulti"][amt])
+        mfs.append(df["MinFeeSingle"][amt])
+    ax.plot(
+        x_ticks,
+        mpm,
         linestyle=LINESTYLE_MaxProbMulti,
+        color=COLOUR_MaxProbMulti,
+        markersize=3,
         label="Probability/ Multi",
-        ax=ax,
+    )
+    ax.plot(
+        x_ticks,
+        mps,
+        linestyle=LINESTYLE_MaxProbSingle,
+        color=COLOUR_MaxProbSingle,
         marker="o",
         markersize=3,
-        stacked=False,
+        label="Probability/ Single",
     )
-    ax = df["MinFeeSingle"].plot(
-        x="amount",
-        c=COLOUR_MinFeeSingle,
-        linestyle=LINESTYLE_MinFeeSingle,
-        label="Fee/ Single",
-        ax=ax,
-        marker="o",
-        markersize=3,
-        stacked=False,
-    )
-    ax = df["MinFeeMulti"].plot(
-        c=COLOUR_MinFeeMulti,
+    ax.plot(
+        x_ticks,
+        mfm,
         linestyle=LINESTYLE_MinFeeMulti,
+        color=COLOUR_MinFeeMulti,
+        markersize=3,
         label="Fee/ Multi",
-        ax=ax,
+    )
+    ax.plot(
+        x_ticks,
+        mfs,
+        linestyle=LINESTYLE_MinFeeSingle,
+        color=COLOUR_MinFeeSingle,
         marker="o",
         markersize=3,
-        stacked=False,
+        label="Fee/ Single",
     )
+    ax.set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
     ax.tick_params("x", labelrotation=45)
-    ax.legend(
-        bbox_to_anchor=(0.75, 1.1),
+    plt.legend(
+        bbox_to_anchor=(0.75, 1.05),
         handlelength=2,
         ncol=4,
         frameon=False,
-        fontsize=5,
+        fontsize=8,
     )
-    plt.locator_params(axis="x", nbins=11)
-    x_ticks = [
-        100,
-        500,
-        1000,
-        5000,
-        10000,
-        50000,
-        100000,
-        500000,
-        1000000,
-        5000000,
-        10000000,
-    ]
-    locs, labels = plt.xticks()
-    labels = X_TICKS_LABELS
-    ax.set_xticklabels(labels)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.savefig(output_path)
+    plt.savefig(output_path, bbox_inches="tight")
     print("{} written to {}".format(ylabel, output_path))
