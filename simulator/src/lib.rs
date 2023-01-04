@@ -27,6 +27,8 @@ pub(crate) static MIN_SHARD_AMOUNT: usize = 1000;
 /// the default number of splits in LND
 /// (https://github.com/lightningnetwork/lnd/blob/master/lnrpc/routerrpc/router_backend.go#L29)
 pub(crate) static MAX_PARTS: usize = 16;
+/// Scaling factor used to convert msats and sats
+pub static SAT_SCALE: usize = 1000;
 
 /// Metric to use when looking for a route
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -72,4 +74,14 @@ impl clap::ValueEnum for RoutingMetric {
             Self::MaxProb => Some(clap::builder::PossibleValue::new("maxprob")),
         }
     }
+}
+
+/// Convert Satoshi to millisatoshi
+pub fn to_millisatoshi(sat: usize) -> usize {
+    sat * SAT_SCALE
+}
+
+/// Convert millisatoshi to Satoshi
+pub fn to_sat(msat: usize) -> usize {
+    msat / SAT_SCALE
 }

@@ -80,7 +80,8 @@ fn main() {
         let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
         amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
-            let sim = init_sim(seed, graph.clone(), *amount, combi);
+            let sat = lightning_simulator::to_millisatoshi(*amount);
+            let sim = init_sim(seed, graph.clone(), sat, combi);
             info!(
                 "Starting {:?} simulation of {} pairs of {} msats.",
                 combi, number_of_sim_pairs, amount

@@ -73,7 +73,7 @@ impl Report {
                 .map(PaymentInfo::from_payment),
         );
         Self {
-            amount: sim_result.amount,
+            amount: crate::to_sat(sim_result.amount),
             total_num: sim_result.total_num,
             num_succesful: sim_result.num_succesful,
             num_failed: sim_result.num_failed,
