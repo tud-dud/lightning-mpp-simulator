@@ -49,8 +49,7 @@ def plot_htlc_attempts(
         axes[0].plot([amt, amt], [y[1], y[2]], "--", color="gray", alpha=0.5)
         axes[0].plot([amt, amt], [y[2], y[3]], "--", color="gray", alpha=0.5)
     axes[0].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
-    yticks = np.arange(50000, 200001, 50000)
-    axes[0].set_yticks(yticks)
+    axes[0].set_yscale("log")
     axes[0].set_ylabel("Total number of HTLC attempts")
 
     # relative: #successful of total attempts
@@ -88,7 +87,7 @@ def plot_htlc_attempts(
     axes[1].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
     axes[1].tick_params("x", labelrotation=45)
     # axes[1].set_yscale("log")
-    axes[1].set_yticks(np.arange(65, 105, 5))
+    # axes[1].set_yticks(np.arange(65, 105, 5))
     axes[1].set_ylabel("Percentage of successful HTLC attempts")
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
@@ -102,6 +101,6 @@ def plot_htlc_attempts(
         fontsize=8,
         frameon=False,
     )
-    plt.xlabel("Payment amount in msat")
+    plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
     print("{} written to {}".format("HTLC attempts", output_path))

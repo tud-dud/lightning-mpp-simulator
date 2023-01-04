@@ -44,12 +44,12 @@ def plot_path_len(
 
     print("Evaluating distribution of path lengths")
     # distributions
-    yticks = [
-        np.arange(0, 45, 10),
-        np.arange(0, 45, 10),
-        np.arange(0, 85, 10),
-        np.arange(0, 85, 10),
-    ]
+    # yticks = [
+    #    np.arange(0, 45, 10),
+    #    np.arange(0, 45, 10),
+    #    np.arange(0, 85, 10),
+    #    np.arange(0, 85, 10),
+    # ]
     hue_orders = ["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"]
     for i in range(0, 4):
         ax = sns.boxplot(
@@ -83,7 +83,6 @@ def plot_path_len(
             jitter=True,
             zorder=-20,
         )
-        ax.set_yticks(yticks[i])
         ax.set_rasterization_zorder(-10)
         ax.get_legend().remove()
         ax.set_xlabel("")

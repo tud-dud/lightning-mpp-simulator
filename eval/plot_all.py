@@ -48,8 +48,9 @@ def get_transactions_data(json_data):
                     htlc_attempts += payment["htlcAttempts"]
                     if payment["succeeded"] is True:
                         successful_htlc_attempts += payment["htlcAttempts"]
-                        total_fees = 0
-                        total_time = 0
+                    total_fees = 0
+                    total_time = 0
+                    if payment["succeeded"] is True:
                         for path in payment["paths"]:
                             total_fees += path["totalFees"]
                             total_time += path["totalTime"]
@@ -62,6 +63,25 @@ def get_transactions_data(json_data):
                                     "path_len": path_len,
                                 }
                             )
+                        transactions_df.append(
+                            {
+                                "run": run,
+                                "amount": amount,
+                                "scenario": scenario,
+                                "total_fees": total_fees,
+                                "relative_fees": total_fees / amount,
+                                "total_time": total_time,
+                            }
+                        )
+                    else:
+                        path_len_df.append(
+                            {
+                                "run": run,
+                                "amount": amount,
+                                "scenario": scenario,
+                                "path_len": 0,
+                            }
+                        )
                         transactions_df.append(
                             {
                                 "run": run,

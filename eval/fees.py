@@ -40,7 +40,7 @@ def plot_fees(
     )
     ax0.set_yscale("log")
     ax0.tick_params("x", labelrotation=45)
-    ax0.set_ylabel("Fees in msat")
+    ax0.set_ylabel("Fees in sat")
     ax0.set_xlabel("")
     ax0.get_legend().remove()
 
@@ -64,7 +64,7 @@ def plot_fees(
     ax1.set_yscale("log")
     ax1.tick_params("x", labelrotation=45)
     ax1.set_xticklabels(X_TICKS_LABELS)
-    ax1.set_ylabel("Relative fees in msat")
+    ax1.set_ylabel("Relative fees in sat")
     ax1.get_legend().remove()
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
@@ -78,7 +78,7 @@ def plot_fees(
         fontsize=8,
         frameon=False,
     )
-    plt.xlabel("Payment amount in msat")
+    plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
     print("{} written to {}".format(ylabel, output_path))
 
@@ -136,7 +136,7 @@ def plot_fee_distributions(
         ax.set_yscale("symlog")
         ax.set_ylim([1e-3, 1e7])
         ax.tick_params("x", labelrotation=45)
-        ax.set_ylabel("Fees in msat")
+        ax.set_ylabel("Fees in sat")
         ax.set_xlabel("")
         ax.get_legend().remove()
         ax.set_xticklabels(X_TICKS_LABELS)
@@ -152,6 +152,6 @@ def plot_fee_distributions(
         fontsize=8,
         frameon=False,
     )
-    plt.xlabel("Payment amount in msat")
+    plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
     print("{} written to {}".format("Fee distribution", output_path))
