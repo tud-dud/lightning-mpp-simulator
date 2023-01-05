@@ -24,6 +24,8 @@ pub struct Node {
     pub rgb_color: String,
     pub out_degree: u32,
     pub in_degree: u32,
+    #[serde(default)]
+    pub is_adversary: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -198,6 +200,7 @@ mod tests {
             addresses: vec!["ipv4://83.85.142.36:9735".to_string()],
             out_degree: 25,
             in_degree: 9,
+            is_adversary: false,
         };
         assert_eq!(*actual, expected);
     }
@@ -323,6 +326,7 @@ mod tests {
             addresses: Vec::default(),
             out_degree: u32::default(),
             in_degree: u32::default(),
+            is_adversary: false,
         };
         assert_eq!(*actual, expected);
     }

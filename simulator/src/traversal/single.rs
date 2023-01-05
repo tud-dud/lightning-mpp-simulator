@@ -85,7 +85,7 @@ mod tests {
     fn send_single_path_payment() {
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None);
+        let mut simulator = crate::attempt::tests::init_sim(None, None);
         let amount_msat = 1000;
         let payment = &mut Payment {
             payment_id: 0,
@@ -108,7 +108,7 @@ mod tests {
     fn successful_payment_contains_correct_info() {
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None);
+        let mut simulator = crate::attempt::tests::init_sim(None, None);
         let amount_msat = 1000;
         let payment = &mut Payment {
             payment_id: 0,

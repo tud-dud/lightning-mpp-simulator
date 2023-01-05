@@ -77,7 +77,7 @@ impl Graph {
         self.nodes.len()
     }
     pub fn edge_count(&self) -> usize {
-        self.edges.clone().into_iter().map(|(_, v)| v.len()).sum()
+        self.edges.clone().into_values().map(|v| v.len()).sum()
     }
 
     pub fn get_node_ids(&self) -> Vec<ID> {
@@ -192,6 +192,10 @@ impl Graph {
             }
         }
         max_receive
+    }
+
+    pub(crate) fn node_is_an_adversary(&self, node: &ID) -> bool {
+        self.nodes.iter().any(|n| n.id == *node && n.is_adversary)
     }
 
     /// We calculate balances based on the edges' max_sat values using a random uniform
@@ -696,5 +700,15 @@ mod tests {
         let actual = graph.get_max_receive_amount(&node);
         let expected = 2500;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn node_is_adversarial() {
+        let num_adv = 100; // all nodes
+        let simulator = crate::attempt::tests::init_sim(None, Some(num_adv));
+        let g = simulator.graph;
+        for node in &g.nodes {
+            assert!(g.node_is_an_adversary(&node.id));
+        }
     }
 }

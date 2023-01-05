@@ -78,6 +78,17 @@ impl Simulation {
                             self.revert_payment(&to_revert);
                         }
                     }
+                    // does the path contain any adversaries?
+                    // ignore source and dest nodes for now
+                    for n in 1..candidate_path.path.hops.len() - 1 {
+                        let node = candidate_path.path.hops[n].0.clone();
+                        if self.graph.node_is_an_adversary(&node) {
+                            self.adversary_hits += 1;
+                            if succeeded {
+                                self.adversary_hits_succesful += 1;
+                            }
+                        }
+                    }
                 } else {
                     error!("No paths to destination found.");
                     succeeded = false;
@@ -263,7 +274,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
 
-    pub fn init_sim(path: Option<String>) -> Simulation {
+    pub fn init_sim(path: Option<String>, fraction_of_adversaries: Option<usize>) -> Simulation {
         let seed = 0;
         let amount = 1000;
         let mut graph = if let Some(file_path) = path {
@@ -275,6 +286,8 @@ pub(crate) mod tests {
         };
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
+        let num_adv = fraction_of_adversaries.unwrap_or(0);
+        let adversaries = Simulation::draw_adversaries(&graph.get_node_ids(), num_adv);
         // set balances because of rng
         let balance = 4711;
         for edges in graph.edges.values_mut() {
@@ -282,13 +295,21 @@ pub(crate) mod tests {
                 e.balance = balance;
             }
         }
-        Simulation::new(seed, graph.clone(), amount, routing_metric, payment_parts)
+        Simulation::new(
+            seed,
+            graph.clone(),
+            amount,
+            routing_metric,
+            payment_parts,
+            num_adv,
+            adversaries,
+        )
     }
 
     #[test]
     fn reverse_payment() {
         let balance = 4711;
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         // failed payment from alice to chan
         let amounts_to_reverse = Vec::from([
             ("alice".to_string(), "alice1".to_string(), 130),
@@ -318,7 +339,7 @@ pub(crate) mod tests {
     fn payment_transfer_success() {
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         let amount = 1000;
         let balance = 4711;
         simulator.add_invoice(Invoice::new(0, amount, &source, &dest));
@@ -370,7 +391,7 @@ pub(crate) mod tests {
         let amount = 1000;
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         let graph = Box::new(simulator.graph.clone());
         let mut path_finder = PathFinder::new(
             source.clone(),
@@ -411,7 +432,7 @@ pub(crate) mod tests {
         let dest = "chan".to_string();
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         let graph = simulator.graph.clone();
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
@@ -452,7 +473,7 @@ pub(crate) mod tests {
         let dest = "chan".to_string();
         let channel_id = "bob2".to_string(); // channel from bob to chan
         let balance = 100;
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         let graph = simulator.graph.clone();
         simulator.graph.update_channel_balance(&channel_id, balance);
         let mut path_finder = PathFinder::new(
@@ -512,8 +533,18 @@ pub(crate) mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
-        let mut simulator =
-            Simulation::new(seed, graph.clone(), amount, routing_metric, payment_parts);
+        let fraction_of_adversaries = 0;
+        let adversaries =
+            Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
+        let mut simulator = Simulation::new(
+            seed,
+            graph.clone(),
+            amount,
+            routing_metric,
+            payment_parts,
+            fraction_of_adversaries,
+            adversaries,
+        );
         let source =
             "03c45cf25622ec07c56d13b7043e59c8c27ca822be58140b213edaea6849380349".to_string();
         let dest = "0329ae9a574b7120456d2ebf6626506e6a75255edd91ac4ea03ea008b9bad67bd2".to_string();
@@ -539,7 +570,7 @@ pub(crate) mod tests {
         let source = "alice".to_string();
         let hop = "bob".to_string();
         let dest = "chan".to_string();
-        let mut simulator = init_sim(None);
+        let mut simulator = init_sim(None, None);
         let graph = simulator.graph.clone();
         let capacity = graph.get_edge(&hop, &dest).unwrap().capacity;
         let amount = capacity * 2;

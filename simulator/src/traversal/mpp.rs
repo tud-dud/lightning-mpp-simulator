@@ -144,7 +144,7 @@ mod tests {
         let source = "alice".to_string();
         let dest = "bob".to_string();
         let json_file = "../test_data/trivial_multipath.json";
-        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()), None);
         let amount_msat = 300000;
         let payment = &mut Payment {
             payment_id: 0,
@@ -181,7 +181,7 @@ mod tests {
         let json_file = "../test_data/trivial_multipath.json";
         let source = "bob".to_string();
         let dest = "alice".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()), None);
         let balance = 10000;
         for edges in simulator.graph.edges.values_mut() {
             for e in edges {
@@ -218,7 +218,7 @@ mod tests {
         let json_file = "../test_data/trivial_multipath.json";
         let source = "bob".to_string();
         let dest = "alice".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()), None);
         let balance = 1000;
         for edges in simulator.graph.edges.values_mut() {
             for e in edges {
@@ -264,7 +264,7 @@ mod tests {
         let json_file = "../test_data/trivial_multipath.json";
         let source = "bob".to_string();
         let dest = "alice".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()));
+        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()), None);
         let balance = 10000;
         for edges in simulator.graph.edges.values_mut() {
             for e in edges {

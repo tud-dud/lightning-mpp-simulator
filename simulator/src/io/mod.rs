@@ -15,6 +15,9 @@ pub struct Report {
     pub(crate) total_num: usize,
     pub(crate) num_succesful: usize,
     pub(crate) num_failed: usize,
+    pub(crate) percentage_adversaries: usize,
+    pub(crate) adversary_hits: usize,
+    pub(crate) adversary_hits_succesful: usize,
     pub(crate) payments: Vec<PaymentInfo>,
 }
 

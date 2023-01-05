@@ -19,6 +19,9 @@ struct Cli {
     /// Number of src/dest pairs to use in the simulation
     #[arg(long = "pairs", short = 'n', default_value_t = 1000)]
     num_pairs: usize,
+    /// Percentage of adversarial nodes
+    #[arg(long = "adversaries", short = 'm', default_value_t = 20)]
+    num_adv: usize,
     /// Split the payment and route independently. Default is not to split and send as a single
     /// payment
     #[arg(long = "split", short = 's')]
@@ -47,6 +50,7 @@ fn main() {
     let seed = args.run;
     let paymeny_amt = args.amount;
     let number_of_sim_pairs = args.num_pairs;
+    let fraction_of_adversaries = args.num_adv;
     let routing_metric = args.edge_weight;
     let split_payments = if args.split_payments {
         lightning_simulator::PaymentParts::Split
@@ -70,12 +74,15 @@ fn main() {
         output_dir
     );
 
+    let adversaries = Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
     let mut simulator = Simulation::new(
         seed,
         graph.clone(),
         paymeny_amt,
         routing_metric,
         split_payments,
+        fraction_of_adversaries,
+        adversaries,
     );
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     _ = simulator.run(pairs);
