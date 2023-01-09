@@ -20,8 +20,8 @@ struct Cli {
     #[arg(long = "pairs", short = 'n', default_value_t = 1000)]
     num_pairs: usize,
     /// Percentage of adversarial nodes
-    #[arg(long = "adversaries", short = 'm', default_value_t = 20)]
-    num_adv: usize,
+    #[arg(long = "adversaries", short = 'm')]
+    num_adv: Option<usize>,
     /// Split the payment and route independently. Default is not to split and send as a single
     /// payment
     #[arg(long = "split", short = 's')]
@@ -74,7 +74,6 @@ fn main() {
         output_dir
     );
 
-    let adversaries = Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
     let mut simulator = Simulation::new(
         seed,
         graph.clone(),
@@ -82,7 +81,6 @@ fn main() {
         routing_metric,
         split_payments,
         fraction_of_adversaries,
-        adversaries,
     );
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     _ = simulator.run(pairs);

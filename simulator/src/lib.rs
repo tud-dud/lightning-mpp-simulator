@@ -60,6 +60,15 @@ pub enum WeightPartsCombi {
     MaxProbMulti,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct Adversaries {
+    pub(crate) percentage: usize,
+    /// Number of times an adversary was included a payment path
+    pub hits: usize,
+    /// Number of times an adversary was included a successful payment path
+    pub hits_successful: usize,
+}
+
 lazy_static! {
     static ref RNG: Mutex<StdRng> = {
         let std_rng = StdRng::from_entropy();

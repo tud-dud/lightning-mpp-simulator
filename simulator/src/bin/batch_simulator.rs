@@ -74,47 +74,25 @@ fn main() {
         WeightPartsCombi::MinFeeMulti,
         WeightPartsCombi::MaxProbMulti,
     ];
-    let fraction_of_adversaries: Vec<usize> = (0..10).map(|v| v * 10).collect(); // in percent
-    let fraction_of_adversaries: Vec<usize> = (0..1).map(|v| v * 10).collect(); // in percent
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     let mut results = Vec::with_capacity(4);
-    let malicious: Vec<Vec<lightning_simulator::ID>> = fraction_of_adversaries
-        .iter()
-        .map(|fraction_of_adversaries| {
-            Simulation::draw_adversaries(&graph.get_node_ids(), *fraction_of_adversaries)
-                .into_iter()
-                .collect()
-        })
-        .collect();
     for combi in weight_parts {
         let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
         amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
             let sat = lightning_simulator::to_millisatoshi(*amount);
-            fraction_of_adversaries
-                .par_iter()
-                .enumerate()
-                .for_each(|(idx, f)| {
-                    let sim = init_sim(
-                        seed,
-                        graph.clone(),
-                        sat,
-                        combi,
-                        *f,
-                        malicious[idx].iter().cloned(),
-                    );
-                    info!(
-                        "Starting {:?} simulation of {} pairs of {} sats.",
-                        combi, number_of_sim_pairs, sat,
-                    );
-                    let sim_result = simulate(sim, pairs.clone());
-                    let duration_in_ms = start.elapsed().as_millis();
-                    info!(
-                        "Simulation {:?} of amount {} with {}% adversaries completed after {} ms.",
-                        combi, sat, f, duration_in_ms
-                    );
-                    sim_results.lock().unwrap().push(sim_result);
-                });
+            let sim = init_sim(seed, graph.clone(), sat, combi);
+            info!(
+                "Starting {:?} simulation of {} pairs of {} sats.",
+                combi, number_of_sim_pairs, sat,
+            );
+            let sim_result = simulate(sim, pairs.clone());
+            let duration_in_ms = start.elapsed().as_millis();
+            info!(
+                "Simulation {:?} of amount {} sat completed after {} ms.",
+                combi, sat, duration_in_ms
+            );
+            sim_results.lock().unwrap().push(sim_result);
         });
         let combi_sim_results = if let Ok(s) = sim_results.lock() {
             s.clone()
@@ -126,15 +104,8 @@ fn main() {
     report_to_file(&results, output_dir, seed).expect("Writing to report failed.");
 }
 
-fn init_sim(
-    seed: u64,
-    graph: Graph,
-    amount: usize,
-    weight_parts: WeightPartsCombi,
-    percentage: usize,
-    adversaries: impl Iterator<Item = lightning_simulator::ID> + Clone,
-) -> Simulation {
-    Simulation::new_batch_simulator(seed, graph, amount, weight_parts, adversaries, percentage)
+fn init_sim(seed: u64, graph: Graph, amount: usize, weight_parts: WeightPartsCombi) -> Simulation {
+    Simulation::new_batch_simulator(seed, graph, amount, weight_parts, None)
 }
 
 fn simulate(

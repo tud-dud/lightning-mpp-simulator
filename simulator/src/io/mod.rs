@@ -1,4 +1,6 @@
-use crate::{payment::Payment, traversal::pathfinding::CandidatePath, WeightPartsCombi};
+use crate::{
+    payment::Payment, traversal::pathfinding::CandidatePath, Adversaries, WeightPartsCombi,
+};
 use serde::Serialize;
 
 pub mod output;
@@ -15,10 +17,8 @@ pub struct Report {
     pub(crate) total_num: usize,
     pub(crate) num_succesful: usize,
     pub(crate) num_failed: usize,
-    pub(crate) percentage_adversaries: usize,
-    pub(crate) adversary_hits: usize,
-    pub(crate) adversary_hits_succesful: usize,
     pub(crate) payments: Vec<PaymentInfo>,
+    pub(crate) adversaries: Vec<Adversaries>,
 }
 
 /// run and reports

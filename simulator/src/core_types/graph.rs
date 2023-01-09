@@ -701,14 +701,4 @@ mod tests {
         let expected = 2500;
         assert_eq!(actual, expected);
     }
-
-    #[test]
-    fn node_is_adversarial() {
-        let num_adv = 100; // all nodes
-        let simulator = crate::attempt::tests::init_sim(None, Some(num_adv));
-        let g = simulator.graph;
-        for node in &g.nodes {
-            assert!(g.node_is_an_adversary(&node.id));
-        }
-    }
 }

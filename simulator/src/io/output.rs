@@ -77,10 +77,8 @@ impl Report {
             total_num: sim_result.total_num,
             num_succesful: sim_result.num_succesful,
             num_failed: sim_result.num_failed,
-            percentage_adversaries: sim_result.percentage_adversaries,
-            adversary_hits: sim_result.adversary_hits,
-            adversary_hits_succesful: sim_result.adversary_hits_succesful,
             payments,
+            adversaries: sim_result.adversaries.to_owned(),
         }
     }
 }

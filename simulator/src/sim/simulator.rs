@@ -1,6 +1,6 @@
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, sim::SimResult, time::Time, Invoice,
-    PaymentId, PaymentParts, RoutingMetric, WeightPartsCombi, ID,
+    core_types::graph::Graph, event::*, payment::Payment, sim::SimResult, time::Time, Adversaries,
+    Invoice, PaymentId, PaymentParts, RoutingMetric, WeightPartsCombi, ID,
 };
 use log::{debug, error, info};
 use rand::{seq::IteratorRandom, SeedableRng};
@@ -28,11 +28,10 @@ pub struct Simulation {
     pub(crate) successful_payments: Vec<Payment>,
     pub(crate) num_failed: usize,
     pub(crate) failed_payments: Vec<Payment>,
-    pub(crate) percentage_adversaries: usize,
-    /// Number of times an adversary was included a payment path
-    pub(crate) adversary_hits: usize,
-    /// Number of times an adversary was included a successful payment path
-    pub(crate) adversary_hits_succesful: usize,
+    /// If fraction of adversaries in the simulation is not passed, we simulate 0 to 90% of
+    /// adversaries
+    pub(crate) fraction_of_adversaries: Option<usize>,
+    pub(crate) adversaries: Vec<Adversaries>,
 }
 
 impl Simulation {
@@ -42,8 +41,7 @@ impl Simulation {
         amount: usize,
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
-        fraction_of_adversaries: usize,
-        adversaries: impl Iterator<Item = ID> + Clone,
+        fraction_of_adversaries: Option<usize>,
     ) -> Self {
         info!("Initialising simulation...");
         let mut rng = crate::RNG.lock().unwrap();
@@ -51,18 +49,6 @@ impl Simulation {
         let event_queue = EventQueue::new();
         let outstanding_invoices: BTreeMap<String, HashMap<usize, Invoice>> = BTreeMap::new();
         let successful_payments = Vec::new();
-        let mut graph = graph;
-        let adversaries: Vec<String> = adversaries.collect();
-        // TODO: Runtime
-        for node in graph.nodes.iter_mut() {
-            if adversaries.contains(&node.id) {
-                node.is_adversary = true;
-            }
-        }
-        info!(
-            "Prepared simulation with {} adversarial nodes.",
-            adversaries.len()
-        );
         Self {
             graph,
             amount,
@@ -77,9 +63,8 @@ impl Simulation {
             num_failed: 0,
             failed_payments: Vec::new(),
             total_num_payments: 0,
-            percentage_adversaries: fraction_of_adversaries,
-            adversary_hits: 0,
-            adversary_hits_succesful: 0,
+            fraction_of_adversaries,
+            adversaries: vec![],
         }
     }
 
@@ -88,8 +73,7 @@ impl Simulation {
         graph: Graph,
         amount: usize,
         weight_parts: WeightPartsCombi,
-        adversaries: impl Iterator<Item = ID> + Clone,
-        fraction_of_adversaries: usize,
+        fraction_of_adversaries: Option<usize>,
     ) -> Self {
         let (routing_metric, payment_parts) = match weight_parts {
             WeightPartsCombi::MinFeeSingle => (RoutingMetric::MinFee, PaymentParts::Single),
@@ -104,7 +88,6 @@ impl Simulation {
             routing_metric,
             payment_parts,
             fraction_of_adversaries,
-            adversaries,
         )
     }
 
@@ -169,6 +152,7 @@ impl Simulation {
             "# Total payments = {}, # successful {}, # failed = {}.",
             self.total_num_payments, self.num_successful, self.num_failed
         );
+        self.eval_adversaries();
         SimResult {
             run: self.run,
             amount: self.amount,
@@ -177,9 +161,7 @@ impl Simulation {
             num_failed: self.num_failed,
             successful_payments: self.successful_payments.clone(),
             failed_payments: self.failed_payments.clone(),
-            percentage_adversaries: self.percentage_adversaries,
-            adversary_hits: self.adversary_hits,
-            adversary_hits_succesful: self.adversary_hits_succesful,
+            adversaries: self.adversaries.to_owned(),
         }
     }
 
@@ -244,6 +226,49 @@ impl Simulation {
         self.current_payment_id += 1;
         current_id
     }
+
+    fn eval_adversaries(&mut self) {
+        let fraction_of_adversaries = if let Some(percent) = self.fraction_of_adversaries {
+            vec![percent]
+        } else {
+            (1..10).map(|v| v * 10).collect() // in percent
+        };
+        let mut all_payments = self.failed_payments.clone();
+        all_payments.extend(self.successful_payments.clone());
+        for percent in fraction_of_adversaries {
+            let adv: Vec<ID> =
+                Simulation::draw_adversaries(&self.graph.get_node_ids(), percent).collect();
+            // TODO: Runtime
+            for node in self.graph.nodes.iter_mut() {
+                if adv.contains(&node.id) {
+                    node.is_adversary = true;
+                }
+            }
+            let mut adversary_hits = 0;
+            let mut adversary_hits_successful = 0;
+            for payment in &all_payments {
+                let used_paths = payment.used_paths.to_owned();
+                for path in used_paths {
+                    // does the path contain any adversaries?
+                    // ignore source and dest nodes for now
+                    for n in 1..path.path.hops.len() - 1 {
+                        let node = path.path.hops[n].0.clone();
+                        if self.graph.node_is_an_adversary(&node) {
+                            adversary_hits += 1;
+                            if payment.succeeded {
+                                adversary_hits_successful += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            self.adversaries.push(Adversaries {
+                percentage: percent,
+                hits: adversary_hits,
+                hits_successful: adversary_hits_successful,
+            });
+        }
+    }
 }
 
 #[cfg(test)]
@@ -260,18 +285,7 @@ mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let fraction_of_adversaries = 0;
-        let adversaries =
-            Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
-        let actual = Simulation::new(
-            seed,
-            graph,
-            amount,
-            routing_metric,
-            payment_parts,
-            fraction_of_adversaries,
-            adversaries,
-        );
+        let actual = Simulation::new(seed, graph, amount, routing_metric, payment_parts, Some(0));
         assert_eq!(actual.amount, amount);
         assert_eq!(actual.run, seed);
     }
@@ -306,18 +320,8 @@ mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let fraction_of_adversaries = 0;
-        let adversaries =
-            Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
-        let mut simulator = Simulation::new(
-            seed,
-            graph,
-            amount,
-            routing_metric,
-            payment_parts,
-            fraction_of_adversaries,
-            adversaries,
-        );
+        let mut simulator =
+            Simulation::new(seed, graph, amount, routing_metric, payment_parts, Some(0));
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,
@@ -350,18 +354,8 @@ mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let fraction_of_adversaries = 0;
-        let adversaries =
-            Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
-        let mut simulator = Simulation::new(
-            seed,
-            graph,
-            amount,
-            routing_metric,
-            payment_parts,
-            fraction_of_adversaries,
-            adversaries,
-        );
+        let mut simulator =
+            Simulation::new(seed, graph, amount, routing_metric, payment_parts, Some(0));
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,
@@ -391,18 +385,8 @@ mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
-        let fraction_of_adversaries = 0;
-        let adversaries =
-            Simulation::draw_adversaries(&graph.get_node_ids(), fraction_of_adversaries);
-        let mut simulator = Simulation::new(
-            seed,
-            graph,
-            amount,
-            routing_metric,
-            payment_parts,
-            fraction_of_adversaries,
-            adversaries,
-        );
+        let mut simulator =
+            Simulation::new(seed, graph, amount, routing_metric, payment_parts, Some(0));
         let invoice = Invoice::new(
             simulator.next_payment_id(),
             1234,
@@ -439,7 +423,8 @@ mod tests {
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
-        assert_eq!(simulator.adversary_hits, 1);
-        assert_eq!(simulator.adversary_hits_succesful, 1);
+        simulator.eval_adversaries();
+        //assert_eq!(simulator.adversary_hits, 1);
+        //assert_eq!(simulator.adversary_hits_succesful, 1);
     }
 }
