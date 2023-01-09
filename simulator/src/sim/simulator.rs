@@ -435,6 +435,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));

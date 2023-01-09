@@ -30,6 +30,8 @@ impl Simulation {
                 payment: payment.to_owned(),
             }
         } else {
+            // used paths is empty for failed payments
+            payment.failed_paths.append(&mut payment.used_paths);
             PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }
@@ -99,6 +101,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
@@ -122,6 +125,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(simulator.send_single_payment(payment));
@@ -144,5 +148,32 @@ mod tests {
         assert_eq!(payment.used_paths.len(), 1);
         assert_eq!(payment.num_parts, 1);
         assert_eq!(expected_used_path, payment.used_paths[0]);
+        assert!(payment.failed_paths.is_empty()); // since the single payment succeeds immediately
+    }
+
+    // checking that payment contains failed path. Failure at the last node due to no invoice
+    #[test]
+    fn failed_paths_in_failed_single_payment() {
+        let amount = 1000;
+        let source = "alice".to_string();
+        let dest = "chan".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(None, None);
+        let mut payment = Payment {
+            payment_id: 0,
+            source,
+            dest,
+            amount_msat: amount,
+            succeeded: false,
+            used_paths: vec![],
+            min_shard_amt: 10,
+            htlc_attempts: 0,
+            num_parts: 1,
+            failed_paths: vec![],
+            failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
+        };
+        assert!(!simulator.send_single_payment(&mut payment));
+        assert!(!payment.failed_paths.is_empty());
+        assert!(payment.used_paths.is_empty());
     }
 }

@@ -22,6 +22,7 @@ pub struct Payment {
     /// Payment amounts that have already succeed, used for MPP payments
     pub(crate) failed_amounts: Vec<usize>,
     pub(crate) successful_shards: Vec<(ID, String, usize)>,
+    pub(crate) failed_paths: Vec<CandidatePath>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +37,7 @@ pub struct PaymentShard {
     pub(crate) used_path: CandidatePath,
     pub(crate) min_shard_amt: usize,
     pub(crate) htlc_attempts: usize,
+    pub(crate) failed_paths: Vec<CandidatePath>,
 }
 
 impl Payment {
@@ -52,6 +54,7 @@ impl Payment {
             htlc_attempts: 0,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: Vec::default(),
         }
     }
 
@@ -124,6 +127,7 @@ impl PaymentShard {
             min_shard_amt: crate::MIN_SHARD_AMOUNT,
             succeeded: payment.succeeded,
             htlc_attempts: payment.htlc_attempts,
+            failed_paths: payment.failed_paths.clone(),
         }
     }
 
@@ -140,6 +144,7 @@ impl PaymentShard {
             htlc_attempts: self.htlc_attempts,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: self.failed_paths.clone(),
         }
     }
 }
@@ -181,6 +186,7 @@ mod tests {
             htlc_attempts: 0,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         assert_eq!(actual, expected);
         assert_eq!(actual.succeeded, expected.succeeded);
@@ -207,6 +213,7 @@ mod tests {
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         let shard = payment.to_shard(amount);
         assert_eq!(shard.payment_id, id);
@@ -222,7 +229,7 @@ mod tests {
     fn successfully_split() {
         let source = "source".to_string();
         let dest = "dest".to_string();
-        let amount = 20001;
+        let amount = crate::MIN_SHARD_AMOUNT * 2 + 1;
         let payment = Payment {
             payment_id: 0,
             source: source.clone(),
@@ -235,15 +242,16 @@ mod tests {
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         let actual = Payment::split_payment(&payment).unwrap();
         let expected = (
             Payment {
-                amount_msat: 10001,
+                amount_msat: crate::MIN_SHARD_AMOUNT + 1,
                 ..payment.clone()
             },
             Payment {
-                amount_msat: 10000,
+                amount_msat: crate::MIN_SHARD_AMOUNT,
                 ..payment.clone()
             },
         );
@@ -268,6 +276,7 @@ mod tests {
             htlc_attempts: 1,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         assert!(Payment::split_payment(&payment).is_none());
     }

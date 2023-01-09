@@ -75,6 +75,7 @@ fn main() {
         WeightPartsCombi::MaxProbMulti,
     ];
     let fraction_of_adversaries: Vec<usize> = (0..10).map(|v| v * 10).collect(); // in percent
+    let fraction_of_adversaries: Vec<usize> = (0..1).map(|v| v * 10).collect(); // in percent
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
     let mut results = Vec::with_capacity(4);
     let malicious: Vec<Vec<lightning_simulator::ID>> = fraction_of_adversaries
@@ -85,7 +86,6 @@ fn main() {
                 .collect()
         })
         .collect();
-    println!("IDS {:?}", malicious);
     for combi in weight_parts {
         let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
         amounts.par_iter().for_each(|amount| {
@@ -104,14 +104,14 @@ fn main() {
                         malicious[idx].iter().cloned(),
                     );
                     info!(
-                        "Starting {:?} simulation of {} pairs of {} msats.",
-                        combi, number_of_sim_pairs, amount,
+                        "Starting {:?} simulation of {} pairs of {} sats.",
+                        combi, number_of_sim_pairs, sat,
                     );
                     let sim_result = simulate(sim, pairs.clone());
                     let duration_in_ms = start.elapsed().as_millis();
                     info!(
                         "Simulation {:?} of amount {} with {}% adversaries completed after {} ms.",
-                        combi, amount, f, duration_in_ms
+                        combi, sat, f, duration_in_ms
                     );
                     sim_results.lock().unwrap().push(sim_result);
                 });

@@ -23,6 +23,10 @@ pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 /// Number of shortest paths to compute during pathfinding
 pub(crate) static _K: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
+/// https://github.com/lightningnetwork/lnd/blob/master/routing/payment_session.go#L72
+#[cfg(not(test))]
+pub(crate) static MIN_SHARD_AMOUNT: usize = 10000 * SAT_SCALE;
+#[cfg(test)]
 pub(crate) static MIN_SHARD_AMOUNT: usize = 1000;
 /// the default number of splits in LND
 /// (https://github.com/lightningnetwork/lnd/blob/master/lnrpc/routerrpc/router_backend.go#L29)

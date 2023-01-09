@@ -1,4 +1,4 @@
-use crate::{payment::Payment, WeightPartsCombi};
+use crate::{payment::Payment, traversal::pathfinding::CandidatePath, WeightPartsCombi};
 use serde::Serialize;
 
 pub mod output;
@@ -38,11 +38,13 @@ pub(crate) struct PaymentInfo {
     /// Number of parts this payment has been split into
     pub(crate) num_parts: usize,
     pub(crate) htlc_attempts: usize,
-    pub(crate) paths: Vec<PathInfo>,
+    pub(crate) used_paths: Vec<PathInfo>,
+    pub(crate) failed_paths: Vec<PathInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+/// Describes the path used by amounts - may or may not have failed
 pub(crate) struct PathInfo {
     /// The aggregated path fees describing how costly the path is
     pub(crate) total_fees: usize,
@@ -51,10 +53,10 @@ pub(crate) struct PathInfo {
 }
 
 impl PathInfo {
-    pub(super) fn from_payment(payment: &Payment) -> Vec<Self> {
-        payment
-            .used_paths
+    pub(super) fn from_payment(paths: &[CandidatePath]) -> Vec<Self> {
+        paths
             .iter()
+            .filter(|p| !p.path.hops.is_empty())
             .map(|path| Self {
                 total_fees: path.path_fees(),
                 total_time: path.time,
@@ -66,13 +68,15 @@ impl PathInfo {
 
 impl PaymentInfo {
     pub(super) fn from_payment(payment: &Payment) -> Self {
-        let paths = PathInfo::from_payment(payment);
+        let used_paths = PathInfo::from_payment(&payment.used_paths);
+        let failed_paths = PathInfo::from_payment(&payment.failed_paths);
         Self {
             id: payment.payment_id,
             succeeded: payment.succeeded,
             num_parts: payment.num_parts,
             htlc_attempts: payment.htlc_attempts,
-            paths,
+            used_paths,
+            failed_paths,
         }
     }
 }
@@ -131,6 +135,7 @@ mod tests {
             used_paths,
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         let actual = PaymentInfo::from_payment(&payment);
         let expected = PaymentInfo {
@@ -138,7 +143,7 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 2,
             succeeded: false,
-            paths: vec![
+            used_paths: vec![
                 PathInfo {
                     total_fees: 10,
                     total_time: 5,
@@ -150,6 +155,7 @@ mod tests {
                     path_len: 3,
                 },
             ],
+            failed_paths: vec![],
         };
         assert_ne!(actual, expected);
     }

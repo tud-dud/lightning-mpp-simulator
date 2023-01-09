@@ -77,11 +77,9 @@ impl CandidatePath {
         }
     }
 
-    /// Returns the fees paid. For MPP payments, we consider the parts' amounts and not the total
-    /// payment amount which works since all MPP payments (currently) are divided equally
+    /// Returns the fees paid. We consider the separate parts' amounts for MPP payments.
     pub(crate) fn path_fees(&self) -> usize {
-        // because some empty paths show up in MPP payments
-        // TODO: Correct num parts too
+        // payments that fail immediately because of insufficient sender balance can be empty
         if !self.path.hops.is_empty() {
             self.path.hops[0].1 - self.path.hops[self.path.hops.len() - 1].1
         } else {

@@ -5,7 +5,10 @@ use crate::{
     Simulation,
 };
 
+#[cfg(not(test))]
 use log::{error, info, trace};
+#[cfg(test)]
+use std::{println as info, println as error, println as trace};
 
 impl Simulation {
     /// Sends an MPP and fails when payment can no longer be split into smaller parts
@@ -40,12 +43,6 @@ impl Simulation {
         let now = self.event_queue.now() + Time::from_secs(crate::SIM_DELAY_IN_SECS);
         let event = if succeeded {
             assert!(payment.succeeded);
-            assert_eq!(
-                payment.num_parts,
-                payment.used_paths.len(),
-                "More paths than parts {:?}",
-                payment
-            );
             info!(
                 "Payment from {} to {} delivered in {} parts.",
                 payment.source, payment.dest, payment.num_parts
@@ -96,7 +93,7 @@ impl Simulation {
                         // Splitting failed so we know at least some part wont succeed
                         failed = true;
                     }
-                } else {
+                } else if success {
                     root.num_parts += 1;
                     root.used_paths
                         .append(&mut current_shard.used_paths.clone());
@@ -121,6 +118,8 @@ impl Simulation {
         // some payment failed so all must now be reversed
         if !succeeded {
             self.revert_payment(&root.successful_shards);
+            // used paths is left empty for failed payments
+            root.failed_paths.append(&mut root.used_paths);
         }
         succeeded
     }
@@ -158,6 +157,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(!simulator.send_single_payment(payment));
@@ -201,6 +201,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         simulator.payment_parts = PaymentParts::Single;
@@ -251,6 +252,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         simulator.payment_parts = PaymentParts::Single;
@@ -284,6 +286,7 @@ mod tests {
             used_paths: Vec::default(),
             failed_amounts: Vec::default(),
             successful_shards: Vec::default(),
+            failed_paths: vec![],
         };
         simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
         assert!(!simulator.send_single_payment(payment));
@@ -324,6 +327,7 @@ mod tests {
         assert!(payment.succeeded);
         assert_eq!(payment.num_parts, 2);
         assert_eq!(payment.used_paths.len(), 2);
+        assert!(payment.failed_paths.is_empty()); // since the single payment fails immediately
         assert_eq!(expected_used_path, payment.used_paths);
     }
 }
