@@ -2,11 +2,11 @@
 
 import pandas as pd
 from argparse import ArgumentParser
-import os
 import json
 from pathlib import Path
 
 from constants import *
+from adversaries import plot_adversary_hits
 from success_rate import *
 from fees import *
 from htlc_attempts import *
@@ -51,7 +51,7 @@ def get_transactions_data(json_data):
                     total_fees = 0
                     total_time = 0
                     if payment["succeeded"] is True:
-                        for path in payment["paths"]:
+                        for path in payment["usedPaths"]:
                             total_fees += path["totalFees"]
                             total_time += path["totalTime"]
                             path_len = path["pathLen"]
@@ -73,13 +73,14 @@ def get_transactions_data(json_data):
                                 "total_time": total_time,
                             }
                         )
+                    # TODO: Basically plot emptz list and not zero
                     else:
                         path_len_df.append(
                             {
                                 "run": run,
                                 "amount": amount,
                                 "scenario": scenario,
-                                "path_len": 0,
+                                "path_len": float("nan"),
                             }
                         )
                         transactions_df.append(
@@ -87,9 +88,9 @@ def get_transactions_data(json_data):
                                 "run": run,
                                 "amount": amount,
                                 "scenario": scenario,
-                                "total_fees": total_fees,
-                                "relative_fees": total_fees / amount,
-                                "total_time": total_time,
+                                "total_fees": float("nan"),
+                                "relative_fees": float("nan"),
+                                "total_time": float("nan"),
                             }
                         )
                 htlc_attempts_df.append(
@@ -147,4 +148,5 @@ if __name__ == "__main__":
         htlc_attempts_df, output_path=os.path.join(output_path, "htlc_attempts.pdf")
     )
     plot_path_len(path_len_df, output_path=os.path.join(output_path, "path_length.pdf"))
+    plot_adversary_hits(data_files, output_path)
     print("Successfully generated plots.")

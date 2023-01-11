@@ -35,12 +35,18 @@ LINESTYLE_MinFeeMulti = linestyles_dict["loosely dashed"]
 LINESTYLE_MaxProbSingle = linestyles_dict["densely dotted"]
 LINESTYLE_MaxProbMulti = linestyles_dict["loosely dotted"]
 
+"""
 COLOUR_MAP_NAME = "Paired"
 COLOUR_MAP = get_cmap(COLOUR_MAP_NAME).colors
 COLOUR_MinFeeSingle = COLOUR_MAP[1]
 COLOUR_MinFeeMulti = COLOUR_MAP[0]
 COLOUR_MaxProbSingle = COLOUR_MAP[5]
 COLOUR_MaxProbMulti = COLOUR_MAP[4]
+"""
+COLOUR_MinFeeSingle = "#2166AC"
+COLOUR_MinFeeMulti = "#4393C3"
+COLOUR_MaxProbSingle = "#B2182B"
+COLOUR_MaxProbMulti = "#D6604D"
 
 X_TICKS_LABELS = [
     "100",

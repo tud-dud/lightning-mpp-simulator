@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-from re import X
-from numpy.random import laplace
 import pandas as pd
 import matplotlib.pyplot as plt
-from seaborn.external.husl import xyz_to_luv
 from constants import *
 import matplotlib.patches as mpatches
 import os
-import numpy as np
 
 """
 Expects a JSON file for each run
