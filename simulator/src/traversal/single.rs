@@ -30,8 +30,8 @@ impl Simulation {
                 payment: payment.to_owned(),
             }
         } else {
-            // used paths is empty for failed payments
-            payment.failed_paths.append(&mut payment.used_paths);
+            // used paths is empty for failed payments. failed paths maybe
+            assert!(payment.used_paths.is_empty());
             PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }

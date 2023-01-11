@@ -36,7 +36,7 @@ impl Simulation {
         }
 
         if !succeeded && !failed {
-            payment.used_paths = Vec::new();
+            payment.used_paths.clear();
             payment.num_parts = 0;
             succeeded = self.send_mpp_shards(payment);
         }
@@ -52,6 +52,7 @@ impl Simulation {
             }
         } else {
             assert!(!payment.succeeded);
+            assert!(payment.used_paths.is_empty());
             PaymentEvent::UpdateFailed {
                 payment: payment.to_owned(),
             }
@@ -75,6 +76,7 @@ impl Simulation {
             if !succeeded && !failed {
                 let (success, mut to_reverse) = self.send_one_payment(&mut current_shard);
                 root.htlc_attempts += current_shard.htlc_attempts;
+                root.failed_paths.append(&mut current_shard.failed_paths);
                 if !success && !failed {
                     root.failed_amounts.push(current_shard.amount_msat);
                     trace!(
@@ -111,15 +113,15 @@ impl Simulation {
                 root.succeeded = true;
                 succeeded = true;
                 // no longer needed - used to revert payments
-                root.successful_shards = vec![];
+                root.successful_shards.clear();
             }
         }
         // total failure so revert succesful payments
         // some payment failed so all must now be reversed
         if !succeeded {
             self.revert_payment(&root.successful_shards);
-            // used paths is left empty for failed payments
-            root.failed_paths.append(&mut root.used_paths);
+            // remove any successful paths we may have stored after shards' success
+            root.used_paths.clear();
         }
         succeeded
     }

@@ -46,9 +46,17 @@ impl Simulation {
                 if let Some(candidate_path) = path_finder.find_path() {
                     let duration_in_ms = start.elapsed().as_millis();
                     info!("Found path after {} ms.", duration_in_ms);
+                    let hops = candidate_path.path.hops.clone();
+                    for hop in hops.iter().take(hops.len() -1).skip(1) {
+                        // not source and dest
+                        let id = hop.0.clone();
+                        self.node_hits
+                            .entry(id)
+                            .and_modify(|occurences| *occurences += 1)
+                            .or_insert(1);
+                    }
                     // maybe the sender's balance is not enough after we have discovered the full
                     // path's fees
-                    let hops = candidate_path.path.hops.clone();
                     let (sender, out_channel) = (&hops[0].0, &hops[0].3);
                     let channel_balance = self.graph.get_channel_balance(sender, out_channel);
                     if channel_balance < candidate_path.amount {
@@ -83,7 +91,8 @@ impl Simulation {
                     }
                     // note paths that were attempted but failed for some reason
                     if failed || !succeeded {
-                        payment.failed_paths.append(&mut payment.used_paths);
+                        payment.failed_paths.push(candidate_path);
+                        payment.used_paths.clear();
                     }
                 } else {
                     error!("No paths to destination found.");
@@ -589,56 +598,5 @@ pub(crate) mod tests {
             failed_paths: vec![],
         };
         assert!(!simulator.send_single_payment(payment));
-    }
-    #[test]
-    #[ignore] // doesnt make sense
-    fn failed_payment_includes_paths() {
-        let json_file = "../test_data/trivial_multipath.json";
-        let source = "alice".to_string();
-        let dest = "bob".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(Some(json_file.to_string()), None);
-        let balance = 10000;
-        for edges in simulator.graph.edges.values_mut() {
-            for e in edges {
-                e.balance = balance;
-            }
-        }
-        let alice_total_balance = 15000;
-        simulator
-            .graph
-            .update_channel_balance(&String::from("alice-carol"), alice_total_balance / 2);
-        simulator
-            .graph
-            .update_channel_balance(&String::from("alice-dave"), alice_total_balance / 2);
-        simulator.graph.edges.iter_mut().for_each(|(id, edges)| {
-            //daves fees are too high making payments from alice impossible
-            if *id == "dave".to_string() {
-                for e in edges.iter_mut() {
-                    e.fee_base_msat = 50;
-                }
-            }
-        });
-        let amount_msat = 12000;
-        let payment = &mut Payment {
-            payment_id: 0,
-            source: source.clone(),
-            dest: dest.clone(),
-            amount_msat,
-            succeeded: false,
-            min_shard_amt: 10,
-            htlc_attempts: 0,
-            num_parts: 0,
-            used_paths: Vec::default(),
-            failed_amounts: Vec::default(),
-            successful_shards: Vec::default(),
-            failed_paths: vec![],
-        };
-        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
-        assert!(!simulator.send_single_payment(payment));
-        println!("failed path {:?}", payment);
-        // alice -> dave -> bob and alice-> carol -> eve -> bob
-        assert!(simulator.send_mpp_payment(payment));
-        println!("failed path {:?}", payment);
-        assert!(!payment.failed_paths.is_empty());
     }
 }

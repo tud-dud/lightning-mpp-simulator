@@ -194,10 +194,6 @@ impl Graph {
         max_receive
     }
 
-    pub(crate) fn node_is_an_adversary(&self, node: &ID) -> bool {
-        self.nodes.iter().any(|n| n.id == *node && n.is_adversary)
-    }
-
     /// We calculate balances based on the edges' max_sat values using a random uniform
     /// distribution. We set the liquidity to the calculated balance
     fn set_channel_balances(&mut self) {

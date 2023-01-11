@@ -32,6 +32,8 @@ pub struct Simulation {
     /// adversaries
     pub(crate) fraction_of_adversaries: Option<usize>,
     pub(crate) adversaries: Vec<Adversaries>,
+    // the number of times a node is included in a payment path
+    pub(crate) node_hits: HashMap<ID, usize>,
 }
 
 impl Simulation {
@@ -65,6 +67,7 @@ impl Simulation {
             total_num_payments: 0,
             fraction_of_adversaries,
             adversaries: vec![],
+            node_hits: HashMap::default(),
         }
     }
 
@@ -238,30 +241,29 @@ impl Simulation {
         for percent in fraction_of_adversaries {
             let adv: Vec<ID> =
                 Simulation::draw_adversaries(&self.graph.get_node_ids(), percent).collect();
-            // TODO: Runtime
-            for node in self.graph.nodes.iter_mut() {
-                if adv.contains(&node.id) {
-                    node.is_adversary = true;
-                }
-            }
             let mut adversary_hits = 0;
             let mut adversary_hits_successful = 0;
-            for payment in &all_payments {
-                let used_paths = payment.used_paths.to_owned();
-                for path in used_paths {
-                    // does the path contain any adversaries?
-                    // ignore source and dest nodes for now
-                    for n in 1..path.path.hops.len() - 1 {
-                        let node = path.path.hops[n].0.clone();
-                        if self.graph.node_is_an_adversary(&node) {
-                            adversary_hits += 1;
-                            if payment.succeeded {
-                                adversary_hits_successful += 1;
+            let mut count_occurences = |payments: &[Payment]| {
+                'main: for payment in payments {
+                    let mut used_paths = payment.used_paths.to_owned();
+                    used_paths.extend(payment.failed_paths.to_owned());
+                    for path in used_paths.iter() {
+                        for i in 1..path.path.hops.len() - 1 {
+                            if adv.contains(&path.path.hops[i].0) {
+                                adversary_hits += 1;
+                                if payment.succeeded {
+                                    adversary_hits_successful += 1;
+                                }
+                                // we know that this payment contains an adversary and don't need to
+                                // look at all paths
+                                continue 'main;
                             }
                         }
                     }
                 }
-            }
+            };
+            count_occurences(&self.successful_payments);
+            count_occurences(&self.failed_payments);
             self.adversaries.push(Adversaries {
                 percentage: percent,
                 hits: adversary_hits,
@@ -426,5 +428,44 @@ mod tests {
         simulator.eval_adversaries();
         //assert_eq!(simulator.adversary_hits, 1);
         //assert_eq!(simulator.adversary_hits_succesful, 1);
+    }
+
+    #[test]
+    fn run_sim() {
+        let fraction_of_adversaries = 100;
+        let path_to_file = Path::new("../test_data/lnbook_example.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let amount = 1000;
+        let seed = 1;
+        let routing_metric = RoutingMetric::MinFee;
+        let payment_parts = PaymentParts::Split;
+        // first one in 3 hops, second in 2
+        let pairs = vec![
+            ("dina".to_owned(), "bob".to_owned()),
+            ("dina".to_owned(), "bob".to_owned()),
+            ("chan".to_owned(), "bob".to_owned()),
+        ];
+        let mut simulator = Simulation::new(
+            seed,
+            graph,
+            amount,
+            routing_metric,
+            payment_parts,
+            Some(fraction_of_adversaries),
+        );
+        simulator.run(pairs.clone().into_iter());
+        assert_eq!(simulator.num_successful + simulator.num_failed, pairs.len());
+        let mut expected_hits: HashMap<String, usize> = HashMap::with_capacity(3);
+        for payment in simulator.successful_payments {
+            for paths in payment.used_paths {
+                for hop in 1..paths.path.hops.len() - 1 {
+                    expected_hits
+                        .entry(paths.path.hops[hop].0.clone())
+                        .and_modify(|occurences| *occurences += 1)
+                        .or_insert(1);
+                }
+            }
+        }
+        assert_eq!(expected_hits, simulator.node_hits);
     }
 }
