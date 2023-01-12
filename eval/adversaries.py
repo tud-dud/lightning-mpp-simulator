@@ -77,7 +77,6 @@ def plot(
                 case "MinFeeMulti":
                     mfm.append(vals)
 
-    vals = [mpm, mps, mfm, mfs]
     for i in range(0, len(amounts)):
         axes[i].plot(
             *zip(*mps[i]),

@@ -4,6 +4,7 @@ import pandas as pd
 from argparse import ArgumentParser
 import json
 from pathlib import Path
+from collections import namedtuple
 
 from constants import *
 from adversaries import plot_adversary_hits
@@ -11,6 +12,8 @@ from success_rate import *
 from fees import *
 from htlc_attempts import *
 from path_length import *
+from anonymity import plot_anonymity
+from splits import plot_parts
 
 
 def read_json_files(input_path):
@@ -36,6 +39,14 @@ def get_transactions_data(json_data):
     transactions_df = []
     htlc_attempts_df = []
     path_len_df = []
+    failed_paths_df = []
+    parts_df = []
+    PathInf = namedtuple("PathInf", ["scenario", "amt", "length"])
+    success_anonymity_df = {}
+    fail_anonymity_df = {}
+    # number of successful with more than 2 hops
+    num_successful_paths = 0
+    num_failed_paths = 0
     for json in json_data:
         for j in json:
             run = j["run"]
@@ -63,6 +74,15 @@ def get_transactions_data(json_data):
                                     "path_len": path_len,
                                 }
                             )
+                            if path_len > 2 and path_len < 21:
+                                num_successful_paths += 1
+                                # add entry of type <(scenario, amt, len)>
+                                path_inf = PathInf(
+                                    scenario=scenario, amt=amount, length=path_len
+                                )
+                                if path_inf not in success_anonymity_df:
+                                    success_anonymity_df[path_inf] = 0
+                                success_anonymity_df[path_inf] += 1
                         transactions_df.append(
                             {
                                 "run": run,
@@ -73,7 +93,16 @@ def get_transactions_data(json_data):
                                 "total_time": total_time,
                             }
                         )
-                    # TODO: Basically plot emptz list and not zero
+                        if scenario in ["MaxProbMulti", "MinFeeMulti"]:
+                            parts = payment["numParts"]
+                            parts_df.append(
+                                {
+                                    "run": run,
+                                    "amount": amount,
+                                    "scenario": scenario,
+                                    "num_parts": parts,
+                                }
+                            )
                     else:
                         path_len_df.append(
                             {
@@ -93,6 +122,27 @@ def get_transactions_data(json_data):
                                 "total_time": float("nan"),
                             }
                         )
+                        for path in payment["failedPaths"]:
+                            path_len = path["pathLen"]
+                            if path_len > 3 and path_len < 21:
+                                num_failed_paths += 1
+                                # add entry of type <(scenario, amt, len)>
+                                path_inf = PathInf(
+                                    scenario=scenario, amt=amount, length=path_len
+                                )
+                                if path_inf not in fail_anonymity_df:
+                                    fail_anonymity_df[path_inf] = 0
+                                fail_anonymity_df[path_inf] += 1
+                    for path in payment["failedPaths"]:
+                        path_len = path["pathLen"]
+                        failed_paths_df.append(
+                            {
+                                "run": run,
+                                "amount": amount,
+                                "scenario": scenario,
+                                "path_len": path_len,
+                            }
+                        )
                 htlc_attempts_df.append(
                     {
                         "run": run,
@@ -105,7 +155,17 @@ def get_transactions_data(json_data):
     transactions_df = pd.DataFrame(transactions_df)
     htlc_attempts_df = pd.DataFrame(htlc_attempts_df)
     path_len_df = pd.DataFrame(path_len_df)
-    return transactions_df, htlc_attempts_df, path_len_df
+    failed_paths_df = pd.DataFrame(failed_paths_df)
+    parts_df = pd.DataFrame(parts_df)
+    return (
+        transactions_df,
+        htlc_attempts_df,
+        path_len_df,
+        failed_paths_df,
+        (success_anonymity_df, num_successful_paths),
+        (fail_anonymity_df, num_failed_paths),
+        parts_df,
+    )
 
 
 if __name__ == "__main__":
@@ -133,7 +193,16 @@ if __name__ == "__main__":
     print("Reading from ", input_path)
     data_files = read_json_files(input_path)
     print("Generating plots.")
-    (transactions_df, htlc_attempts_df, path_len_df) = get_transactions_data(data_files)
+    (
+        transactions_df,
+        htlc_attempts_df,
+        paths_df,
+        failed_paths_df,
+        success_anonymity_df,
+        fail_anonymity_df,
+        parts_df,
+    ) = get_transactions_data(data_files)
+    """
     plot_success_rate(data_files, output_path)
     plot_fees(
         transactions_df,
@@ -147,6 +216,10 @@ if __name__ == "__main__":
     plot_htlc_attempts(
         htlc_attempts_df, output_path=os.path.join(output_path, "htlc_attempts.pdf")
     )
-    plot_path_len(path_len_df, output_path=os.path.join(output_path, "path_length.pdf"))
+    plot_all_paths(paths_df, failed_paths_df, output_path)
     plot_adversary_hits(data_files, output_path)
+    plot_anonymity(success_anonymity_df, fail_anonymity_df, output_path)
+    plot_anonymity(success_anonymity_df, fail_anonymity_df, output_path)
+    """
+    plot_parts(parts_df, output_path=os.path.join(output_path, "splits.pdf"))
     print("Successfully generated plots.")
