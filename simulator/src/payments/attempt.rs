@@ -47,7 +47,7 @@ impl Simulation {
                     let duration_in_ms = start.elapsed().as_millis();
                     info!("Found path after {} ms.", duration_in_ms);
                     let hops = candidate_path.path.hops.clone();
-                    for hop in hops.iter().take(hops.len() -1).skip(1) {
+                    for hop in hops.iter().take(hops.len() - 1).skip(1) {
                         // not source and dest
                         let id = hop.0.clone();
                         self.node_hits

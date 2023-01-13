@@ -72,8 +72,10 @@ impl Simulation {
         let mut failed = false;
         let mut stack = vec![];
         stack.push(root.clone());
+        let mut num_parts = 0;
         while let Some(mut current_shard) = stack.pop() {
             if !succeeded && !failed {
+                num_parts += 1;
                 let (success, mut to_reverse) = self.send_one_payment(&mut current_shard);
                 root.htlc_attempts += current_shard.htlc_attempts;
                 root.failed_paths.append(&mut current_shard.failed_paths);
@@ -85,7 +87,13 @@ impl Simulation {
                         root.amount_msat,
                         2
                     );
-                    if let Some(shards) = Payment::split_payment(&current_shard) {
+                    if num_parts > crate::MAX_PARTS {
+                        error!(
+                            "Aborting splitting as max parts of {} has been reached.",
+                            crate::MAX_PARTS
+                        );
+                        failed = true;
+                    } else if let Some(shards) = Payment::split_payment(&current_shard) {
                         let (mut shard1, mut shard2) = (shards.0, shards.1);
                         shard1.failed_amounts = root.failed_amounts.clone();
                         shard2.failed_amounts = root.failed_amounts.clone();
