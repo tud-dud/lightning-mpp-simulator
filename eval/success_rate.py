@@ -117,7 +117,8 @@ def plot(
         mpm,
         linestyle=LINESTYLE_MaxProbMulti,
         color=COLOUR_MaxProbMulti,
-        markersize=3,
+        marker=MARKER_MaxProbSingle,
+        ms=4,
         label="Probability/ Multi",
     )
     ax.plot(
@@ -125,8 +126,8 @@ def plot(
         mps,
         linestyle=LINESTYLE_MaxProbSingle,
         color=COLOUR_MaxProbSingle,
-        marker="o",
-        markersize=3,
+        marker=MARKER_MaxProbMulti,
+        ms=4,
         label="Probability/ Single",
     )
     ax.plot(
@@ -134,7 +135,8 @@ def plot(
         mfm,
         linestyle=LINESTYLE_MinFeeMulti,
         color=COLOUR_MinFeeMulti,
-        markersize=3,
+        marker=MARKER_MinFeeMulti,
+        ms=4,
         label="Fee/ Multi",
     )
     ax.plot(
@@ -142,8 +144,8 @@ def plot(
         mfs,
         linestyle=LINESTYLE_MinFeeSingle,
         color=COLOUR_MinFeeSingle,
-        marker="o",
-        markersize=3,
+        marker=MARKER_MinFeeSingle,
+        ms=4,
         label="Fee/ Single",
     )
     ax.set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)

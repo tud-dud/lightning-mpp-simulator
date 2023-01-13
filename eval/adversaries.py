@@ -83,6 +83,8 @@ def plot(
             color=COLOUR_MaxProbSingle,
             linestyle=LINESTYLE_MaxProbSingle,
             label="Probability/ Single",
+            marker=MARKER_MaxProbSingle,
+            ms=4,
         )
         plt.subplots_adjust(hspace=0.15)
         axes[i].plot(
@@ -90,6 +92,8 @@ def plot(
             color=COLOUR_MaxProbMulti,
             linestyle=LINESTYLE_MaxProbMulti,
             label="Probability/ Multi",
+            marker=MARKER_MaxProbMulti,
+            ms=4,
         )
         plt.subplots_adjust(hspace=0.15)
         axes[i].plot(
@@ -97,6 +101,8 @@ def plot(
             color=COLOUR_MinFeeSingle,
             linestyle=LINESTYLE_MinFeeSingle,
             label="Fee/ Single",
+            marker=MARKER_MinFeeSingle,
+            ms=4,
         )
         plt.subplots_adjust(hspace=0.15)
         axes[i].plot(
@@ -104,6 +110,8 @@ def plot(
             color=COLOUR_MinFeeMulti,
             linestyle=LINESTYLE_MinFeeMulti,
             label="Fee/ Multi",
+            marker=MARKER_MinFeeMulti,
+            ms=4,
         )
         plt.subplots_adjust(hspace=0.15)
         axes[i].set_title("Payment amount = {} sat".format(f"{amounts[i]:,}"))

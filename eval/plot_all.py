@@ -44,9 +44,11 @@ def get_transactions_data(json_data):
     PathInf = namedtuple("PathInf", ["scenario", "amt", "length"])
     success_anonymity_df = {}
     fail_anonymity_df = {}
-    # number of successful with more than 2 hops
-    num_successful_paths = 0
-    num_failed_paths = 0
+    # number of successful with more than 2 hops per scenario
+    # maybe {'scenario, amt": total #successful}
+    TotalNum = namedtuple("TotalNum", ["scenario", "amt"])
+    num_successful_paths = {}
+    num_failed_paths = {}
     for json in json_data:
         for j in json:
             run = j["run"]
@@ -75,7 +77,10 @@ def get_transactions_data(json_data):
                                 }
                             )
                             if path_len > 2 and path_len < 21:
-                                num_successful_paths += 1
+                                total_num = TotalNum(scenario=scenario, amt=amount)
+                                if total_num not in num_successful_paths:
+                                    num_successful_paths[total_num] = 0
+                                num_successful_paths[total_num] += 1
                                 # add entry of type <(scenario, amt, len)>
                                 path_inf = PathInf(
                                     scenario=scenario, amt=amount, length=path_len
@@ -125,7 +130,10 @@ def get_transactions_data(json_data):
                         for path in payment["failedPaths"]:
                             path_len = path["pathLen"]
                             if path_len > 3 and path_len < 21:
-                                num_failed_paths += 1
+                                total_num = TotalNum(scenario=scenario, amt=amount)
+                                if total_num not in num_failed_paths:
+                                    num_failed_paths[total_num] = 0
+                                num_failed_paths[total_num] += 1
                                 # add entry of type <(scenario, amt, len)>
                                 path_inf = PathInf(
                                     scenario=scenario, amt=amount, length=path_len
@@ -202,12 +210,11 @@ if __name__ == "__main__":
         fail_anonymity_df,
         parts_df,
     ) = get_transactions_data(data_files)
-    """
     plot_success_rate(data_files, output_path)
     plot_fees(
         transactions_df,
-        xlabel="Amount in msats",
-        ylabel="Fees in msats",
+        xlabel="Amount in sats",
+        ylabel="Fees in sats",
         output_path=os.path.join(output_path, "transaction_fees.pdf"),
     )
     plot_fee_distributions(
@@ -219,7 +226,5 @@ if __name__ == "__main__":
     plot_all_paths(paths_df, failed_paths_df, output_path)
     plot_adversary_hits(data_files, output_path)
     plot_anonymity(success_anonymity_df, fail_anonymity_df, output_path)
-    plot_anonymity(success_anonymity_df, fail_anonymity_df, output_path)
-    """
     plot_parts(parts_df, output_path=os.path.join(output_path, "splits.pdf"))
     print("Successfully generated plots.")

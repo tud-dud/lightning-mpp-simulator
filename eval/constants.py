@@ -48,6 +48,11 @@ COLOUR_MinFeeMulti = "#4393C3"
 COLOUR_MaxProbSingle = "#B2182B"
 COLOUR_MaxProbMulti = "#D6604D"
 
+MARKER_MinFeeSingle = "o"
+MARKER_MinFeeMulti = "d"
+MARKER_MaxProbSingle = "x"
+MARKER_MaxProbMulti = "+"
+
 X_TICKS_LABELS = [
     "100",
     "500",

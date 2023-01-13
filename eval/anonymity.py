@@ -20,10 +20,11 @@ def plot_anonymity(df_success, df_fail, output_path):
 def calculate_probability(df, total_num, success=True):
     counts = {}
     for (scenario, amount, path_len), occurences in df.items():
+        total = total_num[scenario, amount]
         if success:
-            prob = prob_for_successful(path_len, occurences, total_num)
+            prob = prob_for_successful(path_len, occurences, total)
         else:
-            prob = prob_for_failed(path_len, occurences, total_num)
+            prob = prob_for_failed(path_len, occurences, total)
         if (scenario, amount) not in counts:
             counts[scenario, amount] = 0
         counts[scenario, amount] += prob
@@ -77,24 +78,32 @@ def plot(
         color=COLOUR_MaxProbSingle,
         linestyle=LINESTYLE_MaxProbSingle,
         label="Probability/ Single",
+        marker=MARKER_MaxProbSingle,
+        ms=4,
     )
     axes[0].plot(
         mpm,
         color=COLOUR_MaxProbMulti,
         linestyle=LINESTYLE_MaxProbMulti,
         label="Probability/ Multi",
+        marker=MARKER_MaxProbMulti,
+        ms=4,
     )
     axes[0].plot(
         mfs,
         color=COLOUR_MinFeeSingle,
         linestyle=LINESTYLE_MinFeeSingle,
         label="Fee/ Single",
+        marker=MARKER_MinFeeSingle,
+        ms=4,
     )
     axes[0].plot(
         mfm,
         color=COLOUR_MinFeeMulti,
         linestyle=LINESTYLE_MinFeeMulti,
         label="Fee/ Multi",
+        marker=MARKER_MinFeeMulti,
+        ms=4,
     )
     axes[0].set_ylabel("Probability for successful payments")
     mpm = list()
@@ -126,6 +135,8 @@ def plot(
         color=COLOUR_MaxProbSingle,
         linestyle=LINESTYLE_MaxProbSingle,
         label="Probability/ Single",
+        marker=MARKER_MaxProbSingle,
+        ms=4,
     )
     axes[1].plot(
         x_ticks,
@@ -133,6 +144,8 @@ def plot(
         color=COLOUR_MaxProbMulti,
         linestyle=LINESTYLE_MaxProbMulti,
         label="Probability/ Multi",
+        marker=MARKER_MaxProbMulti,
+        ms=4,
     )
     axes[1].plot(
         x_ticks,
@@ -140,6 +153,8 @@ def plot(
         color=COLOUR_MinFeeSingle,
         linestyle=LINESTYLE_MinFeeSingle,
         label="Fee/ Single",
+        marker=MARKER_MinFeeSingle,
+        ms=4,
     )
     axes[1].plot(
         x_ticks,
@@ -147,6 +162,8 @@ def plot(
         color=COLOUR_MinFeeMulti,
         linestyle=LINESTYLE_MinFeeMulti,
         label="Fee/ Multi",
+        marker=MARKER_MinFeeMulti,
+        ms=4,
     )
     axes[1].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
     axes[1].set_ylabel("Probability for failed payments")
