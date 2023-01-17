@@ -7,6 +7,7 @@ pub mod core_types;
 pub mod io;
 pub mod payments;
 pub mod sim;
+pub(crate) mod stats;
 pub(crate) mod traversal;
 
 pub use core_types::*;
