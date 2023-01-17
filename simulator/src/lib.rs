@@ -70,6 +70,10 @@ pub struct Adversaries {
     pub hits_successful: usize,
 }
 
+/// All the distances in the simulated payments' paths
+#[derive(Debug, Serialize, Clone)]
+pub struct PathDistances(pub Vec<usize>);
+
 lazy_static! {
     static ref RNG: Mutex<StdRng> = {
         let std_rng = StdRng::from_entropy();
