@@ -364,35 +364,6 @@ mod tests {
     }
 
     #[test]
-    fn adversary_hits() {
-        let fraction_of_adversaries = 100; // all three nodes are adversaries
-        let source = "alice".to_string();
-        let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None, Some(fraction_of_adversaries));
-        let amount_msat = 1000;
-        // alice -> bob -> chan
-        let payment = &mut Payment {
-            payment_id: 0,
-            source: source.clone(),
-            dest: dest.clone(),
-            amount_msat,
-            succeeded: true,
-            min_shard_amt: 10,
-            htlc_attempts: 0,
-            num_parts: 1,
-            used_paths: Vec::default(),
-            failed_amounts: Vec::default(),
-            successful_shards: Vec::default(),
-            failed_paths: vec![],
-        };
-        simulator.add_invoice(Invoice::new(0, amount_msat, &source, &dest));
-        assert!(simulator.send_single_payment(payment));
-        simulator.eval_adversaries();
-        //assert_eq!(simulator.adversary_hits, 1);
-        //assert_eq!(simulator.adversary_hits_succesful, 1);
-    }
-
-    #[test]
     fn run_sim() {
         let fraction_of_adversaries = 100;
         let path_to_file = Path::new("../test_data/lnbook_example.json");

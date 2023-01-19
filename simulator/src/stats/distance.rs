@@ -6,7 +6,7 @@ impl Simulation {
     pub(crate) fn eval_path_similarity(&mut self) {
         let mut levenshtein_distances = vec![];
         for payment in &self.successful_payments {
-            if payment.used_paths.len() <= 1 {
+            if payment.num_parts <= 1 {
                 continue;
             }
             let paths: Vec<Vec<ID>> = payment
