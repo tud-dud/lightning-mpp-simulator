@@ -21,8 +21,8 @@ pub type Edge = network_parser::Edge;
 pub type EdgeWeight = ordered_float::OrderedFloat<f32>;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
-/// Number of shortest paths to compute during pathfinding
-pub(crate) static _K: usize = 3;
+/// Max number of hops in a path from an adversary's adjacent node
+pub(crate) static DEPTH: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
 /// https://github.com/lightningnetwork/lnd/blob/master/routing/payment_session.go#L72
 #[cfg(not(test))]

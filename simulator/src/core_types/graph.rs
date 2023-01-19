@@ -124,6 +124,11 @@ impl Graph {
         }
     }
 
+    /// Discard the given node from the graph
+    pub(crate) fn remove_node(&mut self, node: &ID) {
+        self.nodes.retain(|n| *n.id != *node);
+    }
+
     pub(crate) fn get_outedges(&self, node_id: &ID) -> Vec<Edge> {
         if let Some(out_edges) = self.edges.get(node_id) {
             if out_edges.is_empty() {
@@ -696,5 +701,15 @@ mod tests {
         let actual = graph.get_max_receive_amount(&node);
         let expected = 2500;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn delete_node_from_graph() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        for node in graph.get_node_ids() {
+            graph.remove_node(&node);
+        }
+        assert_eq!(graph.node_count(), 0);
     }
 }

@@ -50,8 +50,46 @@ impl Path {
     }
 
     /// Including src and dest
-    fn get_involved_nodes(&self) -> Vec<ID> {
+    pub(crate) fn get_involved_nodes(&self) -> Vec<ID> {
         self.hops.iter().map(|h| h.0.clone()).collect()
+    }
+
+    // will fail if node is the first hop
+    pub(crate) fn get_pred(&self, node: &ID) -> ID {
+        let node_pos = self.get_involved_nodes().iter().position(|n| n.eq(node));
+        match node_pos {
+            Some(idx) => self.hops[idx - 1].0.clone(),
+            None => String::default(),
+        }
+    }
+
+    // will fail if node is the final hop
+    pub(crate) fn get_succ(&self, node: &ID) -> ID {
+        let node_pos = self.get_involved_nodes().iter().position(|n| n.eq(node));
+        match node_pos {
+            Some(idx) => self.hops[idx + 1].0.clone(),
+            None => String::default(),
+        }
+    }
+
+    ///Ignores the first and final hops and returns the contained adversaries "ID, received_amt,
+    ///received_timelock" if any
+    pub(crate) fn path_contains_adversary(&self, adv: &[ID]) -> Vec<(ID, usize, usize)> {
+        let mut adversaries = vec![];
+        let involved_nodes = self.get_involved_nodes()[1..self.hops.len()].to_owned(); //excludes src
+        for i in 0..involved_nodes.len() - 1 {
+            // exclude dest
+            let node = involved_nodes[i].to_string();
+            if adv.contains(&node) {
+                let offset = self.hops.len() - involved_nodes.len();
+                let hops = self.hops.clone();
+                let amt_rcvd: usize = (i..involved_nodes.len()).map(|h| hops[h + offset].1).sum();
+                let ttl_left: usize = (i..involved_nodes.len()).map(|h| hops[h + offset].2).sum();
+                let tx_data = (node.to_owned(), amt_rcvd, ttl_left);
+                adversaries.push(tx_data);
+            }
+        }
+        adversaries
     }
 
     fn update_hop(&mut self, hop_id: ID, fees: usize, timelock: usize, edge_id: &String) {
@@ -281,11 +319,14 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    pub(crate) fn remove_inadequate_edges(&mut self, amount: usize) -> HashMap<String, Vec<Edge>> {
+    pub(crate) fn remove_inadequate_edges(
+        graph: &Graph,
+        amount: usize,
+    ) -> HashMap<String, Vec<Edge>> {
         debug!("Removing edges with insufficient funds.");
-        let mut copy = self.graph.clone();
+        let mut copy = graph.clone();
         let mut ctr = 0;
-        for edge in self.graph.edges.iter() {
+        for edge in graph.edges.iter() {
             // iter each node's edges
             for e in edge.1 {
                 if e.balance < amount {
@@ -519,5 +560,49 @@ mod tests {
             let expected = 175;
             assert_eq!(actual, expected);
         }
+    }
+
+    #[test]
+    fn get_predecessor_and_successor() {
+        let path = CandidatePath {
+            path: Path {
+                src: String::from("alice"),
+                dest: String::from("dina"),
+                hops: VecDeque::from([
+                    ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                    ("bob".to_string(), 100, 40, "bob2".to_string()),
+                    ("chan".to_string(), 75, 15, "chan2".to_string()),
+                    ("dina".to_string(), 5000, 0, "dina1".to_string()),
+                ]),
+            },
+            weight: 175.0, // fees (b->c, c->d)
+            amount: 5175,  // amount + fees
+            time: 55,
+        };
+        let node = "bob".to_string();
+        let pred = path.path.get_pred(&node);
+        let succ = path.path.get_succ(&node);
+        assert_eq!(pred, "alice".to_string());
+        assert_eq!(succ, "chan".to_string());
+    }
+
+    #[test]
+    fn adversary_in_path() {
+        let path = Path {
+            src: String::from("alice"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        let adv = vec!["bob".to_string(), "chan".to_string(), "dina".to_string()];
+        let expected = vec![("bob".to_owned(), 5175, 55), ("chan".to_string(), 5075, 15)];
+        let actual = path.path_contains_adversary(&adv);
+        assert_eq!(actual, expected);
+        let adv = vec!["ed".to_string()];
+        assert!(path.path_contains_adversary(&adv).is_empty());
     }
 }
