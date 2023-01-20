@@ -22,7 +22,7 @@ pub type EdgeWeight = ordered_float::OrderedFloat<f32>;
 
 pub(crate) static SIM_DELAY_IN_SECS: f32 = 120.0;
 /// Max number of hops in a path from an adversary's adjacent node
-pub(crate) static DEPTH: usize = 3;
+pub(crate) static _DEPTH: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
 /// https://github.com/lightningnetwork/lnd/blob/master/routing/payment_session.go#L72
 #[cfg(not(test))]

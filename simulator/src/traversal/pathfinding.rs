@@ -22,9 +22,9 @@ pub(crate) struct PathFinder {
     /// Network topolgy graph
     pub(crate) graph: Box<Graph>,
     /// Node looking for a route
-    pub(super) src: ID,
+    pub(crate) src: ID,
     /// the destination node
-    pub(super) dest: ID,
+    pub(crate) dest: ID,
     /// How much is being sent from src to dest
     pub(super) amount: usize,
     pub(super) routing_metric: RoutingMetric,
@@ -183,7 +183,13 @@ impl PathFinder {
     }
 
     /// Calculates the total probabilty along a given path starting from dest to src
-    pub(super) fn get_aggregated_path_cost(&mut self, mut candidate_path: &mut CandidatePath) {
+    /// The first node can optionally be treated as an intermediary and demand fees. Used by
+    /// adversary calculations
+    pub(crate) fn get_aggregated_path_cost(
+        &mut self,
+        mut candidate_path: &mut CandidatePath,
+        include_src: bool,
+    ) {
         // 1. for all (src, dest) pairs in the path:
         // 2. calculate weight and fee
         // 3. output: total weight, total fees and total amount due
@@ -213,6 +219,28 @@ impl PathFinder {
                     None => panic!("Edge in path does not exist! {} -> {}", src, dest),
                     Some(e) => e,
                 };
+                if include_src {
+                    // src charges a fee
+                    match self.routing_metric {
+                        RoutingMetric::MaxProb => {
+                            accumulated_weight *= 1.0
+                                - Self::get_edge_failure_probabilty(
+                                    &cheapest_edge,
+                                    accumulated_amount,
+                                )
+                                .into_inner()
+                        }
+                        RoutingMetric::MinFee => {
+                            accumulated_weight +=
+                                Self::get_edge_fee(&cheapest_edge, accumulated_amount).into_inner()
+                        }
+                    };
+                    let edge_fee = Self::get_edge_fee(&cheapest_edge, accumulated_amount)
+                        .into_inner() as usize;
+                    accumulated_amount += edge_fee;
+                    let edge_timelock = cheapest_edge.cltv_expiry_delta;
+                    accumulated_time += edge_timelock;
+                }
                 candidate_path.path.update_hop(
                     cheapest_edge.source,
                     accumulated_amount,
@@ -269,7 +297,7 @@ impl PathFinder {
     }
 
     /// Computes the shortest path beween source and dest using Dijkstra's algorithm
-    pub(super) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, EdgeWeight)> {
+    pub(crate) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, EdgeWeight)> {
         trace!(
             "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
             self.src,
@@ -515,7 +543,7 @@ mod tests {
             ]),
         };
         let mut candidate_path = &mut CandidatePath::new_with_path(path);
-        PathFinder::get_aggregated_path_cost(&mut path_finder, &mut candidate_path);
+        PathFinder::get_aggregated_path_cost(&mut path_finder, &mut candidate_path, false);
         let (actual_weight, actual_amount, actual_time) = (
             candidate_path.weight,
             candidate_path.amount,
@@ -604,5 +632,42 @@ mod tests {
         assert_eq!(actual, expected);
         let adv = vec!["ed".to_string()];
         assert!(path.path_contains_adversary(&adv).is_empty());
+    }
+
+    #[test]
+    fn aggregated_path_cost_including_src() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut path_finder = PathFinder {
+            graph: Box::new(graph),
+            src: "dina".to_string(),
+            dest: "bob".to_string(),
+            amount: 10000,
+            routing_metric: RoutingMetric::MinFee,
+            payment_parts: PaymentParts::Single,
+        };
+        let path = Path {
+            src: path_finder.src.clone(),
+            dest: path_finder.dest.clone(),
+            hops: VecDeque::from([
+                ("dina".to_string(), 0, 0, "".to_string()),
+                ("chan".to_string(), 0, 0, "c".to_string()),
+                ("bob".to_string(), 0, 0, "".to_string()),
+            ]),
+        };
+        let mut candidate_path = &mut CandidatePath::new_with_path(path);
+        path_finder.get_aggregated_path_cost(&mut candidate_path, true);
+        let (actual_weight, actual_amount, actual_time) = (
+            candidate_path.weight,
+            candidate_path.amount,
+            candidate_path.time,
+        );
+        let expected_weight = 1100.0;
+        let expected_amount = 11100;
+        let expected_time = 60;
+
+        assert_eq!(actual_weight, expected_weight);
+        assert_eq!(actual_amount, expected_amount);
+        assert_eq!(actual_time, expected_time);
     }
 }

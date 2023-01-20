@@ -68,7 +68,7 @@ impl PathFinder {
                     .map(|h| (h, usize::default(), usize::default(), String::default()))
                     .collect();
                 let mut candidate_path = CandidatePath::new_with_path(path);
-                self.get_aggregated_path_cost(&mut candidate_path);
+                self.get_aggregated_path_cost(&mut candidate_path, false);
                 Some(candidate_path)
             }
         }
