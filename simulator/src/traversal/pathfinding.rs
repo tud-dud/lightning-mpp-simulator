@@ -92,6 +92,67 @@ impl Path {
         adversaries
     }
 
+    /// Returns the subpath from (including) the given node
+    pub(crate) fn subpath_from(&self, node: &ID) -> VecDeque<(ID, usize, usize, String)> {
+        match self.get_involved_nodes().iter().position(|n| n.eq(node)) {
+            Some(node_pos) => self
+                .hops
+                .range(node_pos..)
+                .cloned()
+                .collect::<VecDeque<_>>(),
+            None => VecDeque::default(),
+        }
+    }
+
+    /// Checks if the other path is a subpath of self
+    pub(crate) fn is_subpath(&self, other: &Path) -> bool {
+        // find first matching element in
+        let mut is_subpath = false;
+        if self.hops.len() > other.hops.len() {
+            is_subpath = false;
+        } else {
+            let first_elem_in_both = self
+                .get_involved_nodes()
+                .iter()
+                .position(|n| other.get_involved_nodes().contains(n));
+            match first_elem_in_both {
+                Some(idx) => {
+                    match other
+                        .get_involved_nodes()
+                        .iter()
+                        .position(|n| *n == self.hops[idx].0)
+                    {
+                        Some(i) => {
+                            // start at the next element since we know i == idx
+                            for (s, o) in (idx + 1..self.hops.len()).zip(i + 1..other.hops.len()) {
+                                if self.hops[s].0 == other.hops[o].0 {
+                                    is_subpath = true;
+                                    break;
+                                }
+                            }
+                        }
+                        None => is_subpath = false,
+                    }
+                }
+                None => is_subpath = false,
+            };
+        }
+        is_subpath
+    }
+
+    pub(crate) fn is_equal(lhs: &VecDeque<(ID, usize, usize, String)>, rhs: &VecDeque<(ID, usize, usize, String)>) -> bool {
+        if lhs.len() != rhs.len() {
+            return false
+        } else {
+            for (l, r) in (0..lhs.len()).zip(0..rhs.len()) {
+                if lhs[l].0 != rhs[r].0 {
+                    return false
+                }
+            }
+        }
+        true
+    }
+
     fn update_hop(&mut self, hop_id: ID, fees: usize, timelock: usize, edge_id: &String) {
         for hop in self.hops.iter_mut() {
             if hop.0 == hop_id {
@@ -669,5 +730,87 @@ mod tests {
         assert_eq!(actual_weight, expected_weight);
         assert_eq!(actual_amount, expected_amount);
         assert_eq!(actual_time, expected_time);
+    }
+
+    #[test]
+    fn get_subpath() {
+        let path = Path {
+            src: "alice".to_string(),
+            dest: "dina".to_string(),
+            hops: VecDeque::from([
+                ("a".to_string(), 0, 0, "".to_string()),
+                ("alice".to_string(), 0, 0, "".to_string()),
+                ("bob".to_string(), 0, 0, "".to_string()),
+                ("chan".to_string(), 0, 0, "".to_string()),
+                ("dina".to_string(), 0, 0, "".to_string()),
+            ]),
+        };
+        let from = "bob".to_string();
+        let actual = path.subpath_from(&from);
+        let expected = VecDeque::from([
+            ("bob".to_string(), 0, 0, "".to_string()),
+            ("chan".to_string(), 0, 0, "".to_string()),
+            ("dina".to_string(), 0, 0, "".to_string()),
+        ]);
+        assert_eq!(actual, expected);
+        let from = "dina".to_string();
+        let actual = path.subpath_from(&from);
+        let expected = VecDeque::from([("dina".to_string(), 0, 0, "".to_string())]);
+        assert_eq!(actual, expected);
+        let from = "emily".to_string();
+        let actual = path.subpath_from(&from);
+        let expected = VecDeque::default();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn subpath() {
+        let self_path = Path {
+            src: String::from("alice"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        let other_path = Path {
+            src: String::from("alice"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        let actual = self_path.is_subpath(&other_path);
+        let expected = true;
+        assert_eq!(actual, expected);
+        let self_path = Path {
+            src: String::from("bob"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        let actual = self_path.is_subpath(&other_path);
+        let expected = true;
+        assert_eq!(actual, expected);
+        let self_path = Path {
+            src: String::from("bob"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        let actual = self_path.is_subpath(&other_path);
+        let expected = false;
+        assert_eq!(actual, expected);
     }
 }
