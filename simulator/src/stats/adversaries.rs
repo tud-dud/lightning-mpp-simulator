@@ -7,9 +7,9 @@ use crate::{
 
 #[cfg(not(test))]
 use log::{debug, info, trace};
+use std::collections::{HashMap, HashSet, VecDeque};
 #[cfg(test)]
 use std::{println as info, println as debug, println as trace};
-use std::collections::{HashMap, HashSet, VecDeque};
 
 impl Simulation {
     pub(crate) fn eval_adversaries(&mut self) {
@@ -25,7 +25,10 @@ impl Simulation {
             let adv: Vec<ID> =
                 Simulation::draw_adversaries(&self.graph.get_node_ids(), percent).collect();
             let (hits, hits_successful) = Self::adversary_hits(&all_payments, &adv);
-            self.deanonymise_tx_pairs(&adv);
+            // Don't run this analysis on all percentages
+            if percent % 20 == 0 {
+                self.deanonymise_tx_pairs(&adv);
+            }
             self.adversaries.push(Adversaries {
                 percentage: percent,
                 hits,
@@ -67,6 +70,13 @@ impl Simulation {
                     {
                         paths
                     } else {
+                        /*let mut default_path = Path::new(pred.clone(), adversary_id.clone());
+                            default_path.hops = VecDeque::from([
+                                            (pred.clone(), 0, 0, String::default()),
+                                            (adversary_id.clone(), 0, 0, String::default()),
+                        ]);
+                        vec![CandidatePath::new_with_path(default_path)
+                        ]*/
                         vec![]
                     };
                     // for all Pi for a list of potential recipients as R and potential senders for each such recipient
@@ -74,22 +84,39 @@ impl Simulation {
                     for mut p_i in phase1_paths {
                         rx_anon_set.insert(p_i.path.dest.clone());
                         // TODO: Source can stay the same
-                        p_i.path
-                            .hops
-                            .push_front((adversary_id.clone(), 0, 0, String::default()));
-                        p_i.path
-                            .hops
-                            .push_front((pred.clone(), 0, 0, String::default()));
                         // phase 2, step 1 paths = P[N]
-                        let shorest_paths_to_p_i_rcpt =
-                            self.compute_shortest_paths(&p_i, amount_to_succ); // TODO: Which graph? amt?
-                        let senders_for_r = self.find_potential_sources(
+                        let shortest_paths_to_p_i_rcpt = self
+                            .compute_shortest_paths(&p_i, amount_to_succ)
+                            .collect::<HashMap<ID, CandidatePath>>(); // TODO: Which graph? amt?
+                        let mut p_i_prime = p_i.clone();
+                        if !p_i_prime.path.get_involved_nodes().contains(&adversary_id)
+                            && !p_i_prime.path.get_involved_nodes().contains(&pred)
+                        {
+                            p_i_prime.path.hops.push_front((
+                                adversary_id.clone(),
+                                0,
+                                0,
+                                String::default(),
+                            ));
+                            p_i_prime
+                                .path
+                                .hops
+                                .push_front((pred.clone(), 0, 0, String::default()));
+                        }
+                        if !Self::is_potential_destination(
                             &p_i,
-                            shorest_paths_to_p_i_rcpt,
+                            shortest_paths_to_p_i_rcpt.get(&adversary_id),
                             &adversary_id,
-                            &pred,
-                        );
-                        sd_anon_set = sd_anon_set.union(&senders_for_r).cloned().collect();
+                            ttl_to_rx,
+                        ) {
+                            let senders_for_r = self.find_potential_sources(
+                                &mut p_i,
+                                shortest_paths_to_p_i_rcpt,
+                                &adversary_id,
+                                &pred,
+                            );
+                            sd_anon_set = sd_anon_set.union(&senders_for_r).cloned().collect();
+                        }
                     }
                 }
             }
@@ -97,27 +124,41 @@ impl Simulation {
         (rx_anon_set, sd_anon_set)
     }
 
-    /// Determine if the last node in the path is a potential receiver
+    fn is_potential_destination(
+        p_i: &CandidatePath,
+        shortest_path_from_adv: Option<&CandidatePath>,
+        adversary: &ID,
+        ttl: usize,
+    ) -> bool {
+        if ttl == 0 {
+            true
+        } else {
+            match shortest_path_from_adv {
+                Some(path_from_adv) => {
+                    Path::is_equal(&p_i.path.subpath_from(adversary), &path_from_adv.path.hops)
+                }
+                None => false,
+            }
+        }
+    }
+
+    /// Determine if the last node in the path is a potential recipient
     /// If so, we also determine potential senders
     /// Phase 2, Step 2-4
     fn find_potential_sources(
         &self,
-        p_i: &CandidatePath,
-        shortest_paths: impl Iterator<Item = (ID, CandidatePath)>,
+        p_i_prime: &mut CandidatePath,
+        all_shortest_paths: HashMap<ID, CandidatePath>,
         adversary: &ID,
         pre: &ID,
     ) -> HashSet<ID> {
         let mut possible_sources = HashSet::new();
-        let all_shortest_paths = shortest_paths.collect::<HashMap<ID, CandidatePath>>();
-        println!("shortest_paths {:?}", all_shortest_paths);
-        println!("p_i {:?}", p_i);
-        for hops_in_pi in p_i.path.hops.range(0..p_i.path.hops.len()) {
+        for hops_in_pi in p_i_prime.path.hops.range(0..p_i_prime.path.hops.len()) {
             // step 2: check if subpath
             let pj = hops_in_pi.0.clone(); //pj
             let path_from_pj = all_shortest_paths.get(&pj);
             if let Some(path_from_pj) = path_from_pj {
-                let pi_pj_subpath = p_i.path.subpath_from(&pj);
-                println!("pi_pj_subpath {:?}", pi_pj_subpath);
+                let pi_pj_subpath = p_i_prime.path.subpath_from(&pj);
                 // Exit if any subpath is not in the path
                 if pi_pj_subpath.is_empty() {
                     debug!("Exiting due to empty subpath.");
@@ -136,21 +177,21 @@ impl Simulation {
                     if pj.eq(adversary) && path_from_pj.path.get_involved_nodes().contains(pre) {
                         debug!("Looking at adversary's path.");
                         possible_sources.extend(self.all_potential_senders(
-                            p_i,
+                            p_i_prime,
                             all_shortest_paths.values().cloned().collect(),
                         ));
                         break;
                     }
                 }
                 if pj.eq(pre) {
-                    debug!("Looking at predecessor's path.");
+                    debug!("Looking at predecessor's {} path.", pre);
                     // If pre is the source, the path from pre should not match the path found
                     // since, the cost from the source to the second node is computed differently.
                     match all_shortest_paths.get(pre) {
                         // Step 3 - pre cannot be an intermediary but must be the only sender of the
                         // transaction since it preceded A
                         Some(path_from_pre) => {
-                            if Path::is_equal(&path_from_pre.path.hops, &p_i.path.hops) {
+                            if Path::is_equal(&path_from_pre.path.hops, &p_i_prime.path.hops) {
                                 possible_sources.insert(pre.clone());
                                 break;
                             } else {
@@ -158,7 +199,7 @@ impl Simulation {
                                 possible_sources.insert(pre.clone());
                                 if path_from_pj.path.get_involved_nodes().contains(pre) {
                                     possible_sources.extend(self.all_potential_senders(
-                                        p_i,
+                                        p_i_prime,
                                         all_shortest_paths.values().cloned().collect(),
                                     ));
                                     break;
@@ -168,10 +209,6 @@ impl Simulation {
                         None => continue,
                     }
                 }
-                } else {
-                    println!("No path {}", hops_in_pi.0);
-                    println!("No path {:?}", all_shortest_paths[&"chan".to_string()]);
-                    println!("No path {:?}", all_shortest_paths[&"chan".to_string()]);
             }
         }
         possible_sources
@@ -265,10 +302,8 @@ impl Simulation {
     ) -> Option<Vec<CandidatePath>> {
         let mut paths = vec![];
         for edge in graph.get_outedges(next) {
-            //let mut edges = vec![];
             let timelock_next = edge.cltv_expiry_delta;
-            // timelock is equal to ttl
-            if timelock_next.eq(&ttl) && edge.capacity >= amount  {
+            if timelock_next.eq(&ttl) && edge.capacity >= amount {
                 // return path next->edge.dest
                 let mut path = Path::new(next.clone(), edge.destination.clone());
                 path.hops = VecDeque::from([
@@ -590,22 +625,30 @@ mod tests {
 
     #[test]
     fn potential_senders() {
-        // does not make too much sense since bob has two roles
         let simulator = crate::attempt::tests::init_sim(None, None);
         let graph = simulator.graph.clone();
         let amount = 100;
-        let next_reachable = "bob".to_string();
-        let ttl = 40; // alice and chan as destinations
-        let reachable_path =
-            Simulation::get_all_reachable_paths(&graph, &next_reachable, amount, ttl).unwrap();
-        assert_eq!(reachable_path.len(), 2); // only bob as destination
-        let shortest_paths = simulator
-            .compute_shortest_paths(&reachable_path[0], amount);
+        // dina -> chan -> bob -> alice
         let adversary = "chan".to_string();
-        let pre = "bob".to_string();
-        let p_i = reachable_path[0].clone();
-        let actual = simulator.find_potential_sources(&p_i, shortest_paths, &adversary, &pre);
-        let expected = HashSet::from(["bob".to_string()]);
+        let pre = "dina".to_string();
+        let next_reachable = "bob".to_string();
+        let ttl = 0; // bob as destination
+        assert!(
+            Simulation::get_all_reachable_paths(&graph, &next_reachable, amount, ttl).is_none()
+        ); //because ttl = 0
+        let mut default_path = Path::new(pre.clone(), adversary.clone());
+        default_path.hops = VecDeque::from([
+            (pre.clone(), 0, 0, String::default()),
+            (adversary.clone(), 0, 0, String::default()),
+        ]);
+        let reachable_path = vec![CandidatePath::new_with_path(default_path)];
+        assert_eq!(reachable_path.len(), 1); // only bob as destination
+        let shortest_paths = simulator
+            .compute_shortest_paths(&reachable_path[0], amount)
+            .collect::<HashMap<ID, CandidatePath>>();
+        let mut p_i = reachable_path[0].clone();
+        let actual = simulator.find_potential_sources(&mut p_i, shortest_paths, &adversary, &pre);
+        let expected = HashSet::from(["dina".to_string()]);
         assert_eq!(actual, expected);
         // a->b->c->d
         let adversary = "bob".to_string();
@@ -614,13 +657,60 @@ mod tests {
         let ttl = 15; // bob-chan+dina ttl
         let reachable_path =
             Simulation::get_all_reachable_paths(&graph, &next_reachable, amount, ttl).unwrap();
-        println!("reachable_path {:?}", reachable_path);
         assert_eq!(reachable_path.len(), 1); // only dina as destination
         let shortest_paths = simulator
-            .compute_shortest_paths(&reachable_path[0], amount);
-        let p_i = reachable_path[0].clone();
-        let actual = simulator.find_potential_sources(&p_i, shortest_paths, &adversary, &pre);
-        let expected = HashSet::from(["dina".to_string()]);
+            .compute_shortest_paths(&reachable_path[0], amount)
+            .collect::<HashMap<ID, CandidatePath>>();
+        let mut p_i = reachable_path[0].clone();
+        if !p_i.path.get_involved_nodes().contains(&adversary)
+            && !p_i.path.get_involved_nodes().contains(&pre)
+        {
+            p_i.path
+                .hops
+                .push_front((adversary.clone(), 0, 0, String::default()));
+            p_i.path
+                .hops
+                .push_front((pre.clone(), 0, 0, String::default()));
+        }
+        let actual = simulator.find_potential_sources(&mut p_i, shortest_paths, &adversary, &pre);
+        let expected = HashSet::from(["alice".to_string()]);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn potential_destination() {
+        let simulator = crate::attempt::tests::init_sim(None, None);
+        let graph = simulator.graph.clone();
+        let amount = 100;
+        let adversary = "bob".to_string();
+        let pre = "alice".to_string();
+        let next_reachable = "chan".to_string();
+        let ttl = 15; // bob-chan+dina ttl
+                      // path chan -> dina
+        let reachable_path =
+            Simulation::get_all_reachable_paths(&graph, &next_reachable, amount, ttl).unwrap();
+        assert_eq!(reachable_path.len(), 1); // only dina as destination
+        let shortest_paths = simulator
+            .compute_shortest_paths(&reachable_path[0], amount)
+            .collect::<HashMap<ID, CandidatePath>>();
+        let mut p_i_prime = reachable_path[0].clone();
+        if !p_i_prime.path.get_involved_nodes().contains(&adversary)
+            && !p_i_prime.path.get_involved_nodes().contains(&pre)
+        {
+            p_i_prime
+                .path
+                .hops
+                .push_front((adversary.clone(), 0, 0, String::default()));
+            p_i_prime
+                .path
+                .hops
+                .push_front((pre.clone(), 0, 0, String::default()));
+        }
+        assert!(Simulation::is_potential_destination(
+            &p_i_prime,
+            shortest_paths.get(&adversary),
+            &adversary,
+            ttl
+        ));
     }
 }

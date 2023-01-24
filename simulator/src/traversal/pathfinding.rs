@@ -140,13 +140,16 @@ impl Path {
         is_subpath
     }
 
-    pub(crate) fn is_equal(lhs: &VecDeque<(ID, usize, usize, String)>, rhs: &VecDeque<(ID, usize, usize, String)>) -> bool {
+    pub(crate) fn is_equal(
+        lhs: &VecDeque<(ID, usize, usize, String)>,
+        rhs: &VecDeque<(ID, usize, usize, String)>,
+    ) -> bool {
         if lhs.len() != rhs.len() {
-            return false
+            return false;
         } else {
             for (l, r) in (0..lhs.len()).zip(0..rhs.len()) {
                 if lhs[l].0 != rhs[r].0 {
-                    return false
+                    return false;
                 }
             }
         }
