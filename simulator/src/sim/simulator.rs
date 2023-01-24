@@ -1,6 +1,7 @@
 use crate::{
-    core_types::graph::Graph, event::*, payment::Payment, sim::SimResult, time::Time, Adversaries,
-    Invoice, PathDistances, PaymentId, PaymentParts, RoutingMetric, WeightPartsCombi, ID,
+    core_types::graph::Graph, event::*, payment::Payment, sim::SimResult, stats::AnonymitySet,
+    time::Time, Adversaries, Invoice, PathDistances, PaymentId, PaymentParts, RoutingMetric,
+    WeightPartsCombi, ID,
 };
 use log::{debug, error, info};
 use rand::{seq::IteratorRandom, SeedableRng};
@@ -35,6 +36,7 @@ pub struct Simulation {
     // the number of times a node is included in a payment path
     pub(crate) node_hits: HashMap<ID, usize>,
     pub(crate) path_distances: PathDistances,
+    pub(crate) anonymity_sets: Vec<AnonymitySet>,
 }
 
 impl Simulation {
@@ -70,6 +72,7 @@ impl Simulation {
             adversaries: vec![],
             node_hits: HashMap::default(),
             path_distances: PathDistances(vec![]),
+            anonymity_sets: vec![],
         }
     }
 
@@ -169,6 +172,7 @@ impl Simulation {
             failed_payments: self.failed_payments.clone(),
             adversaries: self.adversaries.to_owned(),
             path_distances: self.path_distances.to_owned(),
+            anonymity_sets: self.anonymity_sets.to_owned(),
         }
     }
 

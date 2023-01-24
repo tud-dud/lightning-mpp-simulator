@@ -80,6 +80,7 @@ impl Report {
             payments,
             adversaries: sim_result.adversaries.to_owned(),
             path_distances: sim_result.path_distances.0.to_owned(),
+            anonymity_sets: sim_result.anonymity_sets.to_owned(),
         }
     }
 }

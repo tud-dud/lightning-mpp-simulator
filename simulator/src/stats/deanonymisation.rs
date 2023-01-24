@@ -1,5 +1,6 @@
 use crate::{
     graph::Graph,
+    stats::AnonymitySet,
     traversal::pathfinding::{CandidatePath, Path, PathFinder},
     Simulation, ID,
 };
@@ -22,6 +23,7 @@ impl Simulation {
         for payment in payments {
             let mut used_paths = payment.used_paths.to_owned();
             used_paths.extend(payment.failed_paths.to_owned());
+            let mut anonymity_sets = vec![];
             for p in used_paths.iter() {
                 let adv_along_path = p.path.path_contains_adversary(adversaries);
                 for adv in adv_along_path.iter() {
@@ -49,7 +51,6 @@ impl Simulation {
                         ]*/
                         vec![]
                     };
-                    println!("reachable {:?}", phase1_paths);
                     // for all Pi for a list of potential recipients as R and potential senders for each such recipient
                     // The union of the potential senders for all potential recipients is the sender anonymity set
                     for mut p_i in phase1_paths {
@@ -90,6 +91,10 @@ impl Simulation {
                         }
                     }
                 }
+                anonymity_sets.push(AnonymitySet {
+                    sender: sd_anon_set.len(),
+                    recipient: rx_anon_set.len(),
+                });
             }
         }
         (rx_anon_set, sd_anon_set)
