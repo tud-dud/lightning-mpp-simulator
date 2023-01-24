@@ -58,7 +58,13 @@ impl Path {
     pub(crate) fn get_pred(&self, node: &ID) -> ID {
         let node_pos = self.get_involved_nodes().iter().position(|n| n.eq(node));
         match node_pos {
-            Some(idx) => self.hops[idx - 1].0.clone(),
+            Some(idx) => {
+                if idx == 0 {
+                    String::default()
+                } else {
+                    self.hops[idx - 1].0.clone()
+                }
+            }
             None => String::default(),
         }
     }
@@ -67,7 +73,13 @@ impl Path {
     pub(crate) fn get_succ(&self, node: &ID) -> ID {
         let node_pos = self.get_involved_nodes().iter().position(|n| n.eq(node));
         match node_pos {
-            Some(idx) => self.hops[idx + 1].0.clone(),
+            Some(idx) => {
+                if idx == self.hops.len() - 1 {
+                    String::default()
+                } else {
+                    self.hops[idx + 1].0.clone()
+                }
+            }
             None => String::default(),
         }
     }
