@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::fs;
+use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 mod helpers;
@@ -60,6 +61,7 @@ pub struct Edge {
 }
 
 pub type ID = String;
+pub type NodeRanks = Vec<ID>;
 
 impl Graph {
     pub fn get_nodes(self) -> HashSet<Node> {
@@ -85,6 +87,23 @@ impl Graph {
     }
     pub fn edge_count(self) -> usize {
         self.get_edges_as_vec_vec().iter().map(Vec::len).sum()
+    }
+
+    pub fn read_node_rankings_from_file(&self, path: &Path) -> Result<NodeRanks, std::io::Error> {
+        let file = File::open(path).unwrap_or_else(|_| panic!("Error reading {}.", path.display()));
+        let reader = BufReader::new(file);
+        let nodes = self.get_node_ids();
+        let mut ranks: NodeRanks = vec![];
+        for line in reader.lines().flatten() {
+            if nodes.contains(&line) {
+                ranks.push(line);
+            }
+        }
+        Ok(ranks)
+    }
+
+    pub(crate) fn get_node_ids(&self) -> Vec<String> {
+        self.nodes.iter().map(|n| n.id.clone()).collect()
     }
 }
 
@@ -171,6 +190,8 @@ impl PartialEq for Edge {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn nodes_from_json_str() {
@@ -606,5 +627,47 @@ mod tests {
         let actual = graph.edge_count();
         let expected = 0;
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn get_nodes() {
+        let path_to_file = Path::new("../test_data/trivial_connected.json");
+        let graph = from_json_file(path_to_file).unwrap();
+        let actual = graph.get_node_ids();
+        let expected = vec!["025".to_owned(), "034".to_owned(), "036".to_owned()];
+        assert_eq!(actual.len(), expected.len());
+        for id in actual {
+            assert!(expected.contains(&id));
+        }
+    }
+
+    #[test]
+    fn read_rankings() {
+        let path_to_file = Path::new("../test_data/trivial_connected.json");
+        let graph = from_json_file(path_to_file).unwrap();
+        let mut rankings_file = NamedTempFile::new().expect("Error opening NamedTempFile.");
+        let _ = writeln!(rankings_file, "036");
+        let _ = writeln!(rankings_file, "034");
+        let _ = writeln!(rankings_file, "025");
+        let actual = graph.read_node_rankings_from_file(rankings_file.path());
+        assert!(actual.is_ok());
+        let actual = actual.unwrap();
+        assert_eq!(actual.len(), graph.nodes.len());
+        let expected = vec!["036".to_owned(), "025".to_owned(), "034".to_owned()];
+        assert_eq!(actual.len(), expected.len());
+        for id in actual {
+            assert!(expected.contains(&id));
+        }
+        // node is not in the graph - should not change anything
+        let _ = writeln!(rankings_file, "043");
+        let actual = graph.read_node_rankings_from_file(rankings_file.path());
+        assert!(actual.is_ok());
+        let actual = actual.unwrap();
+        assert_eq!(actual.len(), graph.nodes.len());
+        let expected = vec!["036".to_owned(), "025".to_owned(), "034".to_owned()];
+        assert_eq!(actual.len(), expected.len());
+        for id in actual {
+            assert!(expected.contains(&id));
+        }
     }
 }
