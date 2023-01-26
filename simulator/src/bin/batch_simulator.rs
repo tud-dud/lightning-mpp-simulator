@@ -3,7 +3,7 @@ use lightning_simulator::{
     core_types::graph::Graph,
     io::{Output, Results},
     sim::Simulation,
-    WeightPartsCombi,
+    AdversarySelection, WeightPartsCombi,
 };
 
 use rayon::prelude::*;
@@ -31,6 +31,17 @@ struct Cli {
     /// Path to directory in which the results will be stored
     #[arg(long = "out", short = 'o')]
     output_dir: Option<PathBuf>,
+    /// Path to file containing betweenness scores.
+    /// If neither this nor --degree nor --random is passed, no selection will be made.
+    #[arg(short = 'b', long = "betweenness")]
+    betweenness_file: Option<PathBuf>,
+    /// Path to file containing betweenness scores
+    /// If neither this nor --betweenness nor --random is passed, no selection will be made.
+    #[arg(short = 'd', long = "degree")]
+    degree_file: Option<PathBuf>,
+    /// Select adversaries using random sampling
+    #[arg(long = "random")]
+    random_selection: bool,
     #[arg(long)]
     verbose: bool,
 }
@@ -64,6 +75,16 @@ fn main() {
         "Simulation results will be written to {:#?}/ directory.",
         output_dir
     );
+    let mut adversary_selection = match args.betweenness_file {
+        Some(file) => vec![AdversarySelection::HighBetweenness(file)],
+        None => vec![],
+    };
+    if let Some(file) = args.degree_file {
+        adversary_selection.push(AdversarySelection::HighDegree(file));
+    };
+    if args.random_selection {
+        adversary_selection.push(AdversarySelection::Random);
+    };
 
     let amounts = vec![
         100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000,
@@ -81,7 +102,7 @@ fn main() {
         amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
             let sat = lightning_simulator::to_millisatoshi(*amount);
-            let sim = init_sim(seed, graph.clone(), sat, combi);
+            let sim = init_sim(seed, graph.clone(), sat, combi, &adversary_selection);
             info!(
                 "Starting {:?} simulation of {} pairs of {} sats.",
                 combi, number_of_sim_pairs, sat,
@@ -104,8 +125,14 @@ fn main() {
     report_to_file(&results, output_dir, seed).expect("Writing to report failed.");
 }
 
-fn init_sim(seed: u64, graph: Graph, amount: usize, weight_parts: WeightPartsCombi) -> Simulation {
-    Simulation::new_batch_simulator(seed, graph, amount, weight_parts, None)
+fn init_sim(
+    seed: u64,
+    graph: Graph,
+    amount: usize,
+    weight_parts: WeightPartsCombi,
+    adversary_selection: &[AdversarySelection],
+) -> Simulation {
+    Simulation::new_batch_simulator(seed, graph, amount, weight_parts, None, adversary_selection)
 }
 
 fn simulate(

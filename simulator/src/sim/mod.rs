@@ -1,4 +1,4 @@
-use crate::{payment::Payment, stats::AnonymitySet, Adversaries, PathDistances};
+use crate::{payment::Payment, stats::Adversaries, stats::AnonymitySet, stats::PathDistances};
 use serde::Serialize;
 
 mod simulator;

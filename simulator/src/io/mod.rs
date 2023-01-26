@@ -1,6 +1,5 @@
 use crate::{
-    payment::Payment, stats::AnonymitySet, traversal::pathfinding::CandidatePath, Adversaries,
-    WeightPartsCombi,
+    payment::Payment, stats::Adversaries, traversal::pathfinding::CandidatePath, WeightPartsCombi,
 };
 use serde::Serialize;
 
@@ -21,7 +20,6 @@ pub struct Report {
     pub(crate) payments: Vec<PaymentInfo>,
     pub(crate) adversaries: Vec<Adversaries>,
     pub(crate) path_distances: Vec<usize>,
-    pub(crate) anonymity_sets: Vec<AnonymitySet>,
 }
 
 /// run and reports

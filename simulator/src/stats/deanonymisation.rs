@@ -7,20 +7,24 @@ use crate::{
 
 #[cfg(not(test))]
 use log::{debug, info, trace};
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 #[cfg(test)]
 use std::{println as info, println as debug, println as trace};
 
 impl Simulation {
     /// Returns a set of potential recipients as well as a set of all potential recipients
-    pub(crate) fn deanonymise_tx_pairs(&self, adversaries: &[ID]) -> (HashSet<ID>, HashSet<ID>) {
-        info!("Computing anonymity sets.");
-        let mut sd_anon_set = HashSet::new();
-        let mut rx_anon_set = HashSet::new();
+    pub(crate) fn deanonymise_tx_pairs(&self, adversaries: &[ID]) {
+        info!(
+            "Computing anonymity sets for {:?}, {:?} of {} sat.",
+            self.routing_metric, self.payment_parts, self.amount
+        );
         let graph = self.graph.clone();
-        let mut payments = self.successful_payments.clone();
-        payments.extend(self.failed_payments.clone());
-        for payment in payments {
+        let payments = self.successful_payments.clone();
+        //payments.extend(self.failed_payments.clone());
+        payments.par_iter().for_each(|payment| {
+            let mut sd_anon_set = HashSet::new();
+            let mut rx_anon_set = HashSet::new();
             let mut used_paths = payment.used_paths.to_owned();
             used_paths.extend(payment.failed_paths.to_owned());
             let mut anonymity_sets = vec![];
@@ -31,8 +35,8 @@ impl Simulation {
                     let (pred, succ, amount_to_succ, ttl_to_rx) =
                         Self::extract_tx_info(p, &adversary_id);
                     let mut g = graph.clone();
-                    //g.remove_node(&pred);
-                    //g.remove_node(&adversary_id);
+                    g.remove_node(&pred);
+                    g.remove_node(&adversary_id);
                     g.edges = PathFinder::remove_inadequate_edges(&graph, amount_to_succ); //hm - which amount?
                                                                                            // prepend pred and adv to each path
                                                                                            // Phase 1 paths = P_i in the paper, i.e. all paths with appropriate timelock
@@ -42,13 +46,6 @@ impl Simulation {
                     {
                         paths
                     } else {
-                        /*let mut default_path = Path::new(pred.clone(), adversary_id.clone());
-                            default_path.hops = VecDeque::from([
-                                            (pred.clone(), 0, 0, String::default()),
-                                            (adversary_id.clone(), 0, 0, String::default()),
-                        ]);
-                        vec![CandidatePath::new_with_path(default_path)
-                        ]*/
                         vec![]
                     };
                     // for all Pi for a list of potential recipients as R and potential senders for each such recipient
@@ -91,13 +88,16 @@ impl Simulation {
                         }
                     }
                 }
-                anonymity_sets.push(AnonymitySet {
-                    sender: sd_anon_set.len(),
-                    recipient: rx_anon_set.len(),
-                });
             }
-        }
-        (rx_anon_set, sd_anon_set)
+            anonymity_sets.push(AnonymitySet {
+                sender: sd_anon_set.len(),
+                recipient: rx_anon_set.len(),
+            });
+        });
+        info!(
+            "Completed anonymity sets for {:?}, {:?} of {} sat.",
+            self.routing_metric, self.payment_parts, self.amount
+        );
     }
     fn is_potential_destination(
         p_i: &CandidatePath,
@@ -295,7 +295,6 @@ impl Simulation {
                         String::default(),
                     ),
                 ]);
-                //edges.push(edge.destination);
                 paths.push(CandidatePath::new_with_path(path));
             // timelock is lower - we still have a change of succeeding
             } else if timelock_next < ttl {
@@ -689,5 +688,18 @@ mod tests {
         assert_eq!(actual_succ, expected_succ);
         assert_eq!(actual_amt, expected_amt);
         assert_eq!(actual_ttl, expected_ttl);
+    }
+
+    #[test]
+    fn attempt_deanonymisation() {
+        let fraction_of_adversaries = 100;
+        let source = "alice".to_string();
+        let dest = "chan".to_string();
+        let mut simulator = crate::attempt::tests::init_sim(None, Some(fraction_of_adversaries));
+        let sim_result = simulator.run(vec![(source, dest)].into_iter());
+        assert_eq!(sim_result.num_succesful, 1);
+        assert_eq!(simulator.adversaries[0].percentage, fraction_of_adversaries);
+
+        //pub(crate) fn deanonymise_tx_pairs(&self, adversaries: &[ID]) {
     }
 }

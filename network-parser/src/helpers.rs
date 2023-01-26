@@ -53,7 +53,6 @@ impl Node {
             rgb_color: raw_node.rgb_color.unwrap_or_default(),
             out_degree: raw_node.out_degree.unwrap_or_default(),
             in_degree: raw_node.in_degree.unwrap_or_default(),
-            is_adversary: false,
         }
     }
 }

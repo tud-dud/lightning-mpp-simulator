@@ -283,7 +283,9 @@ impl Simulation {
 pub(crate) mod tests {
 
     use super::*;
-    use crate::{core_types::graph::Graph, Invoice, PaymentParts, RoutingMetric};
+    use crate::{
+        core_types::graph::Graph, AdversarySelection, Invoice, PaymentParts, RoutingMetric,
+    };
 
     pub fn init_sim(path: Option<String>, fraction_of_adversaries: Option<usize>) -> Simulation {
         let seed = 0;
@@ -304,6 +306,7 @@ pub(crate) mod tests {
                 e.balance = balance;
             }
         }
+        let adversary_selection = vec![AdversarySelection::Random];
         Simulation::new(
             seed,
             graph.clone(),
@@ -311,6 +314,7 @@ pub(crate) mod tests {
             routing_metric,
             payment_parts,
             fraction_of_adversaries,
+            &adversary_selection,
         )
     }
 
@@ -545,6 +549,7 @@ pub(crate) mod tests {
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
+        let adversary_selection = vec![AdversarySelection::Random];
         let mut simulator = Simulation::new(
             seed,
             graph.clone(),
@@ -552,6 +557,7 @@ pub(crate) mod tests {
             routing_metric,
             payment_parts,
             Some(0),
+            &adversary_selection,
         );
         let source =
             "03c45cf25622ec07c56d13b7043e59c8c27ca822be58140b213edaea6849380349".to_string();

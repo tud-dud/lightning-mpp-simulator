@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
-use std::sync::Mutex;
+use std::{path::PathBuf, sync::Mutex};
 
 pub mod core_types;
 pub mod io;
@@ -61,18 +61,14 @@ pub enum WeightPartsCombi {
     MaxProbMulti,
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct Adversaries {
-    pub(crate) percentage: usize,
-    /// Number of times an adversary was included a payment path
-    pub hits: usize,
-    /// Number of times an adversary was included a successful payment path
-    pub hits_successful: usize,
+/// How should the adversaries be selected
+/// The caller must remember to reverse the scores for Low*
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub enum AdversarySelection {
+    Random,
+    HighBetweenness(#[serde(skip)] PathBuf),
+    HighDegree(#[serde(skip)] PathBuf),
 }
-
-/// All the distances in the simulated payments' paths
-#[derive(Debug, Serialize, Clone)]
-pub struct PathDistances(pub Vec<usize>);
 
 lazy_static! {
     static ref RNG: Mutex<StdRng> = {

@@ -25,8 +25,6 @@ pub struct Node {
     pub rgb_color: String,
     pub out_degree: u32,
     pub in_degree: u32,
-    #[serde(default)]
-    pub is_adversary: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -89,10 +87,15 @@ impl Graph {
         self.get_edges_as_vec_vec().iter().map(Vec::len).sum()
     }
 
-    pub fn read_node_rankings_from_file(&self, path: &Path) -> Result<NodeRanks, std::io::Error> {
+    #[allow(unused)]
+    pub(crate) fn get_node_ids(&self) -> Vec<String> {
+        self.nodes.iter().map(|n| n.id.clone()).collect()
+    }
+}
+
+    pub fn read_node_rankings_from_file(nodes: &[ID], path: &Path) -> Result<NodeRanks, std::io::Error> {
         let file = File::open(path).unwrap_or_else(|_| panic!("Error reading {}.", path.display()));
         let reader = BufReader::new(file);
-        let nodes = self.get_node_ids();
         let mut ranks: NodeRanks = vec![];
         for line in reader.lines().flatten() {
             if nodes.contains(&line) {
@@ -101,11 +104,6 @@ impl Graph {
         }
         Ok(ranks)
     }
-
-    pub(crate) fn get_node_ids(&self) -> Vec<String> {
-        self.nodes.iter().map(|n| n.id.clone()).collect()
-    }
-}
 
 pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
     let json_str = fs::read_to_string(path).expect("Error reading file");
@@ -221,7 +219,6 @@ mod tests {
             addresses: vec!["ipv4://83.85.142.36:9735".to_string()],
             out_degree: 25,
             in_degree: 9,
-            is_adversary: false,
         };
         assert_eq!(*actual, expected);
     }
@@ -347,7 +344,6 @@ mod tests {
             addresses: Vec::default(),
             out_degree: u32::default(),
             in_degree: u32::default(),
-            is_adversary: false,
         };
         assert_eq!(*actual, expected);
     }
@@ -643,16 +639,15 @@ mod tests {
 
     #[test]
     fn read_rankings() {
-        let path_to_file = Path::new("../test_data/trivial_connected.json");
-        let graph = from_json_file(path_to_file).unwrap();
         let mut rankings_file = NamedTempFile::new().expect("Error opening NamedTempFile.");
         let _ = writeln!(rankings_file, "036");
         let _ = writeln!(rankings_file, "034");
         let _ = writeln!(rankings_file, "025");
-        let actual = graph.read_node_rankings_from_file(rankings_file.path());
+        let nodes = ["036".to_string(), "034".to_string(), "025".to_string()];
+        let actual = read_node_rankings_from_file(&nodes, rankings_file.path());
         assert!(actual.is_ok());
         let actual = actual.unwrap();
-        assert_eq!(actual.len(), graph.nodes.len());
+        assert_eq!(actual.len(), nodes.len());
         let expected = vec!["036".to_owned(), "025".to_owned(), "034".to_owned()];
         assert_eq!(actual.len(), expected.len());
         for id in actual {
@@ -660,10 +655,10 @@ mod tests {
         }
         // node is not in the graph - should not change anything
         let _ = writeln!(rankings_file, "043");
-        let actual = graph.read_node_rankings_from_file(rankings_file.path());
+        let actual = read_node_rankings_from_file(&nodes, rankings_file.path());
         assert!(actual.is_ok());
         let actual = actual.unwrap();
-        assert_eq!(actual.len(), graph.nodes.len());
+        assert_eq!(actual.len(), nodes.len());
         let expected = vec!["036".to_owned(), "025".to_owned(), "034".to_owned()];
         assert_eq!(actual.len(), expected.len());
         for id in actual {
