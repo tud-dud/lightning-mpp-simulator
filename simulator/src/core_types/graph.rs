@@ -127,6 +127,9 @@ impl Graph {
     /// Discard the given node from the graph
     pub(crate) fn remove_node(&mut self, node: &ID) {
         self.nodes.retain(|n| *n.id != *node);
+        for n in self.get_node_ids() {
+            self.remove_edge(node, &n);
+        }
     }
 
     pub(crate) fn get_outedges(&self, node_id: &ID) -> Vec<Edge> {
@@ -711,5 +714,6 @@ mod tests {
             graph.remove_node(&node);
         }
         assert_eq!(graph.node_count(), 0);
+        assert_eq!(graph.edge_count(), 0);
     }
 }

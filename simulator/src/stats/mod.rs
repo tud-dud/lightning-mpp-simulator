@@ -2,17 +2,29 @@ mod adversaries;
 mod deanonymisation;
 mod distance;
 
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Adversaries {
     pub(crate) selection_strategy: crate::AdversarySelection,
+    pub(crate) statistics: Vec<Statistics>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Statistics {
     pub(crate) percentage: usize,
     /// Number of times an adversary was included a payment path
     pub hits: usize,
     /// Number of times an adversary was included a successful payment path
     pub hits_successful: usize,
-    pub anonymits_sets: Vec<AnonymitySet>, // one for each payment
+    pub anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
+    /// Map of #attacks and #payments attacked that many times
+    pub attacked_all: HashMap<usize, usize>,
+    /// Number of succesful payments with x-number of adversaries along a payment route
+    /// (x, |payments|)
+    pub attacked_successful: HashMap<usize, usize>,
 }
 
 /// All the distances in the simulated payments' paths
@@ -25,4 +37,7 @@ pub struct AnonymitySet {
     sender: usize,
     /// Possible recipients
     recipient: usize,
+    /// True if the recipient is included in the recipient anonymity set
+    correct_recipient: bool,
+    correct_source: bool,
 }

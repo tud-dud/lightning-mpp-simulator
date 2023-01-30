@@ -63,7 +63,7 @@ pub enum WeightPartsCombi {
 
 /// How should the adversaries be selected
 /// The caller must remember to reverse the scores for Low*
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Hash)]
 pub enum AdversarySelection {
     Random,
     HighBetweenness(#[serde(skip)] PathBuf),

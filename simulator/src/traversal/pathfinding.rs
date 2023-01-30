@@ -86,6 +86,7 @@ impl Path {
 
     ///Ignores the first and final hops and returns the contained adversaries "ID, received_amt,
     ///received_timelock" if any
+    /// TODO: We don't use the tx data?
     pub(crate) fn path_contains_adversary(&self, adv: &[ID]) -> Vec<(ID, usize, usize)> {
         let mut adversaries = vec![];
         let involved_nodes = self.get_involved_nodes()[1..self.hops.len()].to_owned(); //excludes src
