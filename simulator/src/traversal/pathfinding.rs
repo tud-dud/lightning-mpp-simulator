@@ -293,7 +293,7 @@ impl PathFinder {
                 // safe because src is always last in the list
                 let (src, dest) = (node_id, candidate_path_hops[idx - 1].clone());
                 let cheapest_edge = match self.get_cheapest_edge(src, &dest) {
-                    None => panic!("Edge in path does not exist! {} -> {}", src, dest),
+                    None => panic!("Edge in path does not exist! {src} -> {dest}"),
                     Some(e) => e,
                 };
                 if include_src {
@@ -327,7 +327,7 @@ impl PathFinder {
             } else if node_id.clone() == self.dest {
                 let (dest, src) = (node_id, candidate_path_hops[idx + 1].clone());
                 let cheapest_edge = match self.get_cheapest_edge(dest, &src) {
-                    None => panic!("Edge in path does not exist! {} -> {}", src, dest),
+                    None => panic!("Edge in path does not exist! {src} -> {dest}"),
                     Some(e) => e,
                 };
                 candidate_path.path.update_hop(
@@ -341,7 +341,7 @@ impl PathFinder {
                 // we are interested in the weight from src to dest (the previous node in the list) since that is the direction the
                 // payment will flow in
                 let cheapest_edge = match self.get_cheapest_edge(src, &dest) {
-                    None => panic!("Edge in path does not exist! {} -> {}", src, dest),
+                    None => panic!("Edge in path does not exist! {src} -> {dest}"),
                     Some(e) => e,
                 };
                 match self.routing_metric {

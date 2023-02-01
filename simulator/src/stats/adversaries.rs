@@ -1,14 +1,14 @@
 use crate::{
     payment::Payment,
     stats::{Adversaries, Statistics},
-    AdversarySelection, Simulation, ID,
+    AdversarySelection, PaymentId, Simulation, ID,
 };
 
 #[cfg(not(test))]
 use log::{info, warn};
 use rayon::prelude::*;
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     sync::{Arc, Mutex},
 };
 #[cfg(test)]
@@ -28,6 +28,8 @@ impl Simulation {
         let adversaries = Arc::new(Mutex::new(vec![]));
         self.adversary_selection.par_iter().for_each(|strategy| {
             let mut statistics: Vec<Statistics> = vec![];
+            let mut attacked_payments: HashMap<PaymentId, usize> = HashMap::new();
+            let mut attacked_successful_payments: HashMap<PaymentId, usize> = HashMap::new();
             for i in 0..fraction_of_adversaries.len() {
                 let percent = fraction_of_adversaries[i];
                 let num_adv = chunks[i + 1];
@@ -39,16 +41,25 @@ impl Simulation {
                     "Starting adversary scenario: {} sat: {:?} with {} nodes.",
                     self.amount, strategy, num_adv,
                 );
-                let (hits, hits_successful) = if i == 0 {
-                    Self::adversary_hits(&all_payments, &adv)
-                } else {
-                    let (hits, hits_successful) = Self::adversary_hits(&all_payments, &adv);
-                    (
-                        statistics[i - 1].hits + hits,
-                        statistics[i - 1].hits_successful + hits_successful,
-                    )
-                };
-                let anonymity_sets = if percent % 20 == 0 {
+                Self::adversary_hits(&mut attacked_payments, &mut attacked_successful_payments, &all_payments, &adv);
+                let (hits, hits_successful) =
+                    (attacked_payments.iter().filter(|e| *e.1 != 0).count(), attacked_successful_payments.iter().filter(|e| *e.1 != 0).count());
+                let mut num_attacks = HashMap::new();
+                let mut num_attacks_successful = HashMap::new();
+                for v in attacked_payments.values() {
+                    num_attacks
+                    .entry(*v)
+                    .and_modify(|occ| *occ += 1)
+                    .or_insert(1);
+                }
+                for v in attacked_successful_payments.values() {
+                    num_attacks_successful
+                    .entry(*v)
+                    .and_modify(|occ| *occ += 1)
+                    .or_insert(1);
+                }
+                info!("Completed counting adversary occurences in payments.");
+                let anonymity_sets = if percent % 11 == 0 {
                     if i == 0 {
                         self.deanonymise_tx_pairs(&adv)
                     } else {
@@ -63,29 +74,13 @@ impl Simulation {
                 } else {
                     vec![]
                 };
-                let (attacks, attacked_successful_payments) = if i == 0 {
-                    Self::count_adversaries_in_payments(&all_payments, &adv)
-                } else {
-                    let (mut attacks, mut attacked_successful_payments) =
-                        Self::count_adversaries_in_payments(&all_payments, &adv);
-                    for (k, v) in statistics[i - 1].attacked_all.iter() {
-                        attacks.entry(*k).and_modify(|u| *u += v).or_insert(*v);
-                    }
-                    for (k, v) in statistics[i - 1].attacked_successful.iter() {
-                        attacked_successful_payments
-                            .entry(*k)
-                            .and_modify(|u| *u += v)
-                            .or_insert(*v);
-                    }
-                    (attacks, attacked_successful_payments)
-                };
                 statistics.push(Statistics {
                     percentage: percent,
                     hits,
                     hits_successful,
                     anonymity_sets,
-                    attacked_all: attacks,
-                    attacked_successful: attacked_successful_payments,
+                    attacked_all: num_attacks,
+                    attacked_successful: num_attacks_successful,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",
@@ -104,58 +99,33 @@ impl Simulation {
         }
     }
 
-    fn count_adversaries_in_payments(
+    fn adversary_hits(
+        hits_all_payments: &mut HashMap<PaymentId, usize>,
+        hits_successful_payments: &mut HashMap<PaymentId, usize>,
         payments: &[Payment],
         adv: &[ID],
-    ) -> (HashMap<usize, usize>, HashMap<usize, usize>) {
-        info!("Counting adversary occurences in payments.");
-        let mut attacked_payments: HashMap<usize, usize> = HashMap::new();
-        let mut attacked_successful_payments = HashMap::new();
+    ) {
         for payment in payments {
             let mut used_paths = payment.used_paths.to_owned();
             used_paths.extend(payment.failed_paths.to_owned());
-            let mut num_attacks = 0;
             for path in used_paths.iter() {
-                num_attacks += path.path.path_contains_adversary(adv).len();
-            }
-            attacked_payments
-                .entry(num_attacks)
-                .and_modify(|occ| *occ += 1)
-                .or_insert(1);
-            if payment.succeeded {
-                attacked_successful_payments
-                    .entry(num_attacks)
-                    .and_modify(|occ| *occ += 1)
-                    .or_insert(1);
-            }
-        }
-        info!("Completed counting adversary occurences in payments.");
-        (attacked_payments, attacked_successful_payments)
-    }
-
-    fn adversary_hits(payments: &[Payment], adv: &[ID]) -> (usize, usize) {
-        let mut adversary_hits = 0;
-        let mut adversary_hits_successful = 0;
-        let mut count_occurences = |payments: &[Payment]| {
-            'main: for payment in payments {
-                let mut used_paths = payment.used_paths.to_owned();
-                used_paths.extend(payment.failed_paths.to_owned());
-                for path in used_paths.iter() {
-                    if !path.path.path_contains_adversary(adv).is_empty() {
-                        adversary_hits += 1;
-
-                        if payment.succeeded {
-                            adversary_hits_successful += 1;
-                        }
-                        // we know that this payment contains an adversary and don't need to
-                        // look at all paths
-                        continue 'main;
+                let num_adv = path.path.path_contains_adversary(adv).len();
+                if let Entry::Occupied(mut o) = hits_all_payments.entry(payment.payment_id) {
+                    *o.get_mut() += num_adv;
+                } else {
+                    hits_all_payments.insert(payment.payment_id, num_adv);
+                }
+                if payment.succeeded {
+                    if let Entry::Occupied(mut o) =
+                        hits_successful_payments.entry(payment.payment_id)
+                    {
+                        *o.get_mut() += num_adv;
+                    } else {
+                        hits_successful_payments.insert(payment.payment_id, num_adv);
                     }
                 }
             }
-        };
-        count_occurences(payments);
-        (adversary_hits, adversary_hits_successful)
+        }
     }
 
     fn get_adversaries(
@@ -200,6 +170,7 @@ impl Simulation {
 #[cfg(test)]
 mod tests {
 
+    use super::*;
     use crate::AdversarySelection;
 
     #[test]
@@ -219,6 +190,8 @@ mod tests {
         assert_eq!(statistics[0].percentage, fraction_of_adversaries);
         assert_eq!(statistics[0].hits, 1); // we only send one payment
         assert_eq!(statistics[0].hits_successful, 1);
+        assert_eq!(statistics[0].attacked_all, HashMap::from([(1, 1)]));
+        assert_eq!(statistics[0].attacked_successful, HashMap::from([(1, 1)]));
         let fraction_of_adversaries = 0;
         let source = "alice".to_string();
         let dest = "chan".to_string();
@@ -229,5 +202,8 @@ mod tests {
         assert_eq!(statistics[0].percentage, fraction_of_adversaries);
         assert_eq!(statistics[0].hits, 0); // we only send one payment
         assert_eq!(statistics[0].hits_successful, 0);
+        assert_eq!(statistics[0].attacked_all, HashMap::from([(0, 1)])); // 1 payment attacked 0
+                                                                         // times
+        assert_eq!(statistics[0].attacked_successful, HashMap::from([(0, 1)]));
     }
 }

@@ -34,6 +34,6 @@ fn main() {
             info!("Greatest SCC with {} nodes.", graph.node_count());
             info!("Greatest SCC with {} edges ", graph.edge_count());
         }
-        Err(e) => println!("{:?}", e),
+        Err(e) => println!("{e:?}"),
     };
 }

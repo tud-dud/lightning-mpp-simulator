@@ -33,10 +33,13 @@ impl Simulation {
             .iter()
             .cloned()
             .choose_multiple(&mut *rng, self.successful_payments.len() * 20 / 100);
-        info!("Evaluating {} successful payments for anonymity sets.", payments.len());
+        info!(
+            "Evaluating {} successful payments for anonymity sets.",
+            payments.len()
+        );
         payments.par_iter().for_each(|payment| {
             // only using the successful paths - Kumble et al only attempt once
-            payment.used_paths.iter().for_each(|p| {
+            payment.used_paths.par_iter().for_each(|p| {
                 let adv_along_path = p.path.path_contains_adversary(adversaries);
                 for adv in adv_along_path.iter() {
                     // multiple sets per payment as each adversary has their own set
