@@ -46,16 +46,21 @@ impl Simulation {
                     (attacked_payments.iter().filter(|e| *e.1 != 0).count(), attacked_successful_payments.iter().filter(|e| *e.1 != 0).count());
                 let mut num_attacks = HashMap::new();
                 let mut num_attacks_successful = HashMap::new();
+                // (num attacks, num of payments)
                 for v in attacked_payments.values() {
-                    num_attacks
+                     num_attacks
                     .entry(*v)
-                    .and_modify(|occ| *occ += 1)
+                    .and_modify(|occ|
+                        *occ += 1
+                        )
                     .or_insert(1);
                 }
                 for v in attacked_successful_payments.values() {
-                    num_attacks_successful
+                     num_attacks_successful
                     .entry(*v)
-                    .and_modify(|occ| *occ += 1)
+                    .and_modify(|occ|
+                        *occ += 1
+                        )
                     .or_insert(1);
                 }
                 info!("Completed counting adversary occurences in payments.");
@@ -99,6 +104,8 @@ impl Simulation {
         }
     }
 
+    /// Count how many adversaries are included in a payment's path
+    /// MPP payment parts are considered jointly
     fn adversary_hits(
         hits_all_payments: &mut HashMap<PaymentId, usize>,
         hits_successful_payments: &mut HashMap<PaymentId, usize>,
@@ -178,20 +185,35 @@ mod tests {
         let fraction_of_adversaries = 100; // all three nodes are adversaries
                                            // alice -> bob -> chan
         let source = "alice".to_string();
-        let dest = "chan".to_string();
         let mut simulator = crate::attempt::tests::init_sim(None, Some(fraction_of_adversaries));
-        let sim_result = simulator.run(vec![(source, dest)].into_iter());
-        assert_eq!(sim_result.num_succesful, 1);
+        let sim_result = simulator.run(
+            vec![
+                (source.clone(), "chan".to_string()),
+                (source.clone(), "dina".to_string()),
+                (source, "dina".to_string()),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(sim_result.num_succesful, 3);
         let statistics = &simulator.adversaries[0].statistics;
         assert_eq!(
             simulator.adversaries[0].selection_strategy,
             AdversarySelection::Random
         );
         assert_eq!(statistics[0].percentage, fraction_of_adversaries);
-        assert_eq!(statistics[0].hits, 1); // we only send one payment
-        assert_eq!(statistics[0].hits_successful, 1);
-        assert_eq!(statistics[0].attacked_all, HashMap::from([(1, 1)]));
-        assert_eq!(statistics[0].attacked_successful, HashMap::from([(1, 1)]));
+        assert_eq!(statistics[0].hits, 3); // we send three payments
+        assert_eq!(statistics[0].hits_successful, 3);
+        let num_attacks = [(1, 1), (2, 2)];
+        let attacked_all = statistics[0].attacked_all.clone();
+        let attacked_successful = statistics[0].attacked_successful.clone();
+        assert_eq!(attacked_all.len(), num_attacks.len());
+        assert_eq!(attacked_successful.len(), num_attacks.len());
+        for k in attacked_all {
+            assert!(num_attacks.contains(&k));
+        }
+        for k in attacked_successful {
+            assert!(num_attacks.contains(&k));
+        }
         let fraction_of_adversaries = 0;
         let source = "alice".to_string();
         let dest = "chan".to_string();

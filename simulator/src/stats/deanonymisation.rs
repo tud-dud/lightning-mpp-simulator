@@ -75,7 +75,9 @@ impl Simulation {
                         self.amount
                     );
                     let mut compute_all_paths = false;
-                    for p_i in phase1_paths.iter() {
+                    for (idx, p_i) in phase1_paths.iter().enumerate() {
+                        info!("Looking at path {}", idx);
+                        let mut sd_potential = HashSet::new();
                         if let Some(path_from_adv) = self.compute_shortest_paths_from(
                             &p_i.path.dest,
                             amount_to_succ,
@@ -116,10 +118,13 @@ impl Simulation {
                                     amount_to_succ,
                                     &mut shortest_paths,
                                 ) {
-                                    sd_anon_set.insert(pred.clone()); // only possible sender for
-                                                                      // rec_i
+                                    info!("Found definitive sender.");
+                                    sd_potential.insert(pred.clone()); // only possible sender for
+                                    continue;
+                                    // rec_i
                                 } else {
-                                    sd_anon_set.insert(pred.clone());
+                                    info!("Definitive sender not found. Looking at all paths..");
+                                    sd_potential.insert(pred.clone());
                                     compute_all_paths = true;
                                 }
                             } else {
@@ -133,8 +138,9 @@ impl Simulation {
                                 &mut shortest_paths,
                                 amount_to_succ,
                             );
-                            sd_anon_set = sd_anon_set.union(&pot_senders_for_r).cloned().collect();
+                            sd_potential.extend(pot_senders_for_r);
                         }
+                        sd_anon_set = sd_anon_set.union(&sd_potential).cloned().collect();
                     }
                     let correct_recipient = rx_anon_set.contains(&payment.dest);
                     let correct_source = sd_anon_set.contains(&payment.source);
@@ -164,6 +170,7 @@ impl Simulation {
         adversary: &ID,
         ttl: usize,
     ) -> bool {
+        info!("Checking if {} is a potential destination.", p_i.path.dest);
         if ttl == 0 {
             true
         } else {

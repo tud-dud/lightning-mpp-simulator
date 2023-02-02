@@ -24,7 +24,7 @@ pub struct Simulation {
     current_payment_id: PaymentId,
     /// Invoices each node has issued; map of <node, <invoice id, invoice>
     outstanding_invoices: BTreeMap<ID, HashMap<usize, Invoice>>,
-    total_num_payments: usize,
+    pub(crate) total_num_payments: usize,
     pub(crate) num_successful: usize,
     pub(crate) successful_payments: Vec<Payment>,
     pub(crate) num_failed: usize,

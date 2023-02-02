@@ -20,10 +20,9 @@ pub struct Statistics {
     /// Number of times an adversary was included a successful payment path
     pub hits_successful: usize,
     pub anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
-    /// Map of #attacks and #payments attacked that many times
+    /// Number of attacks , number of payments
     pub attacked_all: HashMap<usize, usize>,
-    /// Number of succesful payments with x-number of adversaries along a payment route
-    /// (x, |payments|)
+    /// Number of attacks , number of successful payments
     pub attacked_successful: HashMap<usize, usize>,
 }
 

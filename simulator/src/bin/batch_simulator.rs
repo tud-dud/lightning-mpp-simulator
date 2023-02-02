@@ -103,17 +103,17 @@ fn main() {
         let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
         amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
-            let sat = lightning_simulator::to_millisatoshi(*amount);
-            let sim = init_sim(seed, graph.clone(), sat, combi, &adversary_selection);
+            let msat = lightning_simulator::to_millisatoshi(*amount);
+            let sim = init_sim(seed, graph.clone(), msat, combi, &adversary_selection);
             info!(
                 "Starting {:?} simulation of {} pairs of {} sats.",
-                combi, number_of_sim_pairs, sat,
+                combi, number_of_sim_pairs, amount,
             );
             let sim_result = simulate(sim, pairs.clone());
             let duration_in_ms = start.elapsed().as_millis();
             info!(
                 "Simulation {:?} of amount {} sat completed after {} ms.",
-                combi, sat, duration_in_ms
+                combi, amount, duration_in_ms
             );
             sim_results.lock().unwrap().push(sim_result);
         });
