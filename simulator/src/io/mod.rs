@@ -158,6 +158,6 @@ mod tests {
             ],
             failed_paths: vec![],
         };
-        assert_ne!(actual, expected);
+        assert_eq!(actual, expected);
     }
 }

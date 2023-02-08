@@ -93,17 +93,20 @@ impl Graph {
     }
 }
 
-    pub fn read_node_rankings_from_file(nodes: &[ID], path: &Path) -> Result<NodeRanks, std::io::Error> {
-        let file = File::open(path).unwrap_or_else(|_| panic!("Error reading {}.", path.display()));
-        let reader = BufReader::new(file);
-        let mut ranks: NodeRanks = vec![];
-        for line in reader.lines().flatten() {
-            if nodes.contains(&line) {
-                ranks.push(line);
-            }
+pub fn read_node_rankings_from_file(
+    nodes: &[ID],
+    path: &Path,
+) -> Result<NodeRanks, std::io::Error> {
+    let file = File::open(path).unwrap_or_else(|_| panic!("Error reading {}.", path.display()));
+    let reader = BufReader::new(file);
+    let mut ranks: NodeRanks = vec![];
+    for line in reader.lines().flatten() {
+        if nodes.contains(&line) {
+            ranks.push(line);
         }
-        Ok(ranks)
     }
+    Ok(ranks)
+}
 
 pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
     let json_str = fs::read_to_string(path).expect("Error reading file");

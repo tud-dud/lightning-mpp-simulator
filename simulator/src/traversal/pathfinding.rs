@@ -178,7 +178,7 @@ impl Path {
     }
 
     pub(crate) fn path_length(&self) -> usize {
-        self.hops.len()
+        self.hops.len() - 1 // hops includes src and dest
     }
 }
 
