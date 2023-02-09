@@ -14,7 +14,9 @@ def plot_all_paths(
     output_path,
 ):
     plot_path_len(successful_df, os.path.join(output_path, "path_length.pdf"))
-    plot_path_len(failed_df, os.path.join(output_path, "failed_path_length.pdf"))
+    plot_path_len(
+        failed_df, os.path.join(output_path, "failed_path_length.pdf")
+    )
 
 
 def plot_path_len(
@@ -38,7 +40,12 @@ def plot_path_len(
         hue="scenario",
         data=df,
         showfliers=False,
-        hue_order=["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"],
+        hue_order=[
+            "MaxProbSingle",
+            "MaxProbMulti",
+            "MinFeeSingle",
+            "MinFeeMulti",
+        ],
         palette=colours,
         ax=axes[0],
         width=0.5,
@@ -53,7 +60,12 @@ def plot_path_len(
     ax0.get_legend().remove()
 
     print("Evaluating distribution of path lengths")
-    hue_orders = ["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"]
+    hue_orders = [
+        "MaxProbSingle",
+        "MaxProbMulti",
+        "MinFeeSingle",
+        "MinFeeMulti",
+    ]
     for i in range(0, 4):
         ax = sns.boxplot(
             x="amount",
@@ -95,7 +107,9 @@ def plot_path_len(
         ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
         ax.set_ylabel("Hop count")
 
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")

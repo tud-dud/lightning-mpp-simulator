@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from constants import *
 import matplotlib.patches as mpatches
 import seaborn as sns
+import os
 
 
 def plot_fees(
@@ -19,7 +20,7 @@ def plot_fees(
 ):
     print("Evaluating transaction fees data.")
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 10))
+    _, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 10))
     axes = axes.flatten()
     plt.tight_layout()
     ax0 = sns.boxplot(
@@ -28,7 +29,12 @@ def plot_fees(
         hue="scenario",
         data=df_abs,
         showfliers=False,
-        hue_order=["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"],
+        hue_order=[
+            "MaxProbSingle",
+            "MaxProbMulti",
+            "MinFeeSingle",
+            "MinFeeMulti",
+        ],
         palette=colours,
         ax=axes[0],
         width=0.5,
@@ -44,14 +50,21 @@ def plot_fees(
     ax0.get_legend().remove()
 
     # relative fees
-    df_rel = df.melt(id_vars=["scenario", "amount"], value_vars=["relative_fees"])
+    df_rel = df.melt(
+        id_vars=["scenario", "amount"], value_vars=["relative_fees"]
+    )
     ax1 = sns.boxplot(
         x="amount",
         y="value",
         hue="scenario",
         data=df_rel,
         showfliers=False,
-        hue_order=["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"],
+        hue_order=[
+            "MaxProbSingle",
+            "MaxProbMulti",
+            "MinFeeSingle",
+            "MinFeeMulti",
+        ],
         palette=colours,
         ax=axes[1],
         width=0.5,
@@ -66,7 +79,9 @@ def plot_fees(
     ax1.set_ylabel("Relative fees in sat")
     ax1.get_legend().remove()
 
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
@@ -95,10 +110,15 @@ def plot_fee_distributions(
     print("Evaluating fee distribution data.")
     plt.tight_layout()
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    fig, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 10))
+    _, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 10))
     axes = axes.flatten()
     plt.tight_layout()
-    hue_orders = ["MaxProbSingle", "MaxProbMulti", "MinFeeSingle", "MinFeeMulti"]
+    hue_orders = [
+        "MaxProbSingle",
+        "MaxProbMulti",
+        "MinFeeSingle",
+        "MinFeeMulti",
+    ]
     for i in range(0, 4):
         ax = sns.boxplot(
             x="amount",
@@ -140,7 +160,9 @@ def plot_fee_distributions(
         ax.get_legend().remove()
         ax.set_xticklabels(X_TICKS_LABELS)
 
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")

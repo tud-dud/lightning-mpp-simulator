@@ -60,7 +60,9 @@ def plot_success_rate(json_data, output_path):
 
     df_normal = pd.DataFrame(d1)
     df_normal = (
-        df_normal.groupby(["amount", "scenario"])["success_rate"].mean().unstack()
+        df_normal.groupby(["amount", "scenario"])["success_rate"]
+        .mean()
+        .unstack()
     )
     df_attacks = pd.DataFrame(d2)
     df_attacks = (
@@ -97,7 +99,12 @@ def plot_multiple(
     output_path,
 ):
     fig, ax = plt.subplots(
-        3, 3, sharex=False, sharey=False, constrained_layout=True, figsize=(12, 10)
+        3,
+        3,
+        sharex=False,
+        sharey=False,
+        constrained_layout=True,
+        figsize=(12, 10),
     )
     axes = ax.flatten()
     x_ticks_labels = []
@@ -139,7 +146,12 @@ def plot_multiple(
             MARKER_MaxProbSingle,
             "Probability/ Single",
         ),
-        (COLOUR_MinFeeMulti, LINESTYLE_MinFeeMulti, MARKER_MinFeeMulti, "Fee/ Multi"),
+        (
+            COLOUR_MinFeeMulti,
+            LINESTYLE_MinFeeMulti,
+            MARKER_MinFeeMulti,
+            "Fee/ Multi",
+        ),
         (
             COLOUR_MaxProbMulti,
             LINESTYLE_MaxProbMulti,
@@ -154,7 +166,9 @@ def plot_multiple(
     for st in strategies:
         for pt in percentages:
             for sc in range(0, len(scenarios)):
-                y_ticks = [df[pt][st][scenarios[sc]][amount] for amount in amounts]
+                y_ticks = [
+                    df[pt][st][scenarios[sc]][amount] for amount in amounts
+                ]
                 (colour, linestyle, marker, label) = plot_styles[sc]
                 axes[axis_num].plot(
                     x_ticks,
@@ -223,7 +237,9 @@ def scatter_plot(df, ylabel, xlabel, output_path):
         plt.plot([amt, amt], [y[1], y[2]], "--", color="gray", alpha=0.5)
         plt.plot([amt, amt], [y[2], y[3]], "--", color="gray", alpha=0.5)
     plt.xticks(x_ticks, X_TICKS_LABELS, rotation=45)
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")

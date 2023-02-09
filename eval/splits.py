@@ -83,7 +83,9 @@ def plot_parts(
         ax.set_xticklabels(X_TICKS_LABELS)
         # ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")

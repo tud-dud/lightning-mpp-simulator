@@ -4,14 +4,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from constants import *
 import os
-import seaborn as sns
-import numpy as np
-from collections import namedtuple, Counter
 
 
 def plot_adversary_hits(json_data, output_path):
     print("Evaluating adversary data.")
-    (hits_df, total_counts_df) = prepare_data(json_data)
+    (hits_df, _) = prepare_data(json_data)
     abs_hits_df = (
         hits_df.groupby(["amount", "scenario", "strategy", "percent"])[
             ["strategy", "total", "total_hits"]
@@ -28,11 +25,15 @@ def plot_adversary_hits(json_data, output_path):
     )
     plot(
         abs_hits_df,
-        output_path=os.path.join(output_path, "adversary_hits_all_payments.pdf"),
+        output_path=os.path.join(
+            output_path, "adversary_hits_all_payments.pdf"
+        ),
     )
     plot(
         rel_hits_df,
-        output_path=os.path.join(output_path, "adversary_hits_successful_payments.pdf"),
+        output_path=os.path.join(
+            output_path, "adversary_hits_successful_payments.pdf"
+        ),
         key="successful_hits",
         total_key="total_succ",
     )
@@ -46,7 +47,12 @@ def plot(
     amounts=[10000, 50000, 100000, 5000000],
 ):
     fig, ax = plt.subplots(
-        4, 3, sharex=False, sharey=False, constrained_layout=True, figsize=(12, 10)
+        4,
+        3,
+        sharex=False,
+        sharey=False,
+        constrained_layout=True,
+        figsize=(12, 10),
     )
     axes = ax.flatten()
     mpm = dict()
@@ -194,7 +200,9 @@ def prepare_data(json_data):
                 successful_num = x["numSuccesful"]
                 if (amount, scenario) not in total_num_successful_payments:
                     total_num_successful_payments[(amount, scenario)] = 0
-                total_num_successful_payments[(amount, scenario)] += successful_num
+                total_num_successful_payments[
+                    (amount, scenario)
+                ] += successful_num
                 for a in x["adversaries"]:
                     strategy = a["selection_strategy"]
                     for s in a["statistics"]:

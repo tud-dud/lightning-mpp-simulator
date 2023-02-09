@@ -71,10 +71,18 @@ def plot_htlc_attempts(
         amount = df_success["amount"][amt]
         x_ticks.append(amt)
         x_ticks_labels.append(amount)
-        mpm = (df_success["MaxProbMulti"][amt] / df_total["MaxProbMulti"][amt]) * 100
-        mps = (df_success["MaxProbSingle"][amt] / df_total["MaxProbSingle"][amt]) * 100
-        mfm = (df_success["MinFeeMulti"][amt] / df_total["MinFeeMulti"][amt]) * 100
-        mfs = (df_success["MinFeeSingle"][amt] / df_total["MinFeeSingle"][amt]) * 100
+        mpm = (
+            df_success["MaxProbMulti"][amt] / df_total["MaxProbMulti"][amt]
+        ) * 100
+        mps = (
+            df_success["MaxProbSingle"][amt] / df_total["MaxProbSingle"][amt]
+        ) * 100
+        mfm = (
+            df_success["MinFeeMulti"][amt] / df_total["MinFeeMulti"][amt]
+        ) * 100
+        mfs = (
+            df_success["MinFeeSingle"][amt] / df_total["MinFeeSingle"][amt]
+        ) * 100
         y = [mpm, mps, mfm, mfs]
         axes[1].scatter(y=y[0], x=amt, color=COLOUR_MaxProbMulti)
         axes[1].scatter(y=y[1], x=amt, color=COLOUR_MaxProbSingle)
@@ -90,7 +98,9 @@ def plot_htlc_attempts(
     # axes[1].set_yticks(np.arange(65, 105, 5))
     axes[1].set_ylabel("Percentage of successful HTLC attempts")
 
-    l1 = mpatches.Patch(color=COLOUR_MaxProbSingle, label="Probability/ Single")
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")

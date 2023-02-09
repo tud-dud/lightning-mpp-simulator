@@ -45,7 +45,12 @@ def plot(
     output_path,
 ):
     fig, ax = plt.subplots(
-        2, 1, sharex=True, sharey=False, constrained_layout=True, figsize=(12, 10)
+        2,
+        1,
+        sharex=True,
+        sharey=False,
+        constrained_layout=True,
+        figsize=(12, 10),
     )
     plt.tight_layout()
     axes = ax.flatten()

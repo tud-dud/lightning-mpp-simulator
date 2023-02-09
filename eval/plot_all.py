@@ -5,16 +5,17 @@ from argparse import ArgumentParser
 import json
 from pathlib import Path
 from collections import namedtuple
+import os
 
-from constants import *
 from adversaries import plot_adversary_hits
-from success_rate import *
-from fees import *
-from htlc_attempts import *
-from path_length import *
+from success_rate import plot_success_rate
+from fees import plot_fee_distributions, plot_fees
+from htlc_attempts import plot_htlc_attempts
+from path_length import plot_all_paths
 from anonymity import plot_predecessor_guesses
 from splits import plot_parts
-from radar import plot_radar
+
+# from radar import plot_radar
 from levenshtein import plot_edit_distance
 
 
@@ -91,16 +92,25 @@ def get_transactions_data(json_data):
                                 }
                             )
                             if path_len > 2 and path_len < 21:
-                                total_num = TotalNum(scenario=scenario, amt=amount)
+                                total_num = TotalNum(
+                                    scenario=scenario, amt=amount
+                                )
                                 if total_num not in num_successful_paths:
                                     num_successful_paths[total_num] = 0
                                 num_successful_paths[total_num] += 1
                                 # add entry of type <(scenario, amt, len)>
                                 path_inf = PathInf(
-                                    scenario=scenario, amt=amount, length=path_len
+                                    scenario=scenario,
+                                    amt=amount,
+                                    length=path_len,
                                 )
-                                if path_inf not in success_predecessor_guesses_df:
-                                    success_predecessor_guesses_df[path_inf] = 0
+                                if (
+                                    path_inf
+                                    not in success_predecessor_guesses_df
+                                ):
+                                    success_predecessor_guesses_df[
+                                        path_inf
+                                    ] = 0
                                 success_predecessor_guesses_df[path_inf] += 1
                         transactions_df.append(
                             {
@@ -144,13 +154,17 @@ def get_transactions_data(json_data):
                         for path in payment["failedPaths"]:
                             path_len = path["pathLen"]
                             if path_len > 3 and path_len < 21:
-                                total_num = TotalNum(scenario=scenario, amt=amount)
+                                total_num = TotalNum(
+                                    scenario=scenario, amt=amount
+                                )
                                 if total_num not in num_failed_paths:
                                     num_failed_paths[total_num] = 0
                                 num_failed_paths[total_num] += 1
                                 # add entry of type <(scenario, amt, len)>
                                 path_inf = PathInf(
-                                    scenario=scenario, amt=amount, length=path_len
+                                    scenario=scenario,
+                                    amt=amount,
+                                    length=path_len,
                                 )
                                 if path_inf not in fail_predecessor_guesses_df:
                                     fail_predecessor_guesses_df[path_inf] = 0
@@ -228,7 +242,6 @@ if __name__ == "__main__":
         path_distance_df,
     ) = get_transactions_data(data_files)
     plot_success_rate(data_files, output_path)
-    """
     plot_fees(
         transactions_df,
         ylabel="Fees in sats",
@@ -238,13 +251,19 @@ if __name__ == "__main__":
         transactions_df, output_path=os.path.join(output_path, "fee_dist.pdf")
     )
     plot_htlc_attempts(
-        htlc_attempts_df, output_path=os.path.join(output_path, "htlc_attempts.pdf")
+        htlc_attempts_df,
+        output_path=os.path.join(output_path, "htlc_attempts.pdf"),
     )
     plot_all_paths(paths_df, failed_paths_df, output_path)
     plot_adversary_hits(data_files, output_path)
-    plot_predecessor_guesses(success_predecessor_guesses_df, fail_predecessor_guesses_df, output_path)
+    plot_predecessor_guesses(
+        success_predecessor_guesses_df,
+        fail_predecessor_guesses_df,
+        output_path,
+    )
     plot_parts(parts_df, output_path=os.path.join(output_path, "splits.pdf"))
     plot_edit_distance(path_distance_df, output_path)
+    """
     plot_radar(output_path)
     """
     print("Successfully generated plots.")
