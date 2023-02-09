@@ -5,7 +5,7 @@ from constants import *
 import os
 
 
-def plot_anonymity(df_success, df_fail, output_path):
+def plot_predecessor_guesses(df_success, df_fail, output_path):
     df, total = df_success[0], df_success[1]
     succ_counts = calculate_probability(df, total)
     df, total = df_fail[0], df_fail[1]
@@ -176,4 +176,4 @@ def plot(
     )
     plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
-    print("{} written to {}".format("Anonymity", output_path))
+    print("{} written to {}".format("Predecessor guesses", output_path))

@@ -12,8 +12,10 @@ from success_rate import *
 from fees import *
 from htlc_attempts import *
 from path_length import *
-from anonymity import plot_anonymity
+from anonymity import plot_predecessor_guesses
 from splits import plot_parts
+from radar import plot_radar
+from levenshtein import plot_edit_distance
 
 
 def read_json_files(input_path):
@@ -42,13 +44,13 @@ def get_transactions_data(json_data):
     failed_paths_df = []
     parts_df = []
     PathInf = namedtuple("PathInf", ["scenario", "amt", "length"])
-    success_anonymity_df = {}
-    fail_anonymity_df = {}
+    success_predecessor_guesses_df = {}
+    fail_predecessor_guesses_df = {}
     # number of successful with more than 2 hops per scenario
-    # maybe {'scenario, amt": total #successful}
     TotalNum = namedtuple("TotalNum", ["scenario", "amt"])
     num_successful_paths = {}
     num_failed_paths = {}
+    path_distance_df = []
     for json in json_data:
         for j in json:
             run = j["run"]
@@ -57,6 +59,18 @@ def get_transactions_data(json_data):
                 htlc_attempts = 0
                 successful_htlc_attempts = 0
                 amount = r["amount"]
+                distances = r["pathDistances"]
+                if len(distances) == 0:
+                    distances = [float("nan")]
+                for dist in distances:
+                    path_distance_df.append(
+                        {
+                            "run": run,
+                            "amount": amount,
+                            "scenario": scenario,
+                            "distance": dist,
+                        }
+                    )
                 for payment in r["payments"]:
                     htlc_attempts += payment["htlcAttempts"]
                     if payment["succeeded"] is True:
@@ -85,9 +99,9 @@ def get_transactions_data(json_data):
                                 path_inf = PathInf(
                                     scenario=scenario, amt=amount, length=path_len
                                 )
-                                if path_inf not in success_anonymity_df:
-                                    success_anonymity_df[path_inf] = 0
-                                success_anonymity_df[path_inf] += 1
+                                if path_inf not in success_predecessor_guesses_df:
+                                    success_predecessor_guesses_df[path_inf] = 0
+                                success_predecessor_guesses_df[path_inf] += 1
                         transactions_df.append(
                             {
                                 "run": run,
@@ -138,9 +152,9 @@ def get_transactions_data(json_data):
                                 path_inf = PathInf(
                                     scenario=scenario, amt=amount, length=path_len
                                 )
-                                if path_inf not in fail_anonymity_df:
-                                    fail_anonymity_df[path_inf] = 0
-                                fail_anonymity_df[path_inf] += 1
+                                if path_inf not in fail_predecessor_guesses_df:
+                                    fail_predecessor_guesses_df[path_inf] = 0
+                                fail_predecessor_guesses_df[path_inf] += 1
                     for path in payment["failedPaths"]:
                         path_len = path["pathLen"]
                         failed_paths_df.append(
@@ -165,14 +179,16 @@ def get_transactions_data(json_data):
     path_len_df = pd.DataFrame(path_len_df)
     failed_paths_df = pd.DataFrame(failed_paths_df)
     parts_df = pd.DataFrame(parts_df)
+    path_distance_df = pd.DataFrame(path_distance_df)
     return (
         transactions_df,
         htlc_attempts_df,
         path_len_df,
         failed_paths_df,
-        (success_anonymity_df, num_successful_paths),
-        (fail_anonymity_df, num_failed_paths),
+        (success_predecessor_guesses_df, num_successful_paths),
+        (fail_predecessor_guesses_df, num_failed_paths),
         parts_df,
+        path_distance_df,
     )
 
 
@@ -206,14 +222,15 @@ if __name__ == "__main__":
         htlc_attempts_df,
         paths_df,
         failed_paths_df,
-        success_anonymity_df,
-        fail_anonymity_df,
+        success_predecessor_guesses_df,
+        fail_predecessor_guesses_df,
         parts_df,
+        path_distance_df,
     ) = get_transactions_data(data_files)
     plot_success_rate(data_files, output_path)
+    """
     plot_fees(
         transactions_df,
-        xlabel="Amount in sats",
         ylabel="Fees in sats",
         output_path=os.path.join(output_path, "transaction_fees.pdf"),
     )
@@ -225,6 +242,9 @@ if __name__ == "__main__":
     )
     plot_all_paths(paths_df, failed_paths_df, output_path)
     plot_adversary_hits(data_files, output_path)
-    plot_anonymity(success_anonymity_df, fail_anonymity_df, output_path)
+    plot_predecessor_guesses(success_predecessor_guesses_df, fail_predecessor_guesses_df, output_path)
     plot_parts(parts_df, output_path=os.path.join(output_path, "splits.pdf"))
+    plot_edit_distance(path_distance_df, output_path)
+    plot_radar(output_path)
+    """
     print("Successfully generated plots.")

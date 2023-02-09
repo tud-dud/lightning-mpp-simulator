@@ -9,7 +9,6 @@ import seaborn as sns
 def plot_fees(
     df,
     ylabel,
-    xlabel,
     output_path,
     colours=[
         COLOUR_MaxProbSingle,

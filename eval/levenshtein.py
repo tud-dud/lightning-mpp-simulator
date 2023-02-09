@@ -6,6 +6,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 import matplotlib.ticker as ticker
 import os
+import numpy as np
 
 
 def plot_edit_distance(
@@ -80,8 +81,9 @@ def plot_edit_distance(
         ax.set_xlabel("")
         ax.tick_params("x", labelrotation=45)
         ax.set_xticklabels(X_TICKS_LABELS)
-        #tick_spacing = 5
-        #ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
+        ax.set_yticks(np.arange(0, 15, 2))
+        # tick_spacing = 5
+        # ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
         ax.set_ylabel("Path distance")
 
     l1 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
