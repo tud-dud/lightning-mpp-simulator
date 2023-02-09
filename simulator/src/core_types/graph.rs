@@ -309,6 +309,10 @@ impl Graph {
         pairs.into_iter()
     }
 
+    pub(crate) fn node_is_in_graph(&self, node: &ID) -> bool {
+        self.get_node_ids().contains(node)
+    }
+
     fn get_sccs(&self) -> Vec<Vec<ID>> {
         let successors = |node: &ID| -> Vec<ID> {
             if let Some(succs) = self.edges.get(&node.to_owned()) {
@@ -715,5 +719,15 @@ mod tests {
         }
         assert_eq!(graph.node_count(), 0);
         assert_eq!(graph.edge_count(), 0);
+    }
+
+    #[test]
+    fn contains_node() {
+        let json_file = std::path::Path::new("../test_data/lnbook_example.json");
+        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let node = "bob".to_string();
+        assert!(graph.node_is_in_graph(&node));
+        graph.remove_node(&node);
+        assert!(!graph.node_is_in_graph(&node));
     }
 }

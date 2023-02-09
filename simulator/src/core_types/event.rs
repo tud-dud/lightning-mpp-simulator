@@ -11,6 +11,7 @@ pub enum PaymentEvent {
     UpdateSuccesful { payment: Payment },
 }
 
+#[derive(Clone)]
 pub struct EventQueue {
     events: BTreeMap<Time, VecDeque<PaymentEvent>>,
     last_tick: Time,

@@ -20,7 +20,7 @@ impl Simulation {
         let fraction_of_adversaries = if let Some(percent) = self.fraction_of_adversaries {
             vec![percent]
         } else {
-            (1..10).map(|v| v * 10).collect() // in percent
+            (1..10).collect() // in percent
         };
         let (all_adversaries, chunks) = self.get_adversaries(&fraction_of_adversaries);
         let mut all_payments = self.failed_payments.clone();
@@ -41,6 +41,7 @@ impl Simulation {
                     "Starting adversary scenario: {} sat: {:?} with {} nodes.",
                     self.amount, strategy, num_adv,
                 );
+                let targeted_attack = self.run_scenario_simulator(&adv);
                 Self::adversary_hits(&mut attacked_payments, &mut attacked_successful_payments, &all_payments, &adv);
                 let (hits, hits_successful) =
                     (attacked_payments.iter().filter(|e| *e.1 != 0).count(), attacked_successful_payments.iter().filter(|e| *e.1 != 0).count());
@@ -86,6 +87,7 @@ impl Simulation {
                     anonymity_sets,
                     attacked_all: num_attacks,
                     attacked_successful: num_attacks_successful,
+                    targeted_attack,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",

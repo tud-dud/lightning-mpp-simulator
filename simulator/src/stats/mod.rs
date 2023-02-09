@@ -1,6 +1,7 @@
 mod adversaries;
 mod deanonymisation;
 mod distance;
+mod resillience;
 
 use std::collections::HashMap;
 
@@ -24,6 +25,8 @@ pub struct Statistics {
     pub attacked_all: HashMap<usize, usize>,
     /// Number of attacks , number of successful payments
     pub attacked_successful: HashMap<usize, usize>,
+    /// Contains the updated sim results when some nodes are removed
+    pub targeted_attack: TargetedAttack,
 }
 
 /// All the distances in the simulated payments' paths
@@ -39,4 +42,10 @@ pub struct AnonymitySet {
     /// True if the recipient is included in the recipient anonymity set
     correct_recipient: bool,
     correct_source: bool,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+pub struct TargetedAttack {
+    pub num_succesful: usize,
+    pub num_failed: usize,
 }

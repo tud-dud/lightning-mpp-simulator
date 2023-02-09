@@ -7,6 +7,7 @@ use log::{debug, error, info};
 use rand::{seq::IteratorRandom, SeedableRng};
 use std::collections::{BTreeMap, HashMap};
 
+#[derive(Clone)]
 pub struct Simulation {
     /// Graph describing LN topology
     pub(crate) graph: Graph,
@@ -234,7 +235,7 @@ impl Simulation {
         };
     }
 
-    fn next_payment_id(&mut self) -> usize {
+    pub(crate) fn next_payment_id(&mut self) -> usize {
         let current_id = self.current_payment_id;
         self.current_payment_id += 1;
         current_id
