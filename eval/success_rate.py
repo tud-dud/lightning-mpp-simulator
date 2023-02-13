@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from constants import *
 import matplotlib.patches as mpatches
 import os
+import scienceplots
 
 """
 Expects a JSON file for each run
@@ -12,6 +13,9 @@ Returns a scatter plot with the median success rate per amount and pathfinfing c
 """
 
 percentages = [1, 2, 3]
+# percentages = [10, 20, 50]
+
+plt.style.use(["science", "ieee"])
 
 
 def plot_success_rate(json_data, output_path):
@@ -74,19 +78,19 @@ def plot_success_rate(json_data, output_path):
     )
     plot(
         df_normal,
-        xlabel="Amount in sats",
+        xlabel="Payment amount in sat",
         ylabel="Success rate",
         output_path=os.path.join(output_path, "success_rate_line.pdf"),
     )
     scatter_plot(
         df_normal,
-        xlabel="Amount in sats",
+        xlabel="Payment amount in sat",
         ylabel="Success rate",
         output_path=os.path.join(output_path, "success_rate_scatter.pdf"),
     )
     plot_multiple(
         df_attacks,
-        xlabel="Amount in sats",
+        xlabel="Payment amount in sat",
         ylabel="Success rate",
         output_path=os.path.join(output_path, "success_rate_node_removal.pdf"),
     )
@@ -263,7 +267,6 @@ def plot(
     xlabel,
     output_path,
 ):
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
     df = df.reset_index()
     x_ticks = []
     x_ticks_labels = []
@@ -279,7 +282,7 @@ def plot(
         mps.append(df["MaxProbSingle"][amt])
         mfm.append(df["MinFeeMulti"][amt])
         mfs.append(df["MinFeeSingle"][amt])
-    ax.plot(
+    plt.plot(
         x_ticks,
         mpm,
         linestyle=LINESTYLE_MaxProbMulti,
@@ -288,7 +291,7 @@ def plot(
         ms=4,
         label="Probability/ Multi",
     )
-    ax.plot(
+    plt.plot(
         x_ticks,
         mps,
         linestyle=LINESTYLE_MaxProbSingle,
@@ -297,7 +300,7 @@ def plot(
         ms=4,
         label="Probability/ Single",
     )
-    ax.plot(
+    plt.plot(
         x_ticks,
         mfm,
         linestyle=LINESTYLE_MinFeeMulti,
@@ -306,7 +309,7 @@ def plot(
         ms=4,
         label="Fee/ Multi",
     )
-    ax.plot(
+    plt.plot(
         x_ticks,
         mfs,
         linestyle=LINESTYLE_MinFeeSingle,
@@ -315,15 +318,18 @@ def plot(
         ms=4,
         label="Fee/ Single",
     )
-    ax.set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
-    ax.tick_params("x", labelrotation=45)
+    plt.xticks(x_ticks, X_TICKS_LABELS, rotation=45)
+    plt.tick_params("x", labelrotation=45)
+    """
     plt.legend(
-        bbox_to_anchor=(0.75, 1.05),
+        #bbox_to_anchor=(0.75, 1.05),
         handlelength=2,
         ncol=4,
         frameon=False,
         fontsize=8,
     )
+    """
+    plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.savefig(output_path, bbox_inches="tight")

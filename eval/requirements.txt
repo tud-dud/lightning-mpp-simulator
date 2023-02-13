@@ -5,3 +5,4 @@ seaborn
 black
 pylint
 flake8
+SciencePlots

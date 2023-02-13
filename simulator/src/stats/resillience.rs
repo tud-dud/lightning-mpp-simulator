@@ -76,7 +76,7 @@ impl Simulation {
         }
         info!("Completed simulation of targeted attacks.");
         TargetedAttack {
-            num_succesful: self.num_successful,
+            num_successful: self.num_successful,
             num_failed: self.num_failed,
         }
     }

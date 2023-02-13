@@ -66,3 +66,6 @@ X_TICKS_LABELS = [
     f"{5000000:,}",
     f"{10000000:,}",
 ]
+
+IEEE_FIG_WIDTH = 3.3
+IEEE_FIG_HEIGHT = 2.5

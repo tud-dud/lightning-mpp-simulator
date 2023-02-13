@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 from constants import *
 import matplotlib.patches as mpatches
 import seaborn as sns
-import os
+import scienceplots
+
+plt.style.use(["science", "ieee"])
 
 
 def plot_fees(
@@ -20,9 +22,8 @@ def plot_fees(
 ):
     print("Evaluating transaction fees data.")
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    _, axes = plt.subplots(ncols=1, nrows=2, sharex=True, figsize=(12, 10))
+    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True)
     axes = axes.flatten()
-    plt.tight_layout()
     ax0 = sns.boxplot(
         x="amount",
         y="value",
@@ -45,9 +46,27 @@ def plot_fees(
     )
     ax0.set_yscale("log")
     ax0.tick_params("x", labelrotation=45)
-    ax0.set_ylabel("Fees in sat")
+    ax0.set_ylabel("")
+    ylabel = "Fees in sat"
+    fig.text(-0.025, 0.7, ylabel, rotation=90)
     ax0.set_xlabel("")
     ax0.get_legend().remove()
+    l1 = mpatches.Patch(
+        color=COLOUR_MaxProbSingle, label="Probability/ Single"
+    )
+    l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
+    l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
+    l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
+
+    """
+    plt.legend(
+       handles=[l1, l2, l3, l4],
+       bbox_to_anchor=(0.75, 2.05),
+       ncol=4,
+       fontsize=8,
+       frameon=False,
+    )
+    """
 
     # relative fees
     df_rel = df.melt(
@@ -76,21 +95,22 @@ def plot_fees(
     ax1.set_yscale("log")
     ax1.tick_params("x", labelrotation=45)
     ax1.set_xticklabels(X_TICKS_LABELS)
-    ax1.set_ylabel("Relative fees in sat")
+    ax1.set_ylabel("")
+    ylabel = "Relative fees in sat"
+    fig.text(-0.025, 0.275, ylabel, rotation=90)
     ax1.get_legend().remove()
 
-    l1 = mpatches.Patch(
-        color=COLOUR_MaxProbSingle, label="Probability/ Single"
-    )
-    l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
-    l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
-    l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
+    fig.subplots_adjust(top=0.8)
+    plt.tight_layout()
     plt.legend(
         handles=[l1, l2, l3, l4],
-        bbox_to_anchor=(0.75, 2.15),
-        ncol=4,
-        fontsize=8,
-        frameon=False,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 2.1),
+        ncol=2,
+        handleheight=0.5,
+        handlelength=0.25,
+        # fontsize=8,
+        # frameon=False,
     )
     plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
@@ -108,9 +128,14 @@ def plot_fee_distributions(
     ],
 ):
     print("Evaluating fee distribution data.")
-    plt.tight_layout()
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    _, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 10))
+    # _, axes = plt.subplots(ncols=1, nrows=4, sharex=True, figsize=(12, 10))
+    fig, axes = plt.subplots(
+        ncols=1,
+        nrows=4,
+        sharex=True,
+        figsize=(IEEE_FIG_WIDTH * 2, IEEE_FIG_HEIGHT),
+    )
     axes = axes.flatten()
     plt.tight_layout()
     hue_orders = [
@@ -155,23 +180,31 @@ def plot_fee_distributions(
         ax.set_yscale("symlog")
         ax.set_ylim([1e-3, 1e7])
         ax.tick_params("x", labelrotation=45)
-        ax.set_ylabel("Fees in sat")
+        ax.set_ylabel("")
         ax.set_xlabel("")
         ax.get_legend().remove()
         ax.set_xticklabels(X_TICKS_LABELS)
+        plt.setp(ax.get_yticklabels()[::2], visible=False)
 
+    ylabel = "Fees in sat"
+    fig.text(-0.025, 0.5, ylabel, rotation=90)
     l1 = mpatches.Patch(
         color=COLOUR_MaxProbSingle, label="Probability/ Single"
     )
     l2 = mpatches.Patch(color=COLOUR_MaxProbMulti, label="Probability/ Multi")
     l3 = mpatches.Patch(color=COLOUR_MinFeeSingle, label="Fee/ Single")
     l4 = mpatches.Patch(color=COLOUR_MinFeeMulti, label="Fee/ Multi")
+    fig.subplots_adjust(top=0.8)
+    plt.tight_layout()
     plt.legend(
         handles=[l1, l2, l3, l4],
-        bbox_to_anchor=(0.75, 4.6),
+        loc="lower center",
+        bbox_to_anchor=(0.5, 5.25),
         ncol=4,
-        fontsize=8,
-        frameon=False,
+        handleheight=0.5,
+        handlelength=0.25,
+        # fontsize=8,
+        # frameon=False,
     )
     plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")

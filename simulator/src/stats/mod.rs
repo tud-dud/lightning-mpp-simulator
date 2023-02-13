@@ -46,6 +46,6 @@ pub struct AnonymitySet {
 
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct TargetedAttack {
-    pub num_succesful: usize,
+    pub num_successful: usize,
     pub num_failed: usize,
 }
