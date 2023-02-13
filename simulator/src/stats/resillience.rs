@@ -193,14 +193,14 @@ mod tests {
         let actual = simulator.run_scenario_simulator(&targets);
         let expected = TargetedAttack {
             // dina <-> chan
-            num_succesful: 2,
+            num_successful: 2,
             num_failed: 0,
         };
         assert_eq!(actual, expected);
         let targets = ["bob".to_string(), "chan".to_string()];
         let actual = simulator.run_scenario_simulator(&targets);
         let expected = TargetedAttack {
-            num_succesful: 0,
+            num_successful: 0,
             num_failed: 0,
         };
         assert_eq!(actual, expected);
