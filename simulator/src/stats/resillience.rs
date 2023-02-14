@@ -11,7 +11,7 @@ use log::{debug, info};
 use std::{println as info, println as debug};
 
 impl Simulation {
-    pub(crate) fn run_scenario_simulator(&self, targets: &[ID]) -> TargetedAttack {
+    pub(crate) fn rerun_simulation(&self, targets: &[ID]) -> TargetedAttack {
         info!(
             "Simulating targeted node attacks for {:?}, {:?} of {} sats.",
             self.routing_metric, self.payment_parts, self.amount
@@ -21,6 +21,8 @@ impl Simulation {
         let pp = sim.reconstruct_payment_pairs();
         sim.failed_payments = vec![];
         sim.successful_payments = vec![];
+        sim.num_successful = 0;
+        sim.num_failed = 0;
         sim.event_queue = EventQueue::new();
         sim.total_num_payments = pp.size_hint().0;
         assert_eq!(sim.payment_parts, self.payment_parts);
@@ -35,7 +37,7 @@ impl Simulation {
             self.routing_metric,
             self.payment_parts
         );
-        let mut now = Time::from_secs(0.0); // start simulation at (0)
+        let mut now = self.event_queue.now();
         for (src, dest) in payment_pairs {
             let payment_id = self.next_payment_id();
             let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
@@ -52,7 +54,6 @@ impl Simulation {
         );
 
         info!("Starting simulation.");
-        // this is where the actual simulation happens
         while let Some(event) = self.event_queue.next() {
             match event {
                 PaymentEvent::Scheduled { mut payment } => {
@@ -61,7 +62,7 @@ impl Simulation {
                         payment.payment_id,
                         self.event_queue.now()
                     );
-                    let _ = match self.payment_parts {
+                    match self.payment_parts {
                         PaymentParts::Single => self.send_single_payment(&mut payment),
                         PaymentParts::Split => self.send_mpp_payment(&mut payment),
                     };
@@ -190,7 +191,7 @@ mod tests {
             ..Default::default()
         }];
         let targets = ["bob".to_string()];
-        let actual = simulator.run_scenario_simulator(&targets);
+        let actual = simulator.rerun_simulation(&targets);
         let expected = TargetedAttack {
             // dina <-> chan
             num_successful: 2,
@@ -198,7 +199,7 @@ mod tests {
         };
         assert_eq!(actual, expected);
         let targets = ["bob".to_string(), "chan".to_string()];
-        let actual = simulator.run_scenario_simulator(&targets);
+        let actual = simulator.rerun_simulation(&targets);
         let expected = TargetedAttack {
             num_successful: 0,
             num_failed: 0,

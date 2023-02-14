@@ -41,7 +41,7 @@ impl Simulation {
                     "Starting adversary scenario: {} sat: {:?} with {} nodes.",
                     self.amount, strategy, num_adv,
                 );
-                let targeted_attack = self.run_scenario_simulator(&adv);
+                let targeted_attack = self.rerun_simulation(&adv);
                 Self::adversary_hits(&mut attacked_payments, &mut attacked_successful_payments, &all_payments, &adv);
                 let (hits, hits_successful) =
                     (attacked_payments.iter().filter(|e| *e.1 != 0).count(), attacked_successful_payments.iter().filter(|e| *e.1 != 0).count());
