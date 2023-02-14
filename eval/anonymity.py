@@ -130,6 +130,7 @@ def plot(
     mpm.sort()
     mfm.sort()
     mfs.sort()
+    x_ticks = [i for i in range(0, len(mps))]
     mps = [prob for _, prob in mps]
     mpm = [prob for _, prob in mpm]
     mfs = [prob for _, prob in mfs]

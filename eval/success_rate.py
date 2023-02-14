@@ -12,7 +12,7 @@ Expects a JSON file for each run
 Returns a scatter plot with the median success rate per amount and pathfinfing combination
 """
 
-percentages = [1, 2, 3]
+percentages = [2, 4, 6, 8]
 # percentages = [10, 20, 50]
 
 plt.style.use(["science", "ieee"])
@@ -104,7 +104,7 @@ def plot_multiple(
 ):
     fig, ax = plt.subplots(
         3,
-        3,
+        len(percentages),
         sharex=False,
         sharey=False,
         constrained_layout=True,
@@ -183,11 +183,14 @@ def plot_multiple(
                     marker=marker,
                     ms=4,
                 )
-                axes[axis_num].set_xticks(x_ticks, X_TICKS_LABELS, rotation=45)
-                axes[axis_num].tick_params("x", labelrotation=45)
+                axes[axis_num].set_xticks(x_ticks, X_TICKS_LABELS, rotation=90)
+                # axes[axis_num].tick_params("x", labelrotation=45)
             axis_num += 1
     rows = ["{}".format(row) for row in strategies]
-    cols = [f"{col:,} % adversaries removed" for col in percentages]
+    cols = [
+        f"{percentages[col]} % adversaries"
+        for col in range(0, len(percentages))
+    ]
     for ax1, col in zip(ax[0], cols):
         ax1.set_title(col)
     pad = 1
@@ -205,7 +208,8 @@ def plot_multiple(
         )
     plt.tight_layout()
     plt.legend(
-        bbox_to_anchor=(0.2, 4.1),
+        loc="lower center",
+        bbox_to_anchor=(-1.2, 3.6),
         handlelength=2,
         ncol=4,
         frameon=False,
@@ -318,8 +322,8 @@ def plot(
         ms=4,
         label="Fee/ Single",
     )
-    plt.xticks(x_ticks, X_TICKS_LABELS, rotation=45)
-    plt.tick_params("x", labelrotation=45)
+    plt.xticks(x_ticks, X_TICKS_LABELS, rotation=90)
+    # plt.tick_params("x", labelrotation=45)
     """
     plt.legend(
         #bbox_to_anchor=(0.75, 1.05),

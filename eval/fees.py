@@ -22,7 +22,11 @@ def plot_fees(
 ):
     print("Evaluating transaction fees data.")
     df_abs = df.melt(id_vars=["scenario", "amount"], value_vars=["total_fees"])
-    fig, axes = plt.subplots(ncols=1, nrows=2, sharex=True)
+    fig, axes = plt.subplots(
+        ncols=1,
+        nrows=2,
+        sharex=True,
+    )
     axes = axes.flatten()
     ax0 = sns.boxplot(
         x="amount",
@@ -45,10 +49,10 @@ def plot_fees(
         whiskerprops=dict(linestyle="-", linewidth=0.5, color="black"),
     )
     ax0.set_yscale("log")
-    ax0.tick_params("x", labelrotation=45)
+    ax0.tick_params("x", labelrotation=90)
     ax0.set_ylabel("")
     ylabel = "Fees in sat"
-    fig.text(-0.025, 0.7, ylabel, rotation=90)
+    fig.text(0.0, 0.525, ylabel, rotation=90)
     ax0.set_xlabel("")
     ax0.get_legend().remove()
     l1 = mpatches.Patch(
@@ -93,24 +97,21 @@ def plot_fees(
         whiskerprops=dict(linestyle="-", linewidth=0.5, color="black"),
     )
     ax1.set_yscale("log")
-    ax1.tick_params("x", labelrotation=45)
+    ax1.tick_params("x", labelrotation=90)
     ax1.set_xticklabels(X_TICKS_LABELS)
     ax1.set_ylabel("")
     ylabel = "Relative fees in sat"
-    fig.text(-0.025, 0.275, ylabel, rotation=90)
+    fig.text(-0.0, 0.1, ylabel, rotation=90)
     ax1.get_legend().remove()
 
     fig.subplots_adjust(top=0.8)
-    plt.tight_layout()
     plt.legend(
         handles=[l1, l2, l3, l4],
-        loc="lower center",
-        bbox_to_anchor=(0.5, 2.1),
+        loc="upper left",
+        bbox_to_anchor=(-0.01, 2.475),
         ncol=2,
-        handleheight=0.5,
-        handlelength=0.25,
-        # fontsize=8,
-        # frameon=False,
+        handleheight=0.1,
+        handlelength=0.1,
     )
     plt.xlabel("Payment amount in sat")
     plt.savefig(output_path, bbox_inches="tight")
@@ -179,7 +180,7 @@ def plot_fee_distributions(
         ax.set_rasterization_zorder(-10)
         ax.set_yscale("symlog")
         ax.set_ylim([1e-3, 1e7])
-        ax.tick_params("x", labelrotation=45)
+        ax.tick_params("x", labelrotation=90)
         ax.set_ylabel("")
         ax.set_xlabel("")
         ax.get_legend().remove()
