@@ -62,7 +62,7 @@ fn main() {
     let seed = args.run;
     let paymeny_amt = args.amount;
     let number_of_sim_pairs = args.num_pairs;
-    let fraction_of_adversaries = args.num_adv;
+    let number_of_adversaries = args.num_adv;
     let routing_metric = args.edge_weight;
     let split_payments = if args.split_payments {
         lightning_simulator::PaymentParts::Split
@@ -102,7 +102,7 @@ fn main() {
         paymeny_amt,
         routing_metric,
         split_payments,
-        fraction_of_adversaries,
+        number_of_adversaries,
         &adversary_selection,
     );
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);

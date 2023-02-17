@@ -15,7 +15,8 @@ pub struct Adversaries {
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Statistics {
-    pub(crate) percentage: usize,
+    /// how many adversaries
+    pub(crate) number: usize,
     /// Number of times an adversary was included a payment path
     pub hits: usize,
     /// Number of times an adversary was included a successful payment path

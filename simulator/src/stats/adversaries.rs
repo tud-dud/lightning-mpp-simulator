@@ -17,12 +17,12 @@ use std::{println as info, println as warn};
 impl Simulation {
     pub(crate) fn eval_adversaries(&mut self) {
         info!("Starting adversary evaluation scenarios..");
-        let fraction_of_adversaries = if let Some(percent) = self.fraction_of_adversaries {
-            vec![percent]
+        let number_of_adversaries = if let Some(number) = self.number_of_adversaries {
+            vec![number]
         } else {
-            (1..10).collect() // in percent
+            (1..21).collect() // in percent
         };
-        let (all_adversaries, chunks) = self.get_adversaries(&fraction_of_adversaries);
+        let (all_adversaries, chunks) = self.get_adversaries(&number_of_adversaries);
         let mut all_payments = self.failed_payments.clone();
         all_payments.extend(self.successful_payments.clone());
         let adversaries = Arc::new(Mutex::new(vec![]));
@@ -30,8 +30,8 @@ impl Simulation {
             let mut statistics: Vec<Statistics> = vec![];
             let mut attacked_payments: HashMap<PaymentId, usize> = HashMap::new();
             let mut attacked_successful_payments: HashMap<PaymentId, usize> = HashMap::new();
-            for i in 0..fraction_of_adversaries.len() {
-                let percent = fraction_of_adversaries[i];
+            for (i, number) in number_of_adversaries.iter().enumerate() {
+                //let percent = number_of_adversaries[i];
                 let num_adv = chunks[i + 1];
                 let adv = match all_adversaries.get(strategy) {
                     None => vec![],
@@ -65,7 +65,7 @@ impl Simulation {
                     .or_insert(1);
                 }
                 info!("Completed counting adversary occurences in payments.");
-                let anonymity_sets = if percent % 11 == 0 {
+                let anonymity_sets = if number % 200 == 0 {
                     if i == 0 {
                         self.deanonymise_tx_pairs(&adv)
                     } else {
@@ -81,7 +81,7 @@ impl Simulation {
                     vec![]
                 };
                 statistics.push(Statistics {
-                    percentage: percent,
+                    number: *number,
                     hits,
                     hits_successful,
                     anonymity_sets,
@@ -139,12 +139,10 @@ impl Simulation {
 
     fn get_adversaries(
         &self,
-        fraction_of_adversaries: &[usize],
+        number_of_adversaries: &[usize],
     ) -> (HashMap<AdversarySelection, Vec<ID>>, Vec<usize>) {
         let nodes = self.graph.get_node_ids();
-        let max_num_adversaries =
-            (nodes.len() * fraction_of_adversaries[fraction_of_adversaries.len() - 1]) / 100
-                + (nodes.len() * (fraction_of_adversaries.len() - 1) % 100 != 0) as usize;
+        let max_num_adversaries = number_of_adversaries[number_of_adversaries.len() - 1];
         let mut chunks = vec![0];
         let mut all_adversaries: HashMap<AdversarySelection, Vec<ID>> = HashMap::new();
         for strategy in self.adversary_selection.iter() {
@@ -168,7 +166,7 @@ impl Simulation {
             };
             all_adversaries.insert(strategy.clone(), adv);
         }
-        for percent in fraction_of_adversaries {
+        for percent in number_of_adversaries {
             // safely round downwards
             chunks.push((nodes.len() * percent) / 100);
         }
@@ -202,7 +200,7 @@ mod tests {
             simulator.adversaries[0].selection_strategy,
             AdversarySelection::Random
         );
-        assert_eq!(statistics[0].percentage, fraction_of_adversaries);
+        assert_eq!(statistics[0].number, fraction_of_adversaries);
         assert_eq!(statistics[0].hits, 3); // we send three payments
         assert_eq!(statistics[0].hits_successful, 3);
         let num_attacks = [(1, 1), (2, 2)];
@@ -223,7 +221,7 @@ mod tests {
         let sim_result = simulator.run(vec![(source, dest)].into_iter());
         assert_eq!(sim_result.num_succesful, 1);
         let statistics = &simulator.adversaries[0].statistics;
-        assert_eq!(statistics[0].percentage, fraction_of_adversaries);
+        assert_eq!(statistics[0].number, fraction_of_adversaries);
         assert_eq!(statistics[0].hits, 0); // we only send one payment
         assert_eq!(statistics[0].hits_successful, 0);
         assert_eq!(statistics[0].attacked_all, HashMap::from([(0, 1)])); // 1 payment attacked 0

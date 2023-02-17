@@ -30,9 +30,8 @@ pub struct Simulation {
     pub(crate) successful_payments: Vec<Payment>,
     pub(crate) num_failed: usize,
     pub(crate) failed_payments: Vec<Payment>,
-    /// If fraction of adversaries in the simulation is not passed, we simulate 0 to 90% of
-    /// adversaries
-    pub(crate) fraction_of_adversaries: Option<usize>,
+    /// If not passed, we simulate 1 to 21 adversaries
+    pub(crate) number_of_adversaries: Option<usize>,
     pub(crate) adversaries: Vec<Adversaries>,
     // the number of times a node is included in a payment path
     pub(crate) node_hits: HashMap<ID, usize>,
@@ -48,7 +47,7 @@ impl Simulation {
         amount: usize,
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
-        fraction_of_adversaries: Option<usize>,
+        number_of_adversaries: Option<usize>,
         adversary_selection: &[AdversarySelection],
     ) -> Self {
         info!("Initialising simulation...");
@@ -71,7 +70,7 @@ impl Simulation {
             num_failed: 0,
             failed_payments: Vec::new(),
             total_num_payments: 0,
-            fraction_of_adversaries,
+            number_of_adversaries,
             adversaries: vec![],
             node_hits: HashMap::default(),
             path_distances: PathDistances(vec![]),
@@ -85,7 +84,7 @@ impl Simulation {
         graph: Graph,
         amount: usize,
         weight_parts: WeightPartsCombi,
-        fraction_of_adversaries: Option<usize>,
+        number_of_adversaries: Option<usize>,
         adversary_selection: &[AdversarySelection],
     ) -> Self {
         let (routing_metric, payment_parts) = match weight_parts {
@@ -100,7 +99,7 @@ impl Simulation {
             amount,
             routing_metric,
             payment_parts,
-            fraction_of_adversaries,
+            number_of_adversaries,
             adversary_selection,
         )
     }
