@@ -6,9 +6,9 @@ use crate::{
 use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
 #[cfg(not(test))]
-use log::{debug, info};
+use log::{debug, info, trace};
 #[cfg(test)]
-use std::{println as info, println as debug};
+use std::{println as info, println as debug, println as trace};
 
 impl Simulation {
     pub(crate) fn rerun_simulation(&self, targets: &[ID]) -> TargetedAttack {
@@ -83,6 +83,7 @@ impl Simulation {
     }
 
     fn delete_targets(&mut self, targets: &[ID]) {
+        trace!("Removed {} nodes from the graph.", targets.len());
         for node in targets {
             self.graph.remove_node(node);
         }

@@ -287,7 +287,7 @@ pub(crate) mod tests {
         core_types::graph::Graph, AdversarySelection, Invoice, PaymentParts, RoutingMetric,
     };
 
-    pub fn init_sim(path: Option<String>, fraction_of_adversaries: Option<usize>) -> Simulation {
+    pub fn init_sim(path: Option<String>, number_of_adversaries: Option<usize>) -> Simulation {
         let seed = 0;
         let amount = 1000;
         let mut graph = if let Some(file_path) = path {
@@ -313,7 +313,7 @@ pub(crate) mod tests {
             amount,
             routing_metric,
             payment_parts,
-            fraction_of_adversaries,
+            number_of_adversaries,
             &adversary_selection,
         )
     }

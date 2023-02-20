@@ -404,9 +404,9 @@ mod tests {
 
     #[test]
     fn run_sim() {
-        let fraction_of_adversaries = 100;
         let path_to_file = Path::new("../test_data/lnbook_example.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let number_of_adversaries = graph.node_count();
         let amount = 1000;
         let seed = 1;
         let routing_metric = RoutingMetric::MinFee;
@@ -424,7 +424,7 @@ mod tests {
             amount,
             routing_metric,
             payment_parts,
-            Some(fraction_of_adversaries),
+            Some(number_of_adversaries),
             &adversary_selection,
         );
         simulator.run(pairs.clone().into_iter());

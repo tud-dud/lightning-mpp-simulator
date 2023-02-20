@@ -7,7 +7,6 @@ use crate::{
 
 #[cfg(not(test))]
 use log::{debug, info, trace, warn};
-use rand::seq::IteratorRandom;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -26,13 +25,7 @@ impl Simulation {
         );
         let all_anonymits_sets = Arc::new(Mutex::new(vec![]));
         let graph = self.graph.clone();
-        // randomly pick 20% of the payments
-        let mut rng = crate::RNG.lock().unwrap();
-        let payments = self
-            .successful_payments
-            .iter()
-            .cloned()
-            .choose_multiple(&mut *rng, self.successful_payments.len() * 20 / 100);
+        let payments = self.successful_payments.clone();
         info!(
             "Evaluating {} successful payments for anonymity sets.",
             payments.len()
@@ -715,10 +708,10 @@ mod tests {
 
     #[test]
     fn attempt_deanonymisation() {
-        let fraction_of_adversaries = 100;
+        let number_of_adversaries = 4; // all 4 nodes
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None, Some(fraction_of_adversaries));
+        let mut simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
         let sim_result = simulator.run(vec![(source, dest)].into_iter());
         assert_eq!(sim_result.num_succesful, 1);
         let statistics = &sim_result.adversaries[0];
