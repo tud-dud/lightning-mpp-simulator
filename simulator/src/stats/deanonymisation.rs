@@ -15,13 +15,10 @@ use std::{println as info, println as debug, println as trace, println as warn};
 
 impl Simulation {
     /// Returns a set of potential recipients as well as a set of all potential recipients
-    pub(crate) fn deanonymise_tx_pairs(&self, adversaries: &[ID]) -> Vec<AnonymitySet> {
+    pub(crate) fn deanonymise_tx_pairs(&self, adversary: &ID) -> Vec<AnonymitySet> {
         info!(
-            "Computing anonymity sets for {:?}, {:?} of {} sat with {} adversaries.",
-            self.routing_metric,
-            self.payment_parts,
-            self.amount,
-            adversaries.len(),
+            "Computing anonymity sets for {:?}, {:?} of {} sat.",
+            self.routing_metric, self.payment_parts, self.amount,
         );
         let all_anonymits_sets = Arc::new(Mutex::new(vec![]));
         let graph = self.graph.clone();
@@ -33,7 +30,8 @@ impl Simulation {
         payments.par_iter().for_each(|payment| {
             // only using the successful paths - Kumble et al only attempt once
             payment.used_paths.par_iter().for_each(|p| {
-                let adv_along_path = p.path.path_contains_adversary(adversaries);
+                let adv_along_path = p.path.path_contains_adversary(&[adversary.clone()]);
+                // will only be one max
                 for adv in adv_along_path.iter() {
                     // multiple sets per payment as each adversary has their own set
                     let mut sd_anon_set = HashSet::new();
@@ -69,7 +67,7 @@ impl Simulation {
                     );
                     let mut compute_all_paths = false;
                     for (idx, p_i) in phase1_paths.iter().enumerate() {
-                        info!("Looking at path {}", idx);
+                        trace!("Looking at path {}", idx);
                         let mut sd_potential = HashSet::new();
                         if let Some(path_from_adv) = self.compute_shortest_paths_from(
                             &p_i.path.dest,
@@ -116,7 +114,7 @@ impl Simulation {
                                     continue;
                                     // rec_i
                                 } else {
-                                    info!("Definitive sender not found. Looking at all paths..");
+                                    trace!("Definitive sender not found. Looking at all paths..");
                                     sd_potential.insert(pred.clone());
                                     compute_all_paths = true;
                                 }
@@ -714,9 +712,8 @@ mod tests {
         let mut simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
         let sim_result = simulator.run(vec![(source, dest)].into_iter());
         assert_eq!(sim_result.num_succesful, 1);
-        let statistics = &sim_result.adversaries[0];
         assert_eq!(
-            statistics.selection_strategy,
+            simulator.adversaries[0].selection_strategy,
             crate::AdversarySelection::Random
         );
     }

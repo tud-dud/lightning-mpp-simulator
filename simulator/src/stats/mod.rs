@@ -6,12 +6,14 @@ mod resillience;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Adversaries {
     pub(crate) selection_strategy: crate::AdversarySelection,
     pub(crate) statistics: Vec<Statistics>,
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Statistics {
     /// how many adversaries
     pub(crate) number: usize,
@@ -29,6 +31,7 @@ pub struct Statistics {
 pub struct PathDistances(pub Vec<usize>);
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AnonymitySet {
     /// Possible senders
     sender: usize,
@@ -40,6 +43,7 @@ pub struct AnonymitySet {
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct TargetedAttack {
     pub num_successful: usize,
     pub num_failed: usize,

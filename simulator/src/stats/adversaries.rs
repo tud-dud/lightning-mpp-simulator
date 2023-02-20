@@ -29,7 +29,7 @@ impl Simulation {
         let adversaries = Arc::new(Mutex::new(vec![]));
         self.adversary_selection.par_iter().for_each(|strategy| {
             let mut statistics: Vec<Statistics> = vec![];
-            for (idx, num_adv) in number_of_adversaries.iter().enumerate() {
+            for num_adv in number_of_adversaries.iter() {
                 let adv = match selected_adversaries.get(strategy) {
                     None => vec![],
                     Some(selected_adversaries) => selected_adversaries[0..*num_adv].to_vec(),
@@ -40,18 +40,17 @@ impl Simulation {
                 );
                 let (hits, hits_successful) = Self::adversary_hits(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
-                let anonymity_sets = if num_adv % 200 == 0 {
-                    if idx == 0 {
-                        self.deanonymise_tx_pairs(&adv)
-                    } else {
-                        let mut anonymity_sets = self.deanonymise_tx_pairs(&adv);
-                        anonymity_sets.extend(statistics[idx - 1].anonymity_sets.clone());
+                let anonymity_sets = if *num_adv == 1 || *num_adv == 2 {
+                        let set = if let Some(adversary) = adv.last() {
+                            self.deanonymise_tx_pairs(adversary)
+                        } else {
+                            vec![]
+                        };
                         info!(
                             "Completed anonymity sets for {:?}, {:?} of {} sat with {} {:?} adversaries.",
                             self.routing_metric, self.payment_parts, self.amount, num_adv, strategy,
                         );
-                        anonymity_sets
-                    }
+                        set
                 } else {
                     vec![]
                 };
