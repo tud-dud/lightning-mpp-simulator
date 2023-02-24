@@ -2,6 +2,3 @@
 **/*.rs.bk
 **/*.swp
 Cargo.lock
-eval/__pycache__/
-*logs*
-*plots*

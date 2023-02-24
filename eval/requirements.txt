@@ -1,8 +1,0 @@
-matplotlib
-numpy
-pandas
-seaborn
-black
-pylint
-flake8
-SciencePlots
