@@ -21,7 +21,8 @@ pub struct Statistics {
     pub hits: usize,
     /// Number of times an adversary was included a successful payment path
     pub hits_successful: usize,
-    pub anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
+    // independent of the number of adversaries
+    pub(crate) anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
     /// Contains the updated sim results when some nodes are removed
     pub targeted_attack: TargetedAttack,
 }
@@ -42,7 +43,7 @@ pub struct AnonymitySet {
     correct_source: bool,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetedAttack {
     pub num_successful: usize,

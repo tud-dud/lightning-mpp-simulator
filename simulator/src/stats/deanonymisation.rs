@@ -7,6 +7,7 @@ use crate::{
 
 #[cfg(not(test))]
 use log::{debug, info, trace, warn};
+use rand::seq::IteratorRandom;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -22,7 +23,13 @@ impl Simulation {
         );
         let all_anonymits_sets = Arc::new(Mutex::new(vec![]));
         let graph = self.graph.clone();
-        let payments = self.successful_payments.clone();
+        let mut rng = crate::RNG.lock().unwrap();
+        // randomly pick 20% of the payments
+        let payments = self
+            .successful_payments
+            .iter()
+            .cloned()
+            .choose_multiple(&mut *rng, self.successful_payments.len() * 20 / 100);
         info!(
             "Evaluating {} successful payments for anonymity sets.",
             payments.len()
@@ -30,12 +37,11 @@ impl Simulation {
         payments.par_iter().for_each(|payment| {
             // only using the successful paths - Kumble et al only attempt once
             payment.used_paths.par_iter().for_each(|p| {
-                let adv_along_path = p.path.path_contains_adversary(&[adversary.clone()]);
-                // will only be one max
-                for adv in adv_along_path.iter() {
-                    // multiple sets per payment as each adversary has their own set
-                    let mut sd_anon_set = HashSet::new();
-                    let mut rx_anon_set = HashSet::new();
+                // multiple sets per payment as each adversary has their own set
+                let mut sd_anon_set = HashSet::new();
+                let mut rx_anon_set = HashSet::new();
+                // will only be one at most
+                if let Some(adv) = p.path.path_contains_adversary(&[adversary.clone()]).first() {
                     let adversary_id = adv.0.clone();
                     let (pred, succ, amount_to_succ, ttl_to_rx) =
                         Self::extract_tx_info(p, &adversary_id);
