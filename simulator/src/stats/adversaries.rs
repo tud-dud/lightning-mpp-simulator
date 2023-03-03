@@ -40,7 +40,7 @@ impl Simulation {
                 );
                 let (hits, hits_successful) = Self::adversary_hits(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
-                let anonymity_sets = if let Some(adversary) = adv.last() {
+                /*let anonymity_sets = if let Some(adversary) = adv.last() {
                         let set = self.deanonymise_tx_pairs(adversary);
                         info!(
                             "Completed anonymity sets for {:?}, {:?} of {} sat with {} {:?} adversaries.",
@@ -49,7 +49,8 @@ impl Simulation {
                         set
                 } else {
                     vec![]
-                };
+                };*/
+                let anonymity_sets = vec![];
                 let targeted_attack = self.rerun_simulation(&adv);
                 statistics.push(Statistics {
                     number: *num_adv,

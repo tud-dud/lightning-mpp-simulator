@@ -16,6 +16,7 @@ use std::{println as info, println as debug, println as trace, println as warn};
 
 impl Simulation {
     /// Returns a set of potential recipients as well as a set of all potential recipients
+    #[allow(dead_code)]
     pub(crate) fn deanonymise_tx_pairs(&self, adversary: &ID) -> Vec<AnonymitySet> {
         info!(
             "Computing anonymity sets for {:?}, {:?} of {} sat.",
