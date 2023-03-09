@@ -2,29 +2,55 @@ use crate::{Simulation, ID};
 
 use itertools::Itertools;
 
+type NodeLinkID = (ID, String);
+
 impl Simulation {
+    /// Calculates the Levenshtein distances of mpp paths
+    /// by Rohrer et al.
     pub(crate) fn eval_path_similarity(&mut self) {
         let mut levenshtein_distances = vec![];
+        let mut path_diversity = vec![];
         for payment in &self.successful_payments {
             if payment.num_parts <= 1 {
                 continue;
             }
-            let paths: Vec<Vec<ID>> = payment
+            let paths: Vec<Vec<NodeLinkID>> = payment
                 .used_paths
                 .iter()
-                .map(|p| p.path.hops.iter().map(|h| h.0.clone()).collect())
+                .map(|p| {
+                    p.path
+                        .hops
+                        .iter()
+                        .map(|h| (h.0.clone(), h.3.clone()))
+                        .collect()
+                })
                 .collect();
-            levenshtein_distances.extend(Self::calc_distance(paths));
+            path_diversity.extend(Self::calculate_path_diversity(&paths));
+            levenshtein_distances.extend(Self::calculate_levenshtein_distance(paths));
         }
         self.path_distances.0 = levenshtein_distances;
     }
 
+    /// Using the metric defined by Rohrer et al. in []()
+    /// Returns a diversity score for each pair of given paths
+    #[allow(unused)]
+    fn calculate_path_diversity(paths: &[Vec<NodeLinkID>]) -> Vec<usize> {
+        let mut diversity = vec![];
+        let mut paths = paths.to_vec();
+        let (base, alternates) = Self::get_reference_paths(paths);
+        let (base_nodes, base_links) = Self::get_intermediate_node_and_edges(&base);
+        for path in alternates {}
+        diversity
+    }
+
     /// Returns a distance for each pair of given paths
-    fn calc_distance(paths: Vec<Vec<ID>>) -> Vec<usize> {
+    fn calculate_levenshtein_distance(paths: Vec<Vec<NodeLinkID>>) -> Vec<usize> {
         let mut distances = vec![];
         let pairs = paths.iter().cloned().cartesian_product(paths.clone());
         let mut seen_pairs: Vec<Vec<ID>> = vec![];
         for (lhs, rhs) in pairs {
+            let lhs: Vec<ID> = lhs.iter().map(|l| l.0.clone()).collect();
+            let rhs: Vec<ID> = rhs.iter().map(|l| l.0.clone()).collect();
             // skip same vecs as pair
             if lhs != rhs {
                 // order of pairs does not matter so we skip half the pairs
@@ -80,10 +106,34 @@ impl Simulation {
         }
         result
     }
+
+    // Returns the base path and the rest of paths
+    fn get_reference_paths(paths: Vec<Vec<NodeLinkID>>) -> (Vec<NodeLinkID>, Vec<Vec<NodeLinkID>>) {
+        let mut alternates = paths.clone();
+        // shortest paths
+        let mut base_path = alternates[0].clone();
+        let mut base_path_pos = 0;
+        for (pos, path) in paths.iter().enumerate() {
+            if path.len() < base_path.len() {
+                base_path = path.to_vec();
+                base_path_pos = pos;
+            }
+        }
+        // this is the reference path and we need to remove it
+        alternates.remove(base_path_pos);
+        (base_path, alternates)
+    }
+
+    pub(crate) fn get_intermediate_node_and_edges(hops: &[NodeLinkID]) -> (Vec<ID>, Vec<String>) {
+        let nodes = (1..hops.len() - 1).map(|h| hops[h].0.clone()).collect();
+        let links = (0..hops.len() - 1).map(|h| hops[h].1.clone()).collect();
+        (nodes, links)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+
     use crate::payment::Payment;
     use crate::traversal::pathfinding::{CandidatePath, Path};
     use std::collections::VecDeque;
@@ -120,11 +170,19 @@ mod tests {
     #[test]
     fn all_paths_difference() {
         let used_paths = vec![
-            vec!["a".to_string(), "b".to_string(), "c".to_string()],
-            vec!["a".to_string(), "e".to_string(), "c".to_string()],
-            vec!["a".to_string()],
+            vec![
+                ("a".to_string(), "".to_string()),
+                ("b".to_string(), "".to_string()),
+                ("c".to_string(), "".to_string()),
+            ],
+            vec![
+                ("a".to_string(), "".to_string()),
+                ("e".to_string(), "".to_string()),
+                ("c".to_string(), "".to_string()),
+            ],
+            vec![("a".to_string(), "".to_string())],
         ];
-        let actual = Simulation::calc_distance(used_paths);
+        let actual = Simulation::calculate_levenshtein_distance(used_paths);
         let expected = vec![1, 2, 2];
         assert_eq!(actual, expected);
     }
@@ -181,6 +239,63 @@ mod tests {
         simulator.eval_path_similarity();
         let actual = simulator.path_distances.0;
         let expected = vec![2];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn split_base_from_other_paths() {
+        let paths = vec![
+            vec![
+                ("a".to_string(), "ab".to_string()),
+                ("b".to_string(), "bc".to_string()),
+                ("c".to_string(), "cb".to_string()),
+            ],
+            vec![
+                ("a".to_string(), "ae".to_string()),
+                ("e".to_string(), "ec".to_string()),
+                ("c".to_string(), "ce".to_string()),
+            ],
+            vec![("a".to_string(), "".to_string())],
+        ];
+        let actual = Simulation::get_reference_paths(paths.clone());
+        let expected = (paths[2].clone(), vec![paths[0].clone(), paths[1].clone()]);
+        assert_eq!(actual, expected);
+        let paths = vec![
+            vec![
+                ("a".to_string(), "ab".to_string()),
+                ("b".to_string(), "bc".to_string()),
+                ("c".to_string(), "cb".to_string()),
+            ],
+            vec![
+                ("a".to_string(), "ae".to_string()),
+                ("e".to_string(), "ec".to_string()),
+                ("c".to_string(), "ce".to_string()),
+            ],
+        ];
+        let actual = Simulation::get_reference_paths(paths.clone());
+        let expected = (paths[0].clone(), vec![paths[1].clone()]);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn intermediates_and_links() {
+        let path = vec![
+            ("a".to_string(), "ab".to_string()),
+            ("b".to_string(), "bc".to_string()),
+            ("c".to_string(), "cb".to_string()),
+        ];
+        let actual = Simulation::get_intermediate_node_and_edges(&path);
+        let expected = (
+            vec!["b".to_string()],
+            vec!["ab".to_string(), "bc".to_string()],
+        );
+        assert_eq!(actual, expected);
+        let path = vec![
+            ("a".to_string(), "ab".to_string()),
+            ("b".to_string(), "ba".to_string()),
+        ];
+        let actual = Simulation::get_intermediate_node_and_edges(&path);
+        let expected = (vec![], vec!["ab".to_string()]);
         assert_eq!(actual, expected);
     }
 }

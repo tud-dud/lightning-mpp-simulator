@@ -1,8 +1,9 @@
 mod adversaries;
 mod deanonymisation;
-mod distance;
-mod resillience;
+mod diversity;
+mod failures;
 
+use crate::payment::Payment;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
@@ -28,7 +29,7 @@ pub struct Statistics {
 }
 
 /// All the distances in the simulated payments' paths
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct PathDistances(pub Vec<usize>);
 
 #[derive(Debug, Serialize, Clone)]
@@ -43,9 +44,13 @@ pub struct AnonymitySet {
     correct_source: bool,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetedAttack {
+    pub total_num: usize,
     pub num_successful: usize,
     pub num_failed: usize,
+    pub successful_payments: Vec<Payment>,
+    pub failed_payments: Vec<Payment>,
+    pub path_distances: PathDistances,
 }

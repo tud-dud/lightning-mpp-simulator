@@ -19,8 +19,8 @@ impl Simulation {
         let mut sim = self.clone();
         sim.delete_targets(targets);
         let pp = sim.reconstruct_payment_pairs();
-        sim.failed_payments = vec![];
-        sim.successful_payments = vec![];
+        sim.failed_payments.clear();
+        sim.successful_payments.clear();
         sim.num_successful = 0;
         sim.num_failed = 0;
         sim.event_queue = EventQueue::new();
@@ -67,18 +67,25 @@ impl Simulation {
                         PaymentParts::Split => self.send_mpp_payment(&mut payment),
                     };
                 }
-                PaymentEvent::UpdateFailed { payment: _ } => {
+                PaymentEvent::UpdateFailed { payment } => {
                     self.num_failed += 1;
+                    self.failed_payments.push(payment.to_owned());
                 }
-                PaymentEvent::UpdateSuccesful { payment: _ } => {
+                PaymentEvent::UpdateSuccesful { payment } => {
                     self.num_successful += 1;
+                    self.successful_payments.push(payment.to_owned());
                 }
             }
         }
         info!("Completed simulation of targeted attacks.");
+        self.eval_path_similarity();
         TargetedAttack {
+            total_num: self.total_num_payments,
             num_successful: self.num_successful,
             num_failed: self.num_failed,
+            successful_payments: self.successful_payments.clone(),
+            failed_payments: self.failed_payments.clone(),
+            path_distances: self.path_distances.to_owned(),
         }
     }
 
@@ -179,14 +186,14 @@ mod tests {
                 ..Default::default()
             },
             Payment {
-                payment_id: 0,
+                payment_id: 2,
                 source: "dina".to_string(),
                 dest: "chan".to_string(),
                 ..Default::default()
             },
         ];
         simulator.failed_payments = vec![Payment {
-            payment_id: 0,
+            payment_id: 1,
             source: "chan".to_string(),
             dest: "dina".to_string(),
             ..Default::default()
@@ -195,15 +202,43 @@ mod tests {
         let actual = simulator.rerun_simulation(&targets);
         let expected = TargetedAttack {
             // dina <-> chan
+            total_num: 2,
             num_successful: 2,
             num_failed: 0,
+            successful_payments: vec![
+                Payment {
+                    payment_id: 0,
+                    source: "alice".to_string(),
+                    dest: "bob".to_string(),
+                    ..Default::default()
+                },
+                Payment {
+                    payment_id: 2,
+                    source: "dina".to_string(),
+                    dest: "chan".to_string(),
+                    ..Default::default()
+                },
+            ],
+            failed_payments: vec![],
+            path_distances: crate::stats::PathDistances(vec![]),
         };
-        assert_eq!(actual, expected);
+        assert_eq!(expected.total_num, actual.total_num);
+        assert_eq!(expected.num_successful, actual.num_successful);
+        assert_eq!(expected.num_failed, actual.num_failed);
+        assert_eq!(
+            expected.successful_payments.len(),
+            actual.successful_payments.len()
+        );
+        assert_eq!(expected.failed_payments.len(), actual.failed_payments.len());
         let targets = ["bob".to_string(), "chan".to_string()];
         let actual = simulator.rerun_simulation(&targets);
         let expected = TargetedAttack {
+            total_num: 0,
             num_successful: 0,
             num_failed: 0,
+            successful_payments: vec![],
+            failed_payments: vec![],
+            path_distances: crate::stats::PathDistances(vec![]),
         };
         assert_eq!(actual, expected);
     }
