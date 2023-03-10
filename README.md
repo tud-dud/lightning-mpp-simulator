@@ -16,8 +16,8 @@ A library to deserialise the topology graphs provided by
 
 ## simulator
 
-A binary that using the `network-parser` to read the JSON files and simulates
-payments.
+A binary that uses the `network-parser` to read the JSON files and simulate
+payments in the LN.
 
 ## Build
 

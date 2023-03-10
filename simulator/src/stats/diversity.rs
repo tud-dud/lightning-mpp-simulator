@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{Simulation, ID};
 
 use itertools::Itertools;
@@ -5,8 +7,8 @@ use itertools::Itertools;
 type NodeLinkID = (ID, String);
 
 impl Simulation {
-    /// Calculates the Levenshtein distances of mpp paths
-    /// by Rohrer et al.
+    /// Calculates the Levenshtein distances of mpp paths and the diversity as defined by Rohrer et
+    /// al.
     pub(crate) fn eval_path_similarity(&mut self) {
         let mut levenshtein_distances = vec![];
         let mut path_diversity = vec![];
@@ -26,25 +28,29 @@ impl Simulation {
                 })
                 .collect();
             path_diversity.extend(Self::calculate_path_diversity(&paths));
-            levenshtein_distances.extend(Self::calculate_levenshtein_distance(paths));
+            levenshtein_distances.extend(Self::calculate_levenshtein_distance(&paths));
         }
         self.path_distances.0 = levenshtein_distances;
+        self.path_diversity.0 = path_diversity;
     }
 
-    /// Using the metric defined by Rohrer et al. in []()
-    /// Returns a diversity score for each pair of given paths
-    #[allow(unused)]
-    fn calculate_path_diversity(paths: &[Vec<NodeLinkID>]) -> Vec<usize> {
-        let mut diversity = vec![];
-        let mut paths = paths.to_vec();
+    /// Using the metric defined by Rohrer et al. in Multipath at the transport layer
+    /// Returns a diversity score for each used path compared to the shortest path
+    fn calculate_path_diversity(paths: &[Vec<NodeLinkID>]) -> Vec<f32> {
+        let mut diversity_scores = vec![];
         let (base, alternates) = Self::get_reference_paths(paths);
-        let (base_nodes, base_links) = Self::get_intermediate_node_and_edges(&base);
-        for path in alternates {}
-        diversity
+        let base_path = Self::get_intermediate_node_and_edges(&base);
+        for path in alternates {
+            let alternate_path = Self::get_intermediate_node_and_edges(&path);
+            let diversity = 1.0
+                - (base_path.intersection(&alternate_path).count() as f32 / base_path.len() as f32);
+            diversity_scores.push(diversity);
+        }
+        diversity_scores
     }
 
     /// Returns a distance for each pair of given paths
-    fn calculate_levenshtein_distance(paths: Vec<Vec<NodeLinkID>>) -> Vec<usize> {
+    fn calculate_levenshtein_distance(paths: &[Vec<NodeLinkID>]) -> Vec<usize> {
         let mut distances = vec![];
         let pairs = paths.iter().cloned().cartesian_product(paths.clone());
         let mut seen_pairs: Vec<Vec<ID>> = vec![];
@@ -108,8 +114,8 @@ impl Simulation {
     }
 
     // Returns the base path and the rest of paths
-    fn get_reference_paths(paths: Vec<Vec<NodeLinkID>>) -> (Vec<NodeLinkID>, Vec<Vec<NodeLinkID>>) {
-        let mut alternates = paths.clone();
+    fn get_reference_paths(paths: &[Vec<NodeLinkID>]) -> (Vec<NodeLinkID>, Vec<Vec<NodeLinkID>>) {
+        let mut alternates = paths.to_vec();
         // shortest paths
         let mut base_path = alternates[0].clone();
         let mut base_path_pos = 0;
@@ -124,10 +130,12 @@ impl Simulation {
         (base_path, alternates)
     }
 
-    pub(crate) fn get_intermediate_node_and_edges(hops: &[NodeLinkID]) -> (Vec<ID>, Vec<String>) {
-        let nodes = (1..hops.len() - 1).map(|h| hops[h].0.clone()).collect();
-        let links = (0..hops.len() - 1).map(|h| hops[h].1.clone()).collect();
-        (nodes, links)
+    pub(crate) fn get_intermediate_node_and_edges(hops: &[NodeLinkID]) -> HashSet<String> {
+        let nodes: Vec<ID> = (1..hops.len() - 1).map(|h| hops[h].0.clone()).collect();
+        let links: Vec<ID> = (0..hops.len() - 1).map(|h| hops[h].1.clone()).collect();
+        let mut path = HashSet::from_iter(nodes);
+        path.extend(links);
+        path
     }
 }
 
@@ -136,6 +144,7 @@ mod tests {
 
     use crate::payment::Payment;
     use crate::traversal::pathfinding::{CandidatePath, Path};
+    use approx::*;
     use std::collections::VecDeque;
 
     use super::*;
@@ -182,7 +191,7 @@ mod tests {
             ],
             vec![("a".to_string(), "".to_string())],
         ];
-        let actual = Simulation::calculate_levenshtein_distance(used_paths);
+        let actual = Simulation::calculate_levenshtein_distance(&used_paths);
         let expected = vec![1, 2, 2];
         assert_eq!(actual, expected);
     }
@@ -257,7 +266,7 @@ mod tests {
             ],
             vec![("a".to_string(), "".to_string())],
         ];
-        let actual = Simulation::get_reference_paths(paths.clone());
+        let actual = Simulation::get_reference_paths(&paths);
         let expected = (paths[2].clone(), vec![paths[0].clone(), paths[1].clone()]);
         assert_eq!(actual, expected);
         let paths = vec![
@@ -272,7 +281,7 @@ mod tests {
                 ("c".to_string(), "ce".to_string()),
             ],
         ];
-        let actual = Simulation::get_reference_paths(paths.clone());
+        let actual = Simulation::get_reference_paths(&paths);
         let expected = (paths[0].clone(), vec![paths[1].clone()]);
         assert_eq!(actual, expected);
     }
@@ -285,17 +294,49 @@ mod tests {
             ("c".to_string(), "cb".to_string()),
         ];
         let actual = Simulation::get_intermediate_node_and_edges(&path);
-        let expected = (
-            vec!["b".to_string()],
-            vec!["ab".to_string(), "bc".to_string()],
-        );
+        let expected = HashSet::from(["b".to_string(), "ab".to_string(), "bc".to_string()]);
         assert_eq!(actual, expected);
         let path = vec![
             ("a".to_string(), "ab".to_string()),
             ("b".to_string(), "ba".to_string()),
         ];
         let actual = Simulation::get_intermediate_node_and_edges(&path);
-        let expected = (vec![], vec!["ab".to_string()]);
+        let expected = HashSet::from(["ab".to_string()]);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn path_diversity() {
+        let mut paths = vec![
+            vec![
+                ("0".to_string(), "01".to_string()),
+                ("1".to_string(), "12".to_string()),
+                ("2".to_string(), "21".to_string()),
+            ],
+            vec![
+                ("0".to_string(), "03".to_string()),
+                ("3".to_string(), "31".to_string()),
+                ("1".to_string(), "15".to_string()),
+                ("5".to_string(), "52".to_string()),
+                ("2".to_string(), "25".to_string()),
+            ],
+        ];
+        let actual = Simulation::calculate_path_diversity(&paths);
+        let expected = vec![0.66];
+        for (idx, e) in expected.into_iter().enumerate() {
+            assert_abs_diff_eq!(e, actual[idx], epsilon = 0.01f32);
+        }
+        paths.push(vec![
+            ("0".to_string(), "03".to_string()),
+            ("3".to_string(), "34".to_string()),
+            ("4".to_string(), "45".to_string()),
+            ("5".to_string(), "52".to_string()),
+            ("2".to_string(), "25".to_string()),
+        ]);
+        let actual = Simulation::calculate_path_diversity(&paths);
+        let expected = vec![0.66, 1.0];
+        for (idx, e) in expected.into_iter().enumerate() {
+            assert_abs_diff_eq!(e, actual[idx], epsilon = 0.01f32);
+        }
     }
 }

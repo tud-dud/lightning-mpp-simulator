@@ -32,6 +32,10 @@ pub struct Statistics {
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct PathDistances(pub Vec<usize>);
 
+/// All the diversity scorres in the simulated payments' paths
+#[derive(Debug, Serialize, Clone, PartialEq)]
+pub struct PathDiversity(pub Vec<f32>);
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AnonymitySet {

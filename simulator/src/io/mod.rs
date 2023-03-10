@@ -20,6 +20,7 @@ pub struct Report {
     pub(crate) payments: Vec<PaymentInfo>,
     pub(crate) adversaries: Vec<Adversaries>,
     pub(crate) path_distances: Vec<usize>,
+    pub(crate) path_diversity: Vec<f32>,
 }
 
 /// run and reports

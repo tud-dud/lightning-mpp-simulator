@@ -1,4 +1,7 @@
-use crate::{payment::Payment, stats::Adversaries, stats::PathDistances};
+use crate::{
+    payment::Payment,
+    stats::{Adversaries, PathDistances, PathDiversity},
+};
 use serde::Serialize;
 
 mod simulator;
@@ -16,4 +19,5 @@ pub struct SimResult {
     pub failed_payments: Vec<Payment>,
     pub adversaries: Vec<Adversaries>,
     pub path_distances: PathDistances,
+    pub path_diversity: PathDiversity,
 }

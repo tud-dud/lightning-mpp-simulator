@@ -32,7 +32,7 @@ impl Output {
         run: u64,
     ) -> Result<(), Box<dyn Error>> {
         if Self::create_dir(&output_path).is_ok() {
-            info!("Writing CSV files to {:#?}/.", output_path);
+            info!("Writing JSON output files to {:#?}/.", output_path);
             let output = Output(results);
             output.to_json_file(output_path, run)?;
         } else {
@@ -46,7 +46,7 @@ impl Output {
         let mut file_output_path = output_path;
         file_output_path.push(format!("{}{}", run_as_string, ".json"));
         let file = File::create(file_output_path.clone()).expect("Error creating file.");
-        serde_json::to_writer_pretty(file, self).expect("Error writing to JSON file.");
+        serde_json::to_writer(file, self).expect("Error writing to JSON file.");
         info!(
             "Simulation output written to {}.",
             file_output_path.display()
@@ -80,6 +80,7 @@ impl Report {
             payments,
             adversaries: sim_result.adversaries.to_owned(),
             path_distances: sim_result.path_distances.0.to_owned(),
+            path_diversity: sim_result.path_diversity.0.to_owned(),
         }
     }
 }
