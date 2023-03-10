@@ -52,7 +52,7 @@ impl Simulation {
     /// Returns a distance for each pair of given paths
     fn calculate_levenshtein_distance(paths: &[Vec<NodeLinkID>]) -> Vec<usize> {
         let mut distances = vec![];
-        let pairs = paths.iter().cloned().cartesian_product(paths.clone());
+        let pairs = paths.iter().cloned().cartesian_product(paths);
         let mut seen_pairs: Vec<Vec<ID>> = vec![];
         for (lhs, rhs) in pairs {
             let lhs: Vec<ID> = lhs.iter().map(|l| l.0.clone()).collect();

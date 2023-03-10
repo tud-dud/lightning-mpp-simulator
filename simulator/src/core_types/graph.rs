@@ -53,7 +53,6 @@ impl Graph {
             .clone()
             .into_iter()
             .filter(|n| sccs[greatest_scc_idx].contains(&n.id))
-            .into_iter()
             .clone()
             .collect();
         let greatest_scc_edges: HashMap<ID, Vec<Edge>> = greatest_scc_nodes
