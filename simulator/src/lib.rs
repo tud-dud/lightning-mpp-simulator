@@ -8,11 +8,13 @@ pub mod io;
 pub mod payments;
 pub mod sim;
 pub(crate) mod stats;
-pub(crate) mod traversal;
+pub mod traversal;
 
 pub use core_types::*;
 pub use payments::*;
 pub use sim::*;
+pub use stats::diversity::*;
+pub use traversal::pathfinding::*;
 
 pub type ID = String;
 pub type PaymentId = usize;

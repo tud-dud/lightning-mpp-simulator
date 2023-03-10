@@ -9,6 +9,10 @@ network.
 Each subproject contains a detailed description of the project itself along with
 usage instructions.
 
+## graph-diversity
+
+A binary that does computations on the diversity in the LN channel graph.
+
 ## network-parser
 
 A library to deserialise the topology graphs provided by

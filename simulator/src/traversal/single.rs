@@ -52,7 +52,6 @@ impl PathFinder {
                 trace!("No shortest path between {} and {}.", self.src, self.dest);
                 None
             }
-            // construct candipaths using k_shortest_path
             // - calculate total path cost
             Some(shortest_path) => {
                 trace!("Got shortest path between {} and {}.", self.src, self.dest);
@@ -61,7 +60,7 @@ impl PathFinder {
                     shortest_path
                 );
                 let mut path = Path::new(self.src.clone(), self.dest.clone());
-                // the weights and timelock are set  as the total path costs are calculated
+                // the weights and timelock are set as the total path costs are calculated
                 path.hops = shortest_path
                     .0
                     .into_iter()

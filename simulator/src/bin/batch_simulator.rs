@@ -1,5 +1,5 @@
-use lightning_simulator::SimResult;
-use lightning_simulator::{
+use simlib::SimResult;
+use simlib::{
     core_types::graph::Graph,
     io::{Output, Results},
     sim::Simulation,
@@ -101,7 +101,7 @@ fn main() {
         let sim_results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
         amounts.par_iter().for_each(|amount| {
             let start = Instant::now();
-            let msat = lightning_simulator::to_millisatoshi(*amount);
+            let msat = simlib::to_millisatoshi(*amount);
             let sim = init_sim(seed, graph.clone(), msat, combi, &adversary_selection);
             info!(
                 "Starting {:?} simulation of {} pairs of {} sats.",

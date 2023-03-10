@@ -1,10 +1,12 @@
 mod adversaries;
 mod deanonymisation;
-mod diversity;
+pub mod diversity;
 mod failures;
 
 use crate::payment::Payment;
 use serde::Serialize;
+
+pub use diversity::*;
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]

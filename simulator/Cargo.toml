@@ -33,5 +33,8 @@ path = "src/bin/simulation.rs"
 name = "batch-simulator"
 path = "src/bin/batch_simulator.rs"
 
+[lib]
+name = "simlib"
+
 [dev-dependencies]
 approx = "0.5"

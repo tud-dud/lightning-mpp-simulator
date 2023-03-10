@@ -6,19 +6,19 @@ use std::collections::{HashMap, VecDeque};
 
 /// Describes a path between two nodes
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub(crate) struct Path {
+pub struct Path {
     pub(crate) src: ID,
     pub(crate) dest: ID,
     /// the edges of the path described from sender to receiver including fees and timelock over
     /// the edge ID
     /// The dest's hop describes the channel whose balance will increase and used for reverting.
     /// Format: (hop, fees, timelock, channel_id)
-    pub(crate) hops: VecDeque<(ID, usize, usize, String)>,
+    pub hops: VecDeque<(ID, usize, usize, String)>,
 }
 
 /// Pathfinding object
 #[derive(Debug, Clone)]
-pub(crate) struct PathFinder {
+pub struct PathFinder {
     /// Network topolgy graph
     pub(crate) graph: Box<Graph>,
     /// Node looking for a route
@@ -33,8 +33,8 @@ pub(crate) struct PathFinder {
 
 /// A path that we may use to route from src to dest
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub(crate) struct CandidatePath {
-    pub(crate) path: Path,
+pub struct CandidatePath {
+    pub path: Path,
     /// The aggregated path weight (fees or probability) describing how costly the path is
     pub(crate) weight: f32,
     /// The aggregated amount due when using this path (amount + fees)
@@ -44,7 +44,7 @@ pub(crate) struct CandidatePath {
 }
 
 impl Path {
-    pub(crate) fn new(src: ID, dest: ID) -> Self {
+    pub fn new(src: ID, dest: ID) -> Self {
         let hops = VecDeque::new();
         Self { src, dest, hops }
     }
@@ -183,7 +183,7 @@ impl Path {
 }
 
 impl CandidatePath {
-    pub(crate) fn new_with_path(path: Path) -> Self {
+    pub fn new_with_path(path: Path) -> Self {
         CandidatePath {
             path,
             weight: f32::default(),
@@ -205,7 +205,7 @@ impl CandidatePath {
 
 impl PathFinder {
     /// New PathFinder for payment from src to dest transferring amount of msats
-    pub(crate) fn new(
+    pub fn new(
         src: ID,
         dest: ID,
         amount: usize,
@@ -262,7 +262,7 @@ impl PathFinder {
     /// Calculates the total probabilty along a given path starting from dest to src
     /// The first node can optionally be treated as an intermediary and demand fees. Used by
     /// adversary calculations
-    pub(crate) fn get_aggregated_path_cost(
+    pub fn get_aggregated_path_cost(
         &mut self,
         mut candidate_path: &mut CandidatePath,
         include_src: bool,
@@ -374,35 +374,50 @@ impl PathFinder {
     }
 
     /// Computes the shortest path beween source and dest using Dijkstra's algorithm
-    pub(crate) fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, EdgeWeight)> {
+    pub fn shortest_path_from(&self, node: &ID) -> Option<(Vec<ID>, EdgeWeight)> {
         trace!(
             "Looking for shortest paths between src {}, dest {} using {:?} as weight.",
             self.src,
             self.dest,
             self.routing_metric
         );
-        let successors = |node: &ID| -> Vec<(ID, EdgeWeight)> {
-            let succs = match self.graph.get_edges_for_node(node) {
-                Some(edges) => edges
-                    .iter()
-                    .map(|e| {
-                        (
-                            e.destination.clone(),
-                            if e.source != self.src {
-                                Self::get_edge_weight(e, self.amount, self.routing_metric)
-                            } else if self.routing_metric == RoutingMetric::MinFee {
-                                ordered_float::OrderedFloat(0.0)
-                            } else {
-                                ordered_float::OrderedFloat(1.0)
-                            },
-                        )
-                    })
-                    .collect(),
-                None => Vec::default(),
-            };
-            succs
-        };
+        let successors = |node: &ID| -> Vec<(ID, EdgeWeight)> { self.get_successors(node) };
         pathfinding::prelude::dijkstra(node, successors, |n| *n == self.dest)
+    }
+
+    /// Computes the k shortest path beween source and dest using Dijkstra's algorithm
+    pub fn k_shortest_paths_from(&self, node: &ID, k: usize) -> Vec<(Vec<ID>, EdgeWeight)> {
+        trace!(
+            "Looking for {} shortest paths between src {}, dest {} using {:?} as weight.",
+            k,
+            self.src,
+            self.dest,
+            self.routing_metric
+        );
+        let successors = |node: &ID| -> Vec<(ID, EdgeWeight)> { self.get_successors(node) };
+        pathfinding::prelude::yen(node, successors, |n| *n == self.dest, k)
+    }
+
+    fn get_successors(&self, node: &ID) -> Vec<(ID, EdgeWeight)> {
+        let succs = match self.graph.get_edges_for_node(node) {
+            Some(edges) => edges
+                .iter()
+                .map(|e| {
+                    (
+                        e.destination.clone(),
+                        if e.source != self.src {
+                            Self::get_edge_weight(e, self.amount, self.routing_metric)
+                        } else if self.routing_metric == RoutingMetric::MinFee {
+                            ordered_float::OrderedFloat(0.0)
+                        } else {
+                            ordered_float::OrderedFloat(1.0)
+                        },
+                    )
+                })
+                .collect(),
+            None => Vec::default(),
+        };
+        succs
     }
 
     /// Returns the "cheapest" edge between src and dist bearing the routing me in mind

@@ -36,7 +36,7 @@ impl Simulation {
 
     /// Using the metric defined by Rohrer et al. in Multipath at the transport layer
     /// Returns a diversity score for each used path compared to the shortest path
-    fn calculate_path_diversity(paths: &[Vec<NodeLinkID>]) -> Vec<f32> {
+    pub(crate) fn calculate_path_diversity(paths: &[Vec<NodeLinkID>]) -> Vec<f32> {
         let mut diversity_scores = vec![];
         let (base, alternates) = Self::get_reference_paths(paths);
         let base_path = Self::get_intermediate_node_and_edges(&base);
@@ -130,7 +130,7 @@ impl Simulation {
         (base_path, alternates)
     }
 
-    pub(crate) fn get_intermediate_node_and_edges(hops: &[NodeLinkID]) -> HashSet<String> {
+    pub fn get_intermediate_node_and_edges(hops: &[NodeLinkID]) -> HashSet<String> {
         let nodes: Vec<ID> = (1..hops.len() - 1).map(|h| hops[h].0.clone()).collect();
         let links: Vec<ID> = (0..hops.len() - 1).map(|h| hops[h].1.clone()).collect();
         let mut path = HashSet::from_iter(nodes);

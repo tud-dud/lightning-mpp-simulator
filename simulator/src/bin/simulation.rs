@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use env_logger::Env;
-use lightning_simulator::{core_types::graph, sim::Simulation, AdversarySelection};
 use log::{error, info};
+use simlib::{core_types::graph, sim::Simulation, AdversarySelection};
 
 #[derive(clap::Parser)]
 #[command(name = "lightning-simulator", version, about)]
@@ -31,7 +31,7 @@ struct Cli {
     split_payments: bool,
     /// Route finding heuristic to use
     #[arg(long = "path-metric", short = 'p')]
-    edge_weight: lightning_simulator::RoutingMetric,
+    edge_weight: simlib::RoutingMetric,
     #[arg(long = "log", short = 'l', default_value = "info")]
     log_level: String,
     /// Path to directory in which the results will be stored
@@ -65,9 +65,9 @@ fn main() {
     let number_of_adversaries = args.num_adv;
     let routing_metric = args.edge_weight;
     let split_payments = if args.split_payments {
-        lightning_simulator::PaymentParts::Split
+        simlib::PaymentParts::Split
     } else {
-        lightning_simulator::PaymentParts::Single
+        simlib::PaymentParts::Single
     };
     let graph = match g {
         Ok(graph) => graph::Graph::to_sim_graph(&graph),

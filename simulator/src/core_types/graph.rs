@@ -87,7 +87,7 @@ impl Graph {
         &self.edges
     }
 
-    pub(crate) fn get_edges_for_node(&self, node_id: &ID) -> Option<Vec<Edge>> {
+    pub fn get_edges_for_node(&self, node_id: &ID) -> Option<Vec<Edge>> {
         let edges = self.get_edges().get(node_id);
         match edges {
             Some(e) => {
@@ -99,7 +99,6 @@ impl Graph {
             }
             None => None,
         }
-        //.map(|adj_list| adj_list.to_owned())
     }
 
     /// Will try to remove the edge in both directions

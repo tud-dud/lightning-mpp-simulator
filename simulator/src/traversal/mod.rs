@@ -1,3 +1,3 @@
 mod mpp;
-pub(crate) mod pathfinding;
+pub mod pathfinding;
 mod single;
