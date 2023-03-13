@@ -40,8 +40,8 @@ impl Simulation {
                 self.routing_metric,
                 self.payment_parts,
             );
-            path_finder.graph.edges =
-                PathFinder::remove_inadequate_edges(&graph_copy, payment.amount_msat);
+            path_finder.graph.set_edges(
+                PathFinder::remove_inadequate_edges(&graph_copy, payment.amount_msat));
             while !succeeded && !failed {
                 let start = Instant::now();
                 if let Some(candidate_path) = path_finder.find_path() {

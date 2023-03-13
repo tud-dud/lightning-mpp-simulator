@@ -439,7 +439,7 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    pub(crate) fn remove_inadequate_edges(
+    pub fn remove_inadequate_edges(
         graph: &Graph,
         amount: usize,
     ) -> HashMap<String, Vec<Edge>> {

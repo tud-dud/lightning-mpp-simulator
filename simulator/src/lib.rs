@@ -38,7 +38,7 @@ pub(crate) static MAX_PARTS: usize = 16;
 pub static SAT_SCALE: usize = 1000;
 
 /// Metric to use when looking for a route
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum RoutingMetric {
     /// Use Dijkstra to minimise fees along a route
     MinFee,

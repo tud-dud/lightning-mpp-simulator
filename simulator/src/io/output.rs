@@ -42,7 +42,7 @@ impl Output {
     }
 
     fn to_json_file(&self, output_path: PathBuf, run: u64) -> Result<(), Box<dyn Error>> {
-        let run_as_string = format!("{}{:?}", "run", run);
+        let run_as_string = format!("{}{:?}", "simulation-run", run);
         let mut file_output_path = output_path;
         file_output_path.push(format!("{}{}", run_as_string, ".json"));
         let file = File::create(file_output_path.clone()).expect("Error creating file.");

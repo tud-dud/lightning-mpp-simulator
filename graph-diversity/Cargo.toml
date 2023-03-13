@@ -13,7 +13,13 @@ env_logger = "0.7"
 pathfinding = "3.0.14"
 clap = { version = "4.0.22", features = ["derive"]}
 itertools = "0.10.5"
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+rayon = "1.6"
+
+[dev-dependencies]
+approx = "0.5"
 
 [[bin]]
-name = "main"
+name = "graph-diversity"
 path = "src/main.rs"

@@ -87,6 +87,10 @@ impl Graph {
         &self.edges
     }
 
+    pub fn set_edges(&mut self, edges: HashMap<ID, Vec<Edge>>) {
+        self.edges = edges;
+    }
+
     pub fn get_edges_for_node(&self, node_id: &ID) -> Option<Vec<Edge>> {
         let edges = self.get_edges().get(node_id);
         match edges {
