@@ -199,8 +199,6 @@ mod tests {
         }
         diversity /= ids.len() as f32;
         let expected = Diversity {
-            routing_metric,
-            amount,
             lambda,
             diversity,
         };
