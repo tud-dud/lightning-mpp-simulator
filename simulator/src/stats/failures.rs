@@ -1,6 +1,6 @@
 use crate::{
-    event::*, payment::Payment, stats::TargetedAttack, time::Time, Invoice, PaymentParts,
-    Simulation, ID,
+    event::*, io::PaymentInfo, payment::Payment, stats::TargetedAttack, time::Time, Invoice,
+    PaymentParts, Simulation, ID,
 };
 
 use itertools::EitherOrBoth::{Both, Left, Right};
@@ -79,12 +79,17 @@ impl Simulation {
         }
         info!("Completed simulation of targeted attacks.");
         self.eval_path_similarity();
+        let mut payments: Vec<PaymentInfo> = self
+            .successful_payments
+            .iter()
+            .map(PaymentInfo::from_payment)
+            .collect();
+        payments.extend(self.failed_payments.iter().map(PaymentInfo::from_payment));
         TargetedAttack {
             total_num: self.total_num_payments,
             num_successful: self.num_successful,
             num_failed: self.num_failed,
-            successful_payments: self.successful_payments.clone(),
-            failed_payments: self.failed_payments.clone(),
+            payments,
             path_distances: self.path_distances.to_owned(),
         }
     }
@@ -205,7 +210,7 @@ mod tests {
             total_num: 2,
             num_successful: 2,
             num_failed: 0,
-            successful_payments: vec![
+            payments: vec![
                 Payment {
                     payment_id: 0,
                     source: "alice".to_string(),
@@ -218,26 +223,23 @@ mod tests {
                     dest: "chan".to_string(),
                     ..Default::default()
                 },
-            ],
-            failed_payments: vec![],
+            ]
+            .iter()
+            .map(PaymentInfo::from_payment)
+            .collect(),
             path_distances: crate::stats::PathDistances(vec![]),
         };
         assert_eq!(expected.total_num, actual.total_num);
         assert_eq!(expected.num_successful, actual.num_successful);
         assert_eq!(expected.num_failed, actual.num_failed);
-        assert_eq!(
-            expected.successful_payments.len(),
-            actual.successful_payments.len()
-        );
-        assert_eq!(expected.failed_payments.len(), actual.failed_payments.len());
+        assert_eq!(expected.payments.len(), actual.payments.len());
         let targets = ["bob".to_string(), "chan".to_string()];
         let actual = simulator.rerun_simulation(&targets);
         let expected = TargetedAttack {
             total_num: 0,
             num_successful: 0,
             num_failed: 0,
-            successful_payments: vec![],
-            failed_payments: vec![],
+            payments: vec![],
             path_distances: crate::stats::PathDistances(vec![]),
         };
         assert_eq!(actual, expected);

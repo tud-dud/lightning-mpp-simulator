@@ -3,7 +3,7 @@ mod deanonymisation;
 pub mod diversity;
 mod failures;
 
-use crate::payment::Payment;
+use crate::io::PaymentInfo;
 use serde::Serialize;
 
 pub use diversity::*;
@@ -56,7 +56,6 @@ pub struct TargetedAttack {
     pub total_num: usize,
     pub num_successful: usize,
     pub num_failed: usize,
-    pub successful_payments: Vec<Payment>,
-    pub failed_payments: Vec<Payment>,
+    pub payments: Vec<PaymentInfo>,
     pub path_distances: PathDistances,
 }

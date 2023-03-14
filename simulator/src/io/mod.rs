@@ -34,7 +34,7 @@ pub struct Results {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PaymentInfo {
+pub struct PaymentInfo {
     pub(crate) id: usize,
     pub(crate) succeeded: bool,
     /// Number of parts this payment has been split into

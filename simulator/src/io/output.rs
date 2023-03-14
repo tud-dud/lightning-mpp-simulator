@@ -46,7 +46,7 @@ impl Output {
         let mut file_output_path = output_path;
         file_output_path.push(format!("{}{}", run_as_string, ".json"));
         let file = File::create(file_output_path.clone()).expect("Error creating file.");
-        serde_json::to_writer(file, self).expect("Error writing to JSON file.");
+        serde_json::to_writer_pretty(file, self).expect("Error writing to JSON file.");
         info!(
             "Simulation output written to {}.",
             file_output_path.display()
