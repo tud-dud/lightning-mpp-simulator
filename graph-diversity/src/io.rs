@@ -27,9 +27,13 @@ pub struct Results {
 pub struct Output(pub(crate) Vec<Results>);
 
 impl Output {
-    fn to_json_file(&self, output_path: PathBuf) -> Result<(), Box<dyn Error>> {
+    fn to_json_file(
+        &self,
+        routing_metric: String,
+        output_path: PathBuf,
+    ) -> Result<(), Box<dyn Error>> {
         let mut file_output_path = output_path;
-        file_output_path.push(format!("{}{}", "diversity", ".json"));
+        file_output_path.push(format!("diversity-{}{}", routing_metric, ".json"));
         let file = File::create(file_output_path.clone()).expect("Error creating file.");
         serde_json::to_writer_pretty(file, self).expect("Error writing to JSON file.");
         info!(
@@ -39,11 +43,15 @@ impl Output {
         Ok(())
     }
 
-    pub(crate) fn write(&self, output_path: PathBuf) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn write(
+        &self,
+        routing_metric: String,
+        output_path: PathBuf,
+    ) -> Result<(), Box<dyn Error>> {
         fs::create_dir_all(output_path.clone())
             .map(|()| -> Result<(), Box<dyn Error>> {
                 info!("Writing JSON output files to {:#?}/.", output_path.clone());
-                self.to_json_file(output_path.clone())?;
+                self.to_json_file(routing_metric, output_path.clone())?;
                 Ok(())
             })
             .ok();

@@ -20,7 +20,7 @@ impl Simulation {
         let number_of_adversaries = if let Some(number) = self.number_of_adversaries {
             vec![number]
         } else {
-            vec![1, 2, 3, 5]
+            vec![1, 2, 3, 4, 5, 10, 12, 15, 20]
         };
         let selected_adversaries =
             self.get_adversaries(number_of_adversaries[number_of_adversaries.len() - 1]);

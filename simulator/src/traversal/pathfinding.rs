@@ -439,10 +439,7 @@ impl PathFinder {
     }
 
     /// Remove edges that do not meet the minimum criteria (cap < amount) from the graph
-    pub fn remove_inadequate_edges(
-        graph: &Graph,
-        amount: usize,
-    ) -> HashMap<String, Vec<Edge>> {
+    pub fn remove_inadequate_edges(graph: &Graph, amount: usize) -> HashMap<String, Vec<Edge>> {
         debug!("Removing edges with insufficient funds.");
         let mut copy = graph.clone();
         let mut ctr = 0;

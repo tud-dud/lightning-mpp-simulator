@@ -50,9 +50,9 @@ impl Simulation {
                     g.remove_node(&pred);
                     g.remove_node(&adversary_id);
                     g.set_edges(PathFinder::remove_inadequate_edges(&graph, amount_to_succ)); //hm - which amount?
-                                                                                           // prepend pred and adv to each path
-                                                                                           // Phase 1 paths = P_i in the paper, i.e. all paths with appropriate timelock
-                                                                                           // stores (src, dest): path
+                                                                                              // prepend pred and adv to each path
+                                                                                              // Phase 1 paths = P_i in the paper, i.e. all paths with appropriate timelock
+                                                                                              // stores (src, dest): path
                     let mut shortest_paths: HashMap<(ID, ID), CandidatePath> = HashMap::new();
                     // and capacity
                     let phase1_paths = if let Some(paths) =

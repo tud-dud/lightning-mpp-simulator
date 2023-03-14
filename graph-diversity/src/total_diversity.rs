@@ -64,7 +64,7 @@ fn effective_path_diversity(
         }
         aggregated_div_src_dest += div_min_path_i;
     }
-    info!("Completed diversity calculation between {source} and {dest}.");
+    debug!("Completed diversity calculation between {source} and {dest}.");
     1.0 - std::f32::consts::E.powf(-lambda * aggregated_div_src_dest)
 }
 
@@ -198,10 +198,7 @@ mod tests {
             );
         }
         diversity /= ids.len() as f32;
-        let expected = Diversity {
-            lambda,
-            diversity,
-        };
+        let expected = Diversity { lambda, diversity };
         let actual = total_graph_diversity(&graph, k, routing_metric, lambda, amount);
         assert_eq!(actual, expected);
     }

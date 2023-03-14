@@ -93,5 +93,10 @@ fn main() {
             diversity: combi_div_results,
         });
     }
-    Output::write(&Output(results), output_dir).unwrap();
+    Output::write(
+        &Output(results),
+        format!("{:?}", routing_metric),
+        output_dir,
+    )
+    .unwrap();
 }
