@@ -34,6 +34,11 @@ struct Cli {
     /// The payment volume (in sat) we are trying to route
     #[arg(long = "amount", short = 'a')]
     amount: Option<usize>,
+    /// Set the seed for the simulation
+    #[arg(long, short, default_value_t = 19)]
+    _run: u64,
+    #[arg(long = "pairs", short = 'n', default_value_t = 5000)]
+    num_pairs: usize,
     verbose: bool,
 }
 
@@ -55,6 +60,7 @@ fn main() {
             std::process::exit(-1)
         }
     };
+    let num_pairs = args.num_pairs;
     let lambdas = if let Some(lambda) = args.lambda {
         vec![lambda]
     } else {
@@ -74,12 +80,14 @@ fn main() {
         "Graph metrics will be written to {:#?}/ directory.",
         output_dir
     );
+    let pairs = simlib::Simulation::draw_n_pairs_for_simulation(&graph, num_pairs);
     let mut results = Vec::with_capacity(amounts.len());
     for amount in amounts.iter() {
         let div_results = Arc::new(Mutex::new(Vec::with_capacity(lambdas.len())));
         let amount = simlib::to_millisatoshi(*amount);
         lambdas.par_iter().for_each(|lambda| {
-            let total_diversity = total_graph_diversity(&graph, k, routing_metric, *lambda, amount);
+            let total_diversity =
+                total_graph_diversity(&graph, k, routing_metric, *lambda, amount, pairs.clone());
             div_results.lock().unwrap().push(total_diversity);
         });
         let combi_div_results = if let Ok(d) = div_results.lock() {

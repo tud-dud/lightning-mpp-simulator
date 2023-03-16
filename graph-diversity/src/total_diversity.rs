@@ -1,4 +1,3 @@
-use itertools::Itertools;
 #[cfg(not(test))]
 use log::{debug, info};
 use simlib::{
@@ -9,27 +8,27 @@ use std::{println as info, println as debug};
 
 use crate::io::Diversity;
 
-/// The TGD [0, 1] is the average of the EPD values of all node pairs within that graph a star
-/// topology will always have a TGD of 0, while a ring topology will have a TGD of 0.6 given a
-/// lambda of 1.
+/// The TGD [0, 1] is the average of the EPD values of all node pairs within that graph.
+/// a star topology will always have a TGD of 0, while a ring topology will have a TGD of 0.6 given
+/// a lambda of 1.
 /// an EPD of 1 would indicate an infinite diversity) and also reflect the decreasing marginal
 /// utility provided by additional paths in real networks.
+/// We only calculate the EPDs for the payment pairs we used because of the runtime
 pub(crate) fn total_graph_diversity(
     graph: &Graph,
     k: usize,
     routing_metric: RoutingMetric,
     lambda: f32,
     amount: usize,
+    payment_pairs: impl Iterator<Item = (ID, ID)> + Clone,
 ) -> Diversity {
-    let ids = graph.get_node_ids();
-    let pairs = ids.iter().combinations(2);
-    let count = pairs.clone().count() as f32;
+    let count = payment_pairs.clone().count() as f32;
     info!("Computing graph diversity using {} pairs.", count);
     let mut outstanding = count as usize;
     let mut graph_div = 0.0;
-    for comb in pairs {
+    for comb in payment_pairs {
         info!("{outstanding} computations to go.");
-        let (src, dest) = (comb[0].clone(), comb[1].clone());
+        let (src, dest) = (comb.0, comb.1);
         graph_div +=
             effective_path_diversity(&src, &dest, graph, k, routing_metric, lambda, amount);
         outstanding -= 1;
@@ -127,11 +126,15 @@ mod tests {
         let path = std::path::Path::new("../test_data/trivial_connected.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let amount = 10;
-        let ids = graph.get_node_ids();
-        for pairs in ids.iter().combinations(2) {
-            // only two loopsless paths each available
+        let pairs = vec![
+            ("034".to_owned(), "025".to_owned()),
+            ("025".to_owned(), "036".to_owned()),
+            ("036".to_owned(), "034".to_owned()),
+        ];
+        for pair in pairs {
+            // only two loopless paths each available
             let k_shortest_paths =
-                get_shortest_paths(pairs[0], pairs[1], &graph, k, routing_metric, amount);
+                get_shortest_paths(&pair.0, &pair.1, &graph, k, routing_metric, amount);
             assert_eq!(k_shortest_paths.len(), 2);
         }
     }
@@ -186,10 +189,15 @@ mod tests {
         let routing_metric = RoutingMetric::MinFee;
         let ids = graph.get_node_ids();
         let mut diversity = 0.0;
-        for pairs in ids.iter().combinations(2) {
+        let pairs = vec![
+            ("034".to_owned(), "025".to_owned()),
+            ("025".to_owned(), "036".to_owned()),
+            ("035".to_owned(), "034".to_owned()),
+        ];
+        for pair in &pairs {
             diversity += effective_path_diversity(
-                &pairs[0],
-                &pairs[1],
+                &pair.0,
+                &pair.1,
                 &graph,
                 k,
                 routing_metric,
@@ -199,7 +207,8 @@ mod tests {
         }
         diversity /= ids.len() as f32;
         let expected = Diversity { lambda, diversity };
-        let actual = total_graph_diversity(&graph, k, routing_metric, lambda, amount);
+        let actual =
+            total_graph_diversity(&graph, k, routing_metric, lambda, amount, pairs.into_iter());
         assert_eq!(actual, expected);
     }
 }
