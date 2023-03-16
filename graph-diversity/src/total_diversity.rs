@@ -1,3 +1,4 @@
+use crate::io::GraphDiversity;
 #[cfg(not(test))]
 use log::{debug, info};
 use simlib::{
@@ -5,8 +6,6 @@ use simlib::{
 };
 #[cfg(test)]
 use std::{println as info, println as debug};
-
-use crate::io::Diversity;
 
 /// The TGD [0, 1] is the average of the EPD values of all node pairs within that graph.
 /// a star topology will always have a TGD of 0, while a ring topology will have a TGD of 0.6 given
@@ -21,7 +20,7 @@ pub(crate) fn total_graph_diversity(
     lambda: f32,
     amount: usize,
     payment_pairs: impl Iterator<Item = (ID, ID)> + Clone,
-) -> Diversity {
+) -> GraphDiversity {
     let count = payment_pairs.clone().count() as f32;
     info!("Computing graph diversity using {} pairs.", count);
     let mut outstanding = count as usize;
@@ -34,7 +33,7 @@ pub(crate) fn total_graph_diversity(
         outstanding -= 1;
     }
     let diversity = graph_div / count;
-    Diversity { lambda, diversity }
+    GraphDiversity { lambda, diversity }
 }
 
 /// Effective path diversity (EPD) is an aggregation of path diversities for a selected set of
@@ -57,7 +56,7 @@ fn effective_path_diversity(
         // the base path should be the only item returned by drain
         if let Some(base_path) = alternate_paths.drain(idx..idx + 1).last() {
             for path in alternate_paths {
-                let div = path_diversity(&base_path, &path);
+                let div = simlib::sim::Simulation::calculate_path_diversity(&base_path, &path);
                 div_min_path_i = f32::min(div_min_path_i, div);
             }
         }
@@ -65,12 +64,6 @@ fn effective_path_diversity(
     }
     debug!("Completed diversity calculation between {source} and {dest}.");
     1.0 - std::f32::consts::E.powf(-lambda * aggregated_div_src_dest)
-}
-
-fn path_diversity(base_path: &[(ID, String)], alternate_path: &[(ID, String)]) -> f32 {
-    let base_path = simlib::Simulation::get_intermediate_node_and_edges(base_path);
-    let alternate_path = simlib::Simulation::get_intermediate_node_and_edges(alternate_path);
-    1.0 - (base_path.intersection(&alternate_path).count() as f32 / base_path.len() as f32)
 }
 
 fn get_shortest_paths(
@@ -117,7 +110,6 @@ fn get_shortest_paths(
 mod tests {
 
     use super::*;
-    use approx::*;
 
     #[test]
     fn shortest_paths() {
@@ -140,25 +132,6 @@ mod tests {
     }
 
     #[test]
-    fn calculate_path_diversity() {
-        let base_path = vec![
-            ("0".to_string(), "01".to_string()),
-            ("1".to_string(), "12".to_string()),
-            ("2".to_string(), "21".to_string()),
-        ];
-        let alternate_path = vec![
-            ("0".to_string(), "03".to_string()),
-            ("3".to_string(), "31".to_string()),
-            ("1".to_string(), "15".to_string()),
-            ("5".to_string(), "52".to_string()),
-            ("2".to_string(), "25".to_string()),
-        ];
-        let actual = path_diversity(&base_path, &alternate_path);
-        let expected = 0.66;
-        assert_abs_diff_eq!(actual, expected, epsilon = 0.01f32);
-    }
-
-    #[test]
     fn calculate_effective_diversity() {
         let lambda = 0.5;
         let path = std::path::Path::new("../test_data/trivial_connected.json");
@@ -171,8 +144,14 @@ mod tests {
         let k_shortest_paths =
             get_shortest_paths(&source, &dest, &graph, k, routing_metric, amount);
         // since we only have two paths, each diversity is the min and the sum is equal to k_sd
-        let mut agg_diversity = path_diversity(&k_shortest_paths[0], &k_shortest_paths[1]);
-        agg_diversity += path_diversity(&k_shortest_paths[1], &k_shortest_paths[0]);
+        let mut agg_diversity = simlib::Simulation::calculate_path_diversity(
+            &k_shortest_paths[0],
+            &k_shortest_paths[1],
+        );
+        agg_diversity += simlib::Simulation::calculate_path_diversity(
+            &k_shortest_paths[1],
+            &k_shortest_paths[0],
+        );
         let expected = 1.0 - std::f32::consts::E.powf(-lambda * agg_diversity);
         let actual =
             effective_path_diversity(&source, &dest, &graph, k, routing_metric, lambda, amount);
@@ -206,7 +185,7 @@ mod tests {
             );
         }
         diversity /= ids.len() as f32;
-        let expected = Diversity { lambda, diversity };
+        let expected = GraphDiversity { lambda, diversity };
         let actual =
             total_graph_diversity(&graph, k, routing_metric, lambda, amount, pairs.into_iter());
         assert_eq!(actual, expected);

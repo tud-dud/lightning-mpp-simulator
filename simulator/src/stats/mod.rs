@@ -36,7 +36,7 @@ pub struct PathDistances(pub Vec<usize>);
 
 /// All the diversity scorres in the simulated payments' paths
 #[derive(Debug, Serialize, Clone, PartialEq)]
-pub struct PathDiversity(pub Vec<f32>);
+pub struct PathDiversity(pub Vec<Diversity>);
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -58,4 +58,12 @@ pub struct TargetedAttack {
     pub num_failed: usize,
     pub payments: Vec<PaymentInfo>,
     pub path_distances: PathDistances,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Diversity {
+    pub lambda: f32,
+    /// one value for each set of paths
+    pub diversity: Vec<f32>,
 }

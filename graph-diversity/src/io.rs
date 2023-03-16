@@ -9,7 +9,7 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Diversity {
+pub struct GraphDiversity {
     pub(crate) lambda: f32,
     pub(crate) diversity: f32,
 }
@@ -19,7 +19,7 @@ pub struct Diversity {
 pub struct Results {
     pub(crate) amount: usize,
     pub(crate) routing_metric: simlib::RoutingMetric,
-    pub(crate) diversity: Vec<Diversity>,
+    pub(crate) diversity: Vec<GraphDiversity>,
 }
 
 #[derive(Debug, Serialize)]
