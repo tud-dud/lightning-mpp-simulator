@@ -37,8 +37,6 @@ struct Cli {
     /// Set the seed for the simulation
     #[arg(long, short, default_value_t = 19)]
     _run: u64,
-    #[arg(long = "pairs", short = 'n', default_value_t = 5000)]
-    num_pairs: usize,
     verbose: bool,
 }
 
@@ -60,7 +58,6 @@ fn main() {
             std::process::exit(-1)
         }
     };
-    let num_pairs = args.num_pairs;
     let lambdas = if let Some(lambda) = args.lambda {
         vec![lambda]
     } else {
@@ -69,7 +66,8 @@ fn main() {
     let amounts = if let Some(amount) = args.amount {
         vec![amount]
     } else {
-        vec![1000, 10000, 100000, 1000000]
+        vec![
+        100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000,]
     };
     let output_dir = if let Some(output_dir) = args.output_dir {
         output_dir
@@ -80,14 +78,12 @@ fn main() {
         "Graph metrics will be written to {:#?}/ directory.",
         output_dir
     );
-    let pairs = simlib::Simulation::draw_n_pairs_for_simulation(&graph, num_pairs);
     let mut results = Vec::with_capacity(amounts.len());
     for amount in amounts.iter() {
         let div_results = Arc::new(Mutex::new(Vec::with_capacity(lambdas.len())));
         let amount = simlib::to_millisatoshi(*amount);
         lambdas.par_iter().for_each(|lambda| {
-            let total_diversity =
-                total_graph_diversity(&graph, k, routing_metric, *lambda, amount, pairs.clone());
+            let total_diversity = total_graph_diversity(&graph, k, routing_metric, *lambda, amount);
             div_results.lock().unwrap().push(total_diversity);
         });
         let combi_div_results = if let Ok(d) = div_results.lock() {
@@ -98,7 +94,7 @@ fn main() {
         results.push(io::Results {
             amount,
             routing_metric,
-            diversity: combi_div_results,
+            diversity: combi_div_results.into_iter().flatten().collect(),
         });
     }
     Output::write(

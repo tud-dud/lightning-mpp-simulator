@@ -11,6 +11,8 @@ use std::{
 #[serde(rename_all = "camelCase")]
 pub struct GraphDiversity {
     pub(crate) lambda: f32,
+    /// The number of paths we searched for
+    pub(crate) k: usize,
     pub(crate) diversity: f32,
 }
 
