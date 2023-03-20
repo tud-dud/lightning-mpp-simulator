@@ -254,8 +254,8 @@ impl PathFinder {
     /// The higher the returned value, the lower the chances of success
     /// https://github.com/lnbook/lnbook/blob/develop/12_path_finding.asciidoc#liquidity-uncertainty-and-probability
     fn get_edge_failure_probabilty(edge: &Edge, amount: usize) -> EdgeWeight {
-        let success_prob: f32 = (edge.htlc_maximum_msat as f32 + 1.0 - amount as f32)
-            / (edge.htlc_maximum_msat as f32 + 1.0);
+        let success_prob: f32 =
+            (edge.capacity as f32 + 1.0 - amount as f32) / (edge.capacity as f32 + 1.0);
         ordered_float::OrderedFloat(1.0 - success_prob)
     }
 
@@ -493,6 +493,7 @@ mod tests {
             fee_proportional_millionths: 1,
             htlc_maximum_msat: 500,
             cltv_expiry_delta: 40,
+            capacity: 500,
             ..Default::default()
         };
         let amount = 1;
