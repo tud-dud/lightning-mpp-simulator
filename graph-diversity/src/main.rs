@@ -61,7 +61,7 @@ fn main() {
     let lambdas = if let Some(lambda) = args.lambda {
         vec![lambda]
     } else {
-        vec![0.0, 0.2, 0.5, 0.7, 1.0]
+        vec![0.2, 0.5, 0.7, 1.0, 1.5, 2.0]
     };
     let amounts = if let Some(amount) = args.amount {
         vec![amount]
@@ -92,7 +92,7 @@ fn main() {
             vec![]
         };
         results.push(io::Results {
-            amount,
+            amount: simlib::to_sat(amount),
             routing_metric,
             diversity: combi_div_results.into_iter().flatten().collect(),
         });
