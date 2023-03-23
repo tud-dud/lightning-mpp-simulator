@@ -2,10 +2,12 @@ use crate::io::GraphDiversity;
 use itertools::Itertools;
 #[cfg(not(test))]
 use log::{debug, info};
+use rayon::prelude::*;
 use simlib::{
     graph::Graph, traversal::pathfinding::PathFinder, CandidatePath, Path, RoutingMetric, ID,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 #[cfg(test)]
 use std::{println as info, println as debug};
 
@@ -23,34 +25,38 @@ pub(crate) fn total_graph_diversity(
     amount: usize,
 ) -> Vec<GraphDiversity> {
     let mut graph_diversity = vec![];
-    let mut div_scores = HashMap::new();
+    let div_scores = Arc::new(Mutex::new(HashMap::new()));
     let ids = graph.get_node_ids();
-    let pairs = ids.iter().tuple_combinations::<(_, _)>();
-    let count = pairs.clone().count() as f32;
+    let pairs: Vec<(String, String)> = ids.into_iter().tuple_combinations().collect();
+    let count = pairs.len() as f32;
     info!("Computing graph diversity using {} pairs.", count);
-    let mut outstanding = count as usize;
-    for comb in pairs {
-        info!("{outstanding} computations to go.");
-        let (src, dest) = (comb.0, comb.1);
+    let outstanding = Arc::new(Mutex::new(pairs.len()));
+    pairs.par_iter().for_each(|comb| {
+        info!("{} computations to go.", outstanding.lock().unwrap());
+        let (src, dest) = (comb.0.clone(), comb.1.clone());
         let diversities =
-            effective_path_diversity(src, dest, graph, k, routing_metric, lambdas, amount);
+            effective_path_diversity(&src, &dest, graph, k, routing_metric, lambdas, amount);
         for (k, v) in diversities {
-            if let Some(x) = div_scores.get_mut(&k) {
+            if let Some(x) = div_scores.lock().unwrap().get_mut(&k) {
                 *x += v;
             } else {
-                div_scores.insert(k, v);
+                div_scores.lock().unwrap().insert(k, v);
             }
         }
-        outstanding -= 1;
-    }
-    for (k, v) in div_scores {
-        let diversity = v / count;
-        let gd = GraphDiversity {
-            lambda: lambdas[k.1],
-            diversity,
-            k: k.0,
-        };
-        graph_diversity.push(gd);
+        *outstanding.lock().unwrap() -= 1;
+    });
+    if let Ok(arc) = Arc::try_unwrap(div_scores) {
+        if let Ok(mutex) = arc.into_inner() {
+            for (k, v) in mutex {
+                let diversity = v / count;
+                let gd = GraphDiversity {
+                    lambda: lambdas[k.1],
+                    diversity,
+                    k: k.0,
+                };
+                graph_diversity.push(gd);
+            }
+        }
     }
     info!("Completed graph diversity using {} pairs.", count);
     graph_diversity
