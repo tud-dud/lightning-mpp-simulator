@@ -25,38 +25,42 @@ pub(crate) fn total_graph_diversity(
     amount: usize,
 ) -> Vec<GraphDiversity> {
     let mut graph_diversity = vec![];
-    let div_scores = Arc::new(Mutex::new(HashMap::new()));
     let ids = graph.get_node_ids();
     let pairs: Vec<(String, String)> = ids.into_iter().tuple_combinations().collect();
     let count = pairs.len() as f32;
     info!("Computing graph diversity using {} pairs.", count);
     let outstanding = Arc::new(Mutex::new(pairs.len()));
+    let test = Arc::new(Mutex::new(Vec::new()));
     pairs.par_iter().for_each(|comb| {
         info!("{} computations to go.", outstanding.lock().unwrap());
         let (src, dest) = (comb.0.clone(), comb.1.clone());
         let diversities =
             effective_path_diversity(&src, &dest, graph, k, routing_metric, lambdas, amount);
-        for (k, v) in diversities {
-            if let Some(x) = div_scores.lock().unwrap().get_mut(&k) {
-                *x += v;
-            } else {
-                div_scores.lock().unwrap().insert(k, v);
-            }
-        }
+        test.lock().unwrap().push(diversities);
         *outstanding.lock().unwrap() -= 1;
     });
-    if let Ok(arc) = Arc::try_unwrap(div_scores) {
+    let mut scores: HashMap<(usize, usize), f32> = HashMap::new();
+    if let Ok(arc) = Arc::try_unwrap(test) {
         if let Ok(mutex) = arc.into_inner() {
-            for (k, v) in mutex {
-                let diversity = v / count;
-                let gd = GraphDiversity {
-                    lambda: lambdas[k.1],
-                    diversity,
-                    k: k.0,
-                };
-                graph_diversity.push(gd);
+            for d in mutex {
+                for (k, v) in d {
+                    if let Some(x) = scores.get_mut(&k) {
+                        *x += v;
+                    } else {
+                        scores.insert(k, v);
+                    }
+                }
             }
         }
+    }
+    for (k, v) in scores {
+        let diversity = v / count;
+        let gd = GraphDiversity {
+            lambda: lambdas[k.1],
+            diversity,
+            k: k.0,
+        };
+        graph_diversity.push(gd);
     }
     info!("Completed graph diversity using {} pairs.", count);
     graph_diversity
