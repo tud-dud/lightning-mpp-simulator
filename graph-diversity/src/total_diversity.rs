@@ -30,17 +30,17 @@ pub(crate) fn total_graph_diversity(
     let count = pairs.len() as f32;
     info!("Computing graph diversity using {} pairs.", count);
     let outstanding = Arc::new(Mutex::new(pairs.len()));
-    let test = Arc::new(Mutex::new(Vec::new()));
+    let div_scores = Arc::new(Mutex::new(Vec::new()));
     pairs.par_iter().for_each(|comb| {
         info!("{} computations to go.", outstanding.lock().unwrap());
         let (src, dest) = (comb.0.clone(), comb.1.clone());
         let diversities =
             effective_path_diversity(&src, &dest, graph, k, routing_metric, lambdas, amount);
-        test.lock().unwrap().push(diversities);
+        div_scores.lock().unwrap().push(diversities);
         *outstanding.lock().unwrap() -= 1;
     });
     let mut scores: HashMap<(usize, usize), f32> = HashMap::new();
-    if let Ok(arc) = Arc::try_unwrap(test) {
+    if let Ok(arc) = Arc::try_unwrap(div_scores) {
         if let Ok(mutex) = arc.into_inner() {
             for d in mutex {
                 for (k, v) in d {
