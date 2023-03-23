@@ -19,7 +19,7 @@ pub(crate) fn total_graph_diversity(
     graph: &Graph,
     k: usize,
     routing_metric: RoutingMetric,
-    lambda: f32,
+    lambdas: &[f32],
     amount: usize,
 ) -> Vec<GraphDiversity> {
     let mut graph_diversity = vec![];
@@ -33,7 +33,7 @@ pub(crate) fn total_graph_diversity(
         info!("{outstanding} computations to go.");
         let (src, dest) = (comb.0, comb.1);
         let diversities =
-            effective_path_diversity(src, dest, graph, k, routing_metric, lambda, amount);
+            effective_path_diversity(src, dest, graph, k, routing_metric, lambdas, amount);
         for (k, v) in diversities {
             if let Some(x) = div_scores.get_mut(&k) {
                 *x += v;
@@ -46,12 +46,13 @@ pub(crate) fn total_graph_diversity(
     for (k, v) in div_scores {
         let diversity = v / count;
         let gd = GraphDiversity {
-            lambda,
+            lambda: lambdas[k.1],
             diversity,
-            k,
+            k: k.0,
         };
         graph_diversity.push(gd);
     }
+    info!("Completed graph diversity using {} pairs.", count);
     graph_diversity
 }
 
@@ -63,10 +64,10 @@ fn effective_path_diversity(
     graph: &Graph,
     max_num_paths: usize,
     routing_metric: RoutingMetric,
-    lambda: f32,
+    lambdas: &[f32],
     amount: usize,
-) -> HashMap<usize, f32> {
-    // returns a map of <k, f32>
+) -> HashMap<(usize, usize), f32> {
+    // returns a map of <(k, lambda[pos]), f32>
     let mut k_div = HashMap::with_capacity(max_num_paths);
     debug!("Calculating diversity between {source} and {dest}.");
     let k = if max_num_paths == 20 {
@@ -94,8 +95,10 @@ fn effective_path_diversity(
             aggregated_div_src_dest += div_min_path_i;
         }
         debug!("Completed diversity calculation between {source} and {dest}.");
-        let div = 1.0 - std::f32::consts::E.powf(-lambda * aggregated_div_src_dest);
-        k_div.insert(num, div);
+        for (id, lambda) in lambdas.iter().enumerate() {
+            let div = 1.0 - std::f32::consts::E.powf(-lambda * aggregated_div_src_dest);
+            k_div.insert((num, id), div);
+        }
     }
     k_div
 }
@@ -167,7 +170,7 @@ mod tests {
 
     #[test]
     fn calculate_effective_diversity() {
-        let lambda = 0.5;
+        let lambdas = [0.5];
         let path = std::path::Path::new("../test_data/trivial_connected.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let k = 2;
@@ -186,10 +189,10 @@ mod tests {
             &k_shortest_paths[1],
             &k_shortest_paths[0],
         );
-        let expected = 1.0 - std::f32::consts::E.powf(-lambda * agg_diversity);
+        let expected = 1.0 - std::f32::consts::E.powf(-lambdas[0] * agg_diversity);
         let epd =
-            effective_path_diversity(&source, &dest, &graph, k, routing_metric, lambda, amount);
-        let actual = epd.get(&k).unwrap();
+            effective_path_diversity(&source, &dest, &graph, k, routing_metric, &lambdas, amount);
+        let actual = epd.get(&(k, 0)).unwrap();
         assert_eq!(*actual, expected);
     }
 
@@ -198,7 +201,7 @@ mod tests {
         let path = std::path::Path::new("../test_data/trivial_connected.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
         let k = 2;
-        let lambda = 0.5;
+        let lambdas = [0.5];
         let amount = 10;
         let routing_metric = RoutingMetric::MinFee;
         let ids = graph.get_node_ids();
@@ -215,15 +218,18 @@ mod tests {
                 &graph,
                 k,
                 routing_metric,
-                lambda,
+                &lambdas,
                 amount,
             );
-            diversity += div.get(&k).unwrap();
+            diversity += div.get(&(k, 0)).unwrap();
         }
         diversity /= ids.len() as f32;
-        let expected = vec![GraphDiversity { lambda, diversity, k }];
-        let actual =
-            total_graph_diversity(&graph, k, routing_metric, lambda, amount);
+        let expected = vec![GraphDiversity {
+            lambda: lambdas[0],
+            diversity,
+            k,
+        }];
+        let actual = total_graph_diversity(&graph, k, routing_metric, &lambdas, amount);
         assert_eq!(actual, expected);
     }
 }

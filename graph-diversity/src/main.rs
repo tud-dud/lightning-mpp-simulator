@@ -66,8 +66,7 @@ fn main() {
     let amounts = if let Some(amount) = args.amount {
         vec![amount]
     } else {
-        vec![
-        100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000,]
+        vec![1000, 10000, 100000, 1000000, 10000000]
     };
     let output_dir = if let Some(output_dir) = args.output_dir {
         output_dir
@@ -78,25 +77,28 @@ fn main() {
         "Graph metrics will be written to {:#?}/ directory.",
         output_dir
     );
-    let mut results = Vec::with_capacity(amounts.len());
-    for amount in amounts.iter() {
-        let div_results = Arc::new(Mutex::new(Vec::with_capacity(lambdas.len())));
+    let results = Arc::new(Mutex::new(Vec::with_capacity(amounts.len())));
+    amounts.par_iter().for_each(|amount| {
+        info!("Starting diversity for {amount} sat.");
         let amount = simlib::to_millisatoshi(*amount);
-        lambdas.par_iter().for_each(|lambda| {
-            let total_diversity = total_graph_diversity(&graph, k, routing_metric, *lambda, amount);
-            div_results.lock().unwrap().push(total_diversity);
-        });
-        let combi_div_results = if let Ok(d) = div_results.lock() {
-            d.clone()
-        } else {
-            vec![]
-        };
-        results.push(io::Results {
+        let total_diversity = total_graph_diversity(&graph, k, routing_metric, &lambdas, amount);
+        results.lock().unwrap().push(io::Results {
             amount: simlib::to_sat(amount),
             routing_metric,
-            diversity: combi_div_results.into_iter().flatten().collect(),
+            diversity: total_diversity,
         });
-    }
+        info!("Completed diversity for {amount} sat.");
+    });
+    let results = if let Ok(arc) = Arc::try_unwrap(results) {
+        if let Ok(mutex) = arc.into_inner() {
+            mutex
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     Output::write(
         &Output(results),
         format!("{:?}", routing_metric),
