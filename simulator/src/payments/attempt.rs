@@ -6,7 +6,6 @@ use crate::{
 
 #[cfg(not(test))]
 use log::{debug, error, info, trace};
-use std::time::Instant;
 #[cfg(test)]
 use std::{println as info, println as debug, println as error, println as trace};
 
@@ -47,10 +46,7 @@ impl Simulation {
                     payment.amount_msat,
                 ));
             while !succeeded && !failed {
-                let start = Instant::now();
                 if let Some(candidate_path) = path_finder.find_path() {
-                    let duration_in_ms = start.elapsed().as_millis();
-                    info!("Found path after {} ms.", duration_in_ms);
                     let hops = candidate_path.path.hops.clone();
                     for hop in hops.iter().take(hops.len() - 1).skip(1) {
                         // not source and dest
