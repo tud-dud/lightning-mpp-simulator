@@ -113,6 +113,20 @@ pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
     from_json_str(&json_str)
 }
 
+pub fn from_web_str(json_str: &str) -> Result<Graph, serde_json::Error> {
+    let web_graph: Result<WebGraph, serde_json::Error> = serde_json::from_str(json_str);
+    match web_graph {
+        Ok(web_graph) => {
+            if let Ok(raw_str) = from_web_graph_to_raw(web_graph) {
+                from_json_str(&raw_str)
+            } else {
+                panic!("Error parsing raw graph string")
+            }
+        }
+        Err(_) => panic!("Error reading web graph."),
+    }
+}
+
 pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
     let raw_graph = from_json_to_raw(json_str).expect("Error deserialising JSON str!");
     // discard nodes without ID

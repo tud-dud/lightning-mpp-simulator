@@ -8,17 +8,48 @@ use crate::*;
 pub(crate) fn from_json_to_raw(json_str: &str) -> Result<RawGraph, serde_json::Error> {
     serde_json::from_str(json_str)
 }
+pub(crate) fn from_web_graph_to_raw(
+    web_graph: WebGraph,
+) -> Result<String, serde_json::error::Error> {
+    // convert to raw graph and Serialize
+    let nodes: Vec<RawNode> = web_graph
+        .nodes
+        .iter()
+        .filter(|web_node| web_node.id.clone().unwrap_or_default() != ID::default())
+        .map(|raw_node| Node::from_web(raw_node.clone()))
+        .collect();
+    let edges: Vec<HashSet<RawEdge>> = web_graph
+        .edges
+        .iter()
+        .map(|web_adj| {
+            web_adj
+                .iter()
+                .filter_map(|web_edge| Edge::from_web((*web_edge).clone()))
+                .collect()
+        })
+        .collect();
+
+    let raw_graph = RawGraph { nodes, edges };
+    serde_json::to_string(&raw_graph)
+}
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub(crate) struct RawGraph {
+pub struct RawGraph {
     pub(crate) nodes: Vec<RawNode>,
     #[serde(rename = "adjacency")]
     pub(crate) edges: Vec<HashSet<RawEdge>>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub(crate) struct WebGraph {
+    pub(crate) nodes: Vec<WebNode>,
+    #[serde(rename = "adjacency")]
+    pub(crate) edges: Vec<HashSet<WebEdge>>,
+}
+
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Eq, PartialEq)]
-pub(crate) struct RawNode {
+pub struct RawNode {
     pub(crate) id: Option<String>,
     pub(crate) alias: Option<String>,
     #[serde(default)]
@@ -30,7 +61,7 @@ pub(crate) struct RawNode {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub(crate) struct RawEdge {
+pub struct RawEdge {
     #[serde(rename = "scid")]
     pub(crate) channel_id: Option<String>,
     pub(crate) source: Option<String>,
@@ -44,6 +75,34 @@ pub(crate) struct RawEdge {
     pub(crate) id: Option<String>,
 }
 
+#[serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Eq, PartialEq)]
+pub struct WebNode {
+    pub id: Option<String>,
+    pub alias: Option<String>,
+    #[serde(default)]
+    #[serde_as(as = "serde_with::StringWithSeparator::<CommaSeparator, String>")]
+    pub addresses: Vec<String>,
+    pub rgb_color: Option<String>,
+    pub out_degree: Option<u64>,
+    pub in_degree: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct WebEdge {
+    #[serde(rename = "scid")]
+    pub channel_id: Option<String>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub features: Option<String>,
+    pub fee_base_msat: Option<usize>,
+    pub fee_proportional_millionths: Option<usize>,
+    pub htlc_minimim_msat: Option<u64>,
+    pub htlc_maximum_msat: Option<u64>,
+    pub cltv_expiry_delta: Option<u64>,
+    pub id: Option<String>,
+}
+
 impl Node {
     pub(crate) fn from_raw(raw_node: RawNode) -> Node {
         Node {
@@ -53,6 +112,18 @@ impl Node {
             rgb_color: raw_node.rgb_color.unwrap_or_default(),
             out_degree: raw_node.out_degree.unwrap_or_default(),
             in_degree: raw_node.in_degree.unwrap_or_default(),
+        }
+    }
+    pub fn from_web(web_node: WebNode) -> RawNode {
+        let out_deg = web_node.out_degree.unwrap_or_default();
+        let in_deg = web_node.out_degree.unwrap_or_default();
+        RawNode {
+            id: web_node.id.clone(),
+            alias: web_node.alias.clone(),
+            addresses: web_node.addresses,
+            rgb_color: web_node.rgb_color,
+            out_degree: Some(out_deg.try_into().unwrap_or(u32::default())),
+            in_degree: Some(in_deg.try_into().unwrap_or(u32::default())),
         }
     }
 }
@@ -87,6 +158,31 @@ impl Edge {
             })
         }
     }
+
+    pub fn from_web(web_edge: WebEdge) -> Option<RawEdge> {
+        if web_edge.fee_base_msat.is_none()
+            || web_edge.fee_proportional_millionths.is_none()
+            || web_edge.htlc_maximum_msat.is_none()
+        {
+            None
+        } else {
+            let htlc_minimim_msat = web_edge.htlc_minimim_msat.unwrap_or_default();
+            let htlc_maximum_msat = web_edge.htlc_maximum_msat.unwrap_or_default();
+            let cltv_expiry_delta = web_edge.cltv_expiry_delta.unwrap_or_default();
+            Some(RawEdge {
+                channel_id: web_edge.channel_id.clone(),
+                source: web_edge.source.clone(),
+                destination: web_edge.destination.clone(),
+                features: web_edge.features.clone(),
+                fee_base_msat: web_edge.fee_base_msat,
+                fee_proportional_millionths: web_edge.fee_proportional_millionths,
+                htlc_minimim_msat: Some(htlc_minimim_msat.try_into().unwrap_or(usize::default())),
+                htlc_maximum_msat: Some(htlc_maximum_msat.try_into().unwrap_or(usize::default())),
+                cltv_expiry_delta: Some(cltv_expiry_delta.try_into().unwrap_or(usize::default())),
+                id: web_edge.id,
+            })
+        }
+    }
 }
 
 #[allow(unused)]
@@ -116,6 +212,17 @@ impl PartialEq for RawEdge {
     }
 }
 
+impl Hash for WebEdge {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.channel_id.hash(state);
+    }
+}
+impl Eq for WebEdge {}
+impl PartialEq for WebEdge {
+    fn eq(&self, other: &Self) -> bool {
+        self.channel_id == other.channel_id
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
