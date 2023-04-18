@@ -8,30 +8,6 @@ use crate::*;
 pub(crate) fn from_json_to_raw(json_str: &str) -> Result<RawGraph, serde_json::Error> {
     serde_json::from_str(json_str)
 }
-pub(crate) fn from_web_graph_to_raw(
-    web_graph: WebGraph,
-) -> Result<String, serde_json::error::Error> {
-    // convert to raw graph and Serialize
-    let nodes: Vec<RawNode> = web_graph
-        .nodes
-        .iter()
-        .filter(|web_node| web_node.id.clone().unwrap_or_default() != ID::default())
-        .map(|raw_node| Node::from_web(raw_node.clone()))
-        .collect();
-    let edges: Vec<HashSet<RawEdge>> = web_graph
-        .edges
-        .iter()
-        .map(|web_adj| {
-            web_adj
-                .iter()
-                .filter_map(|web_edge| Edge::from_web((*web_edge).clone()))
-                .collect()
-        })
-        .collect();
-
-    let raw_graph = RawGraph { nodes, edges };
-    serde_json::to_string(&raw_graph)
-}
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct RawGraph {
@@ -114,16 +90,16 @@ impl Node {
             in_degree: raw_node.in_degree.unwrap_or_default(),
         }
     }
-    pub fn from_web(web_node: WebNode) -> RawNode {
+    pub fn from_web(web_node: WebNode) -> Node {
         let out_deg = web_node.out_degree.unwrap_or_default();
         let in_deg = web_node.out_degree.unwrap_or_default();
-        RawNode {
-            id: web_node.id.clone(),
-            alias: web_node.alias.clone(),
+        Node {
+            id: web_node.id.expect("Error in node ID"),
+            alias: web_node.alias.unwrap_or_default(),
             addresses: web_node.addresses,
-            rgb_color: web_node.rgb_color,
-            out_degree: Some(out_deg.try_into().unwrap_or(u32::default())),
-            in_degree: Some(in_deg.try_into().unwrap_or(u32::default())),
+            rgb_color: web_node.rgb_color.unwrap_or_default(),
+            out_degree: out_deg.try_into().unwrap_or(u32::default()),
+            in_degree: in_deg.try_into().unwrap_or(u32::default()),
         }
     }
 }
@@ -159,27 +135,43 @@ impl Edge {
         }
     }
 
-    pub fn from_web(web_edge: WebEdge) -> Option<RawEdge> {
+    pub fn from_web(web_edge: &WebEdge) -> Option<Edge> {
         if web_edge.fee_base_msat.is_none()
             || web_edge.fee_proportional_millionths.is_none()
             || web_edge.htlc_maximum_msat.is_none()
         {
             None
         } else {
-            let htlc_minimim_msat = web_edge.htlc_minimim_msat.unwrap_or_default();
-            let htlc_maximum_msat = web_edge.htlc_maximum_msat.unwrap_or_default();
-            let cltv_expiry_delta = web_edge.cltv_expiry_delta.unwrap_or_default();
-            Some(RawEdge {
-                channel_id: web_edge.channel_id.clone(),
-                source: web_edge.source.clone(),
-                destination: web_edge.destination.clone(),
-                features: web_edge.features.clone(),
-                fee_base_msat: web_edge.fee_base_msat,
-                fee_proportional_millionths: web_edge.fee_proportional_millionths,
-                htlc_minimim_msat: Some(htlc_minimim_msat.try_into().unwrap_or(usize::default())),
-                htlc_maximum_msat: Some(htlc_maximum_msat.try_into().unwrap_or(usize::default())),
-                cltv_expiry_delta: Some(cltv_expiry_delta.try_into().unwrap_or(usize::default())),
-                id: web_edge.id,
+            Some(Edge {
+                channel_id: web_edge.channel_id.clone().expect("scid not found"),
+                source: web_edge.source.clone().unwrap_or_default(),
+                destination: web_edge.destination.clone().unwrap_or_default(),
+                features: web_edge.features.clone().unwrap_or_default(),
+                fee_base_msat: web_edge
+                    .fee_base_msat
+                    .expect("Error in fee_base_msat field"),
+                fee_proportional_millionths: web_edge
+                    .fee_proportional_millionths
+                    .expect("Error in fee_proportional_millionths field"),
+                htlc_minimim_msat: web_edge
+                    .htlc_minimim_msat
+                    .unwrap_or_default()
+                    .try_into()
+                    .unwrap_or(usize::default()),
+                htlc_maximum_msat: web_edge
+                    .htlc_maximum_msat
+                    .unwrap_or_default()
+                    .try_into()
+                    .unwrap_or(usize::default()),
+                cltv_expiry_delta: web_edge
+                    .cltv_expiry_delta
+                    .unwrap_or_default()
+                    .try_into()
+                    .unwrap_or(usize::default()),
+                id: web_edge.id.clone().unwrap_or_default(),
+                balance: 0,
+                liquidity: 0,
+                capacity: 0,
             })
         }
     }

@@ -114,17 +114,52 @@ pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
 }
 
 pub fn from_web_str(json_str: &str) -> Result<Graph, serde_json::Error> {
-    let web_graph: Result<WebGraph, serde_json::Error> = serde_json::from_str(json_str);
-    match web_graph {
-        Ok(web_graph) => {
-            if let Ok(raw_str) = from_web_graph_to_raw(web_graph) {
-                from_json_str(&raw_str)
-            } else {
-                panic!("Error parsing raw graph string")
-            }
+    let web_graph: WebGraph =
+        serde_json::from_str(json_str).expect("Error serialising JSON str to WebGraph.");
+    // discard nodes without ID
+    let nodes: HashSet<Node> = web_graph
+        .nodes
+        .iter()
+        .filter(|web_node| web_node.id.clone().unwrap_or_default() != ID::default())
+        .map(|web_node| Node::from_web(web_node.clone()))
+        .collect();
+    let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(web_graph.edges.len());
+    // discard edges with unknown IDs
+    let edges_vec: Vec<HashSet<Edge>> = web_graph
+        .edges
+        .iter()
+        .map(|adj| {
+            adj.iter()
+                .filter(|raw_edge| {
+                    // We only need the ID to know if the node exists
+                    let src_node = Node {
+                        id: raw_edge.source.clone().unwrap(),
+                        ..Default::default()
+                    };
+                    let dest_node = Node {
+                        id: raw_edge.destination.clone().unwrap(),
+                        ..Default::default()
+                    };
+                    nodes.contains(&src_node) && nodes.contains(&dest_node)
+                })
+                .filter(|web_edge| Edge::from_web(&(*web_edge).clone()).is_some())
+                .map(|web_edge| Edge::from_web(web_edge).unwrap())
+                .collect()
+        })
+        .collect();
+    for node_adj in edges_vec {
+        for edge in node_adj {
+            match edges.get_mut(&edge.source) {
+                Some(node) => node.insert(edge),
+                None => {
+                    edges.insert(edge.source.clone(), HashSet::from([edge]));
+                    true // weird so that match arms return same type
+                }
+            };
         }
-        Err(_) => panic!("Error reading web graph."),
     }
+
+    Ok(Graph { nodes, edges })
 }
 
 pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
