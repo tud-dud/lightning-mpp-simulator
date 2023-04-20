@@ -31,11 +31,11 @@ pub struct Statistics {
 }
 
 /// All the distances in the simulated payments' paths
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Clone, PartialEq, Eq)]
 pub struct PathDistances(pub Vec<usize>);
 
 /// All the diversity scorres in the simulated payments' paths
-#[derive(Debug, Serialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Clone, PartialEq)]
 pub struct PathDiversity(pub Vec<Diversity>);
 
 #[derive(Debug, Serialize, Clone)]

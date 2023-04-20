@@ -7,7 +7,7 @@ use serde::Serialize;
 mod simulator;
 pub use simulator::*;
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Default, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SimResult {
     pub run: u64,

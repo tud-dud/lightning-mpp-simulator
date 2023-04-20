@@ -10,7 +10,7 @@ use simlib::{core_types::graph, sim::Simulation, AdversarySelection};
 struct Cli {
     /// Path to JSON ile describing topology
     graph_file: PathBuf,
-    /// The payment anount to be simulated in msats
+    /// The payment anount to be simulated in sat
     #[arg(long, short)]
     amount: usize,
     /// Set the seed for the simulation
@@ -60,7 +60,7 @@ fn main() {
 
     let g = network_parser::from_json_file(std::path::Path::new(&args.graph_file));
     let seed = args.run;
-    let paymeny_amt = args.amount;
+    let payment_amt = simlib::to_millisatoshi(args.amount);
     let number_of_sim_pairs = args.num_pairs;
     let number_of_adversaries = args.num_adv;
     let routing_metric = args.edge_weight;
@@ -99,7 +99,7 @@ fn main() {
     let mut simulator = Simulation::new(
         seed,
         graph.clone(),
-        paymeny_amt,
+        payment_amt,
         routing_metric,
         split_payments,
         number_of_adversaries,

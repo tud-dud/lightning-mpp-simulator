@@ -63,7 +63,7 @@ impl PathInfo {
             .iter()
             .filter(|p| !p.path.hops.is_empty())
             .map(|path| Self {
-                total_fees: path.path_fees(),
+                total_fees: crate::to_sat(path.path_fees()),
                 total_time: path.time,
                 path_len: path.path.path_length(),
             })
@@ -100,12 +100,12 @@ mod tests {
                     src: "bob".to_string(),
                     dest: "alice".to_string(),
                     hops: VecDeque::from([
-                        ("bob".to_string(), 6010, 5, "bob-carol".to_string()),
-                        ("carol".to_string(), 10, 5, "carol-alice".to_string()),
+                        ("bob".to_string(), 7010, 5, "bob-carol".to_string()),
+                        ("carol".to_string(), 1010, 5, "carol-alice".to_string()),
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 10.0,
+                weight: 1010.0,
                 amount: 2010,
                 time: 5,
             },
@@ -114,14 +114,14 @@ mod tests {
                     src: "bob".to_string(),
                     dest: "alice".to_string(),
                     hops: VecDeque::from([
-                        ("bob".to_string(), 6030, 10, "bob-eve".to_string()),
-                        ("eve".to_string(), 20, 5, "eve-carol".to_string()),
-                        ("carol".to_string(), 10, 5, "carol-alice".to_string()),
+                        ("bob".to_string(), 9000, 10, "bob-eve".to_string()),
+                        ("eve".to_string(), 2000, 5, "eve-carol".to_string()),
+                        ("carol".to_string(), 1000, 5, "carol-alice".to_string()),
                         ("alice".to_string(), 6000, 0, "alice-carol".to_string()),
                     ]),
                 },
-                weight: 30.0,
-                amount: 2030,
+                weight: 3000.0,
+                amount: 5030,
                 time: 10,
             },
         ];
@@ -150,12 +150,12 @@ mod tests {
             succeeded: false,
             used_paths: vec![
                 PathInfo {
-                    total_fees: 10,
+                    total_fees: 1,
                     total_time: 5,
                     path_len: 2,
                 },
                 PathInfo {
-                    total_fees: 30,
+                    total_fees: 3,
                     total_time: 10,
                     path_len: 3,
                 },
