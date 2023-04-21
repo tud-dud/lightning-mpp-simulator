@@ -8,14 +8,14 @@ use serde::Serialize;
 
 pub use diversity::*;
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Adversaries {
     pub(crate) selection_strategy: crate::AdversarySelection,
     pub(crate) statistics: Vec<Statistics>,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Statistics {
     /// how many adversaries
@@ -38,7 +38,7 @@ pub struct PathDistances(pub Vec<usize>);
 #[derive(Debug, Default, Serialize, Clone, PartialEq)]
 pub struct PathDiversity(pub Vec<Diversity>);
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AnonymitySet {
     /// Possible senders
