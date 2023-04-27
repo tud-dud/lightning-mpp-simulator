@@ -22,9 +22,6 @@ struct Cli {
     /// Percentage of adversarial nodes
     #[arg(long = "adversaries", short = 'm')]
     num_adv: Option<usize>,
-    /// Path to file containing nodes' scores
-    #[arg(short = 'c', long = "centrality")]
-    score_file: PathBuf,
     /// Split the payment and route independently. Default is not to split and send as a single
     /// payment
     #[arg(long = "split", short = 's')]

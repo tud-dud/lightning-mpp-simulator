@@ -60,7 +60,7 @@ impl Output {
 }
 
 impl Report {
-    fn sim_result_to_report(sim_result: &SimResult) -> Self {
+    pub fn sim_result_to_report(sim_result: &SimResult) -> Self {
         let mut payments: Vec<PaymentInfo> = sim_result
             .successful_payments
             .iter()

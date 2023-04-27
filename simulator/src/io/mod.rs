@@ -16,14 +16,14 @@ pub struct Output(Vec<Results>);
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Report {
-    pub(crate) amount: usize,
-    pub(crate) total_num: usize,
-    pub(crate) num_succesful: usize,
-    pub(crate) num_failed: usize,
-    pub(crate) payments: Vec<PaymentInfo>,
-    pub(crate) adversaries: Vec<Adversaries>,
-    pub(crate) path_distances: Vec<usize>,
-    pub(crate) path_diversity: Vec<Diversity>,
+    pub amount: usize,
+    pub total_num: usize,
+    pub num_succesful: usize,
+    pub num_failed: usize,
+    pub payments: Vec<PaymentInfo>,
+    pub adversaries: Vec<Adversaries>,
+    pub path_distances: Vec<usize>,
+    pub path_diversity: Vec<Diversity>,
 }
 
 /// run and reports
@@ -43,18 +43,18 @@ pub struct PaymentInfo {
     /// Number of parts this payment has been split into
     pub(crate) num_parts: usize,
     pub(crate) htlc_attempts: usize,
-    pub(crate) used_paths: Vec<PathInfo>,
-    pub(crate) failed_paths: Vec<PathInfo>,
+    pub used_paths: Vec<PathInfo>,
+    pub failed_paths: Vec<PathInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 /// Describes the path used by amounts - may or may not have failed
-pub(crate) struct PathInfo {
+pub struct PathInfo {
     /// The aggregated path fees describing how costly the path is
-    pub(crate) total_fees: usize,
-    pub(crate) total_time: usize,
-    pub(crate) path_len: usize,
+    pub total_fees: usize,
+    pub total_time: usize,
+    pub path_len: usize,
 }
 
 impl PathInfo {

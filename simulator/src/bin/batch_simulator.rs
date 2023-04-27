@@ -35,7 +35,7 @@ struct Cli {
     /// If neither this nor --degree nor --random is passed, no selection will be made.
     #[arg(short = 'b', long = "betweenness")]
     betweenness_file: Option<PathBuf>,
-    /// Path to file containing betweenness scores
+    /// Path to file containing degree scores
     /// If neither this nor --betweenness nor --random is passed, no selection will be made.
     #[arg(short = 'd', long = "degree")]
     degree_file: Option<PathBuf>,
