@@ -39,10 +39,10 @@ pub struct Results {
 #[serde(rename_all = "camelCase")]
 pub struct PaymentInfo {
     pub(crate) id: usize,
-    pub(crate) succeeded: bool,
+    pub succeeded: bool,
     /// Number of parts this payment has been split into
-    pub(crate) num_parts: usize,
-    pub(crate) htlc_attempts: usize,
+    pub num_parts: usize,
+    pub htlc_attempts: usize,
     pub used_paths: Vec<PathInfo>,
     pub failed_paths: Vec<PathInfo>,
 }
