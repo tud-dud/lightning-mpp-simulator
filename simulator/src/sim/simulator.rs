@@ -35,7 +35,7 @@ pub struct Simulation {
     pub(crate) num_failed: usize,
     pub(crate) failed_payments: Vec<Payment>,
     /// If not passed, we simulate 1 to 21 adversaries
-    pub(crate) number_of_adversaries: Option<usize>,
+    pub(crate) number_of_adversaries: Option<Vec<usize>>,
     pub(crate) adversaries: Vec<Adversaries>,
     // the number of times a node is included in a payment path
     pub(crate) node_hits: HashMap<ID, usize>,
@@ -51,7 +51,7 @@ impl Simulation {
         amount: usize,
         routing_metric: RoutingMetric,
         payment_parts: PaymentParts,
-        number_of_adversaries: Option<usize>,
+        number_of_adversaries: Option<Vec<usize>>,
         adversary_selection: &[AdversarySelection],
     ) -> Self {
         info!("Initialising simulation...");
@@ -88,7 +88,7 @@ impl Simulation {
         graph: Graph,
         amount: usize,
         weight_parts: WeightPartsCombi,
-        number_of_adversaries: Option<usize>,
+        number_of_adversaries: Option<Vec<usize>>,
         adversary_selection: &[AdversarySelection],
     ) -> Self {
         let (routing_metric, payment_parts) = match weight_parts {
@@ -410,7 +410,7 @@ mod tests {
     fn run_sim() {
         let path_to_file = Path::new("../test_data/lnbook_example.json");
         let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
-        let number_of_adversaries = graph.node_count();
+        let number_of_adversaries = vec![graph.node_count()];
         let amount = 1000;
         let seed = 1;
         let routing_metric = RoutingMetric::MinFee;

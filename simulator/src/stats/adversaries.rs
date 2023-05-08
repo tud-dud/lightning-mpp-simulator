@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use log::{info, warn};
+use log::{error, info, warn};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
@@ -17,11 +17,16 @@ use std::{println as info, println as warn};
 impl Simulation {
     pub(crate) fn eval_adversaries(&mut self) {
         info!("Starting adversary evaluation scenarios..");
-        let number_of_adversaries = if let Some(number) = self.number_of_adversaries {
-            vec![number]
-        } else {
-            vec![1, 2, 3, 4, 5, 10, 12, 15, 20]
-        };
+        let number_of_adversaries =
+            if let Some(number_of_adversaries) = self.number_of_adversaries.clone() {
+                number_of_adversaries
+            } else {
+                vec![1, 2, 3, 4, 5, 10, 12, 15, 20]
+            };
+        if !number_of_adversaries.is_empty() && self.adversary_selection.is_empty() {
+            error!("Aborting adversary evaluation as no strategy was passed.");
+            return;
+        }
         let selected_adversaries =
             self.get_adversaries(number_of_adversaries[number_of_adversaries.len() - 1]);
         let mut all_payments = self.failed_payments.clone();
@@ -117,6 +122,9 @@ impl Simulation {
                             vec![]
                         }
                     }
+                }
+                AdversarySelection::HighBetweennessWeb(ranking) => {
+                    ranking[0..number_of_adversaries].to_owned()
                 }
             };
             all_adversaries.insert(strategy.clone(), adv);

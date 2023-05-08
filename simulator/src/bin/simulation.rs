@@ -20,8 +20,8 @@ struct Cli {
     #[arg(long = "pairs", short = 'n', default_value_t = 1000)]
     num_pairs: usize,
     /// Percentage of adversarial nodes
-    #[arg(long = "adversaries", short = 'm')]
-    num_adv: Option<usize>,
+    #[arg(long = "adversaries", short = 'm', num_args = 1.., value_delimiter = ' ')]
+    num_adv: Option<Vec<usize>>,
     /// Split the payment and route independently. Default is not to split and send as a single
     /// payment
     #[arg(long = "split", short = 's')]

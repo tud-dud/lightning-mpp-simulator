@@ -64,12 +64,13 @@ pub enum WeightPartsCombi {
 }
 
 /// How should the adversaries be selected
-/// The caller must remember to reverse the scores for Low*
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Hash)]
 pub enum AdversarySelection {
     Random,
     HighBetweenness(#[serde(skip)] PathBuf),
     HighDegree(#[serde(skip)] PathBuf),
+    /// WASM callers can pass the deserialised rankings in order to avoid IO
+    HighBetweennessWeb(#[serde(skip)] Vec<String>),
 }
 
 lazy_static! {
