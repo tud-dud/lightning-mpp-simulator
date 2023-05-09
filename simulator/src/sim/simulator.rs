@@ -266,7 +266,7 @@ mod tests {
             amount,
             routing_metric,
             payment_parts,
-            Some(0),
+            Some(vec![0]),
             &adversary_selection,
         );
         assert_eq!(actual.amount, amount);
@@ -310,7 +310,7 @@ mod tests {
             amount,
             routing_metric,
             payment_parts,
-            Some(0),
+            Some(vec![0]),
             &adversary_selection,
         );
         let invoice = Invoice::new(
@@ -352,7 +352,7 @@ mod tests {
             amount,
             routing_metric,
             payment_parts,
-            Some(0),
+            Some(vec![0]),
             &adversary_selection,
         );
         let invoice = Invoice::new(
@@ -391,7 +391,7 @@ mod tests {
             amount,
             routing_metric,
             payment_parts,
-            Some(0),
+            Some(vec![0]),
             &adversary_selection,
         );
         let invoice = Invoice::new(

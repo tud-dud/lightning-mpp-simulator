@@ -12,7 +12,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 #[cfg(test)]
-use std::{println as info, println as warn};
+use std::{println as info, println as warn, println as error};
 
 impl Simulation {
     pub(crate) fn eval_adversaries(&mut self) {
@@ -143,7 +143,8 @@ mod tests {
         let number_of_adversaries = 4; // all four nodes are adversaries
                                        // alice -> bob -> chan
         let source = "alice".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
+        let mut simulator =
+            crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
         let sim_result = simulator.run(
             vec![
                 (source.clone(), "chan".to_string()),
@@ -163,7 +164,8 @@ mod tests {
         assert_eq!(statistics[0].targeted_attack.num_successful, 0);
         assert_eq!(statistics[0].targeted_attack.num_failed, 0);
         let number_of_adversaries = 0;
-        let mut simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
+        let mut simulator =
+            crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
         let sim_result = simulator.run(
             vec![
                 (source.clone(), "chan".to_string()),
@@ -183,7 +185,7 @@ mod tests {
     #[test]
     fn choose_adversaries() {
         let number_of_adversaries = 4;
-        let simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
+        let simulator = crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
         let adversaries = simulator.get_adversaries(number_of_adversaries);
         assert!(adversaries.get(&AdversarySelection::Random).is_some());
         let actual = adversaries.get(&AdversarySelection::Random).unwrap();

@@ -716,7 +716,8 @@ mod tests {
         let number_of_adversaries = 4; // all 4 nodes
         let source = "alice".to_string();
         let dest = "chan".to_string();
-        let mut simulator = crate::attempt::tests::init_sim(None, Some(number_of_adversaries));
+        let mut simulator =
+            crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
         let sim_result = simulator.run(vec![(source, dest)].into_iter());
         assert_eq!(sim_result.num_succesful, 1);
         assert_eq!(
