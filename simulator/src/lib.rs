@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
-use std::{path::PathBuf, sync::Mutex};
+use std::{fmt, path::PathBuf, sync::Mutex};
 
 pub mod core_types;
 pub mod io;
@@ -28,7 +28,7 @@ pub(crate) static _DEPTH: usize = 3;
 /// Minimum amount of msats that can be sent in a shard
 /// https://github.com/lightningnetwork/lnd/blob/master/routing/payment_session.go#L72
 #[cfg(not(test))]
-pub(crate) static MIN_SHARD_AMOUNT: usize = 10000 * SAT_SCALE;
+pub static MIN_SHARD_AMOUNT: usize = 10000 * SAT_SCALE;
 #[cfg(test)]
 pub(crate) static MIN_SHARD_AMOUNT: usize = 1000;
 /// the default number of splits in LND
@@ -71,6 +71,16 @@ pub enum AdversarySelection {
     HighDegree(#[serde(skip)] PathBuf),
     /// WASM callers can pass the deserialised rankings in order to avoid IO
     HighBetweennessWeb(#[serde(skip)] Vec<String>),
+}
+
+impl fmt::Display for AdversarySelection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Random => write!(f, "Random"),
+            Self::HighBetweenness(_) | Self::HighBetweennessWeb(_) => write!(f, "High Betweenness"),
+            Self::HighDegree(_) => write!(f, "High Degree"),
+        }
+    }
 }
 
 lazy_static! {

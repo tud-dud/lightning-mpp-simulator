@@ -19,6 +19,7 @@ impl Simulation {
         info!("Starting adversary evaluation scenarios..");
         let number_of_adversaries =
             if let Some(number_of_adversaries) = self.number_of_adversaries.clone() {
+                info!("Got {:?} adversaries", number_of_adversaries);
                 number_of_adversaries
             } else {
                 vec![1, 2, 3, 4, 5, 10, 12, 15, 20]

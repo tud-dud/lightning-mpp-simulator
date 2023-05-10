@@ -43,6 +43,9 @@ struct Cli {
     /// Select adversaries using random sampling
     #[arg(long = "random")]
     random_selection: bool,
+    /// Min shard when using MPP
+    #[arg(long = "min")]
+    min_shard: Option<usize>,
     #[arg(long)]
     verbose: bool,
 }
@@ -103,5 +106,5 @@ fn main() {
         &adversary_selection,
     );
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
-    _ = simulator.run(pairs);
+    _ = simulator.run(pairs, args.min_shard);
 }

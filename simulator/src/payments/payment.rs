@@ -41,14 +41,24 @@ pub struct PaymentShard {
 }
 
 impl Payment {
-    pub(crate) fn new(payment_id: PaymentId, source: ID, dest: ID, amount_msat: usize) -> Self {
+    pub(crate) fn new(
+        payment_id: PaymentId,
+        source: ID,
+        dest: ID,
+        amount_msat: usize,
+        min_shard_amt: Option<usize>,
+    ) -> Self {
         Self {
             payment_id,
             source,
             dest,
             amount_msat,
             succeeded: false,
-            min_shard_amt: crate::MIN_SHARD_AMOUNT,
+            min_shard_amt: if let Some(min) = min_shard_amt {
+                min
+            } else {
+                crate::MIN_SHARD_AMOUNT
+            },
             num_parts: 1,
             used_paths: Vec::default(),
             htlc_attempts: 0,
@@ -66,11 +76,7 @@ impl Payment {
     /// Split payment and return two shards
     pub(crate) fn split_payment(payment: &Payment) -> Option<(Payment, Payment)> {
         let amt_to_split = payment.amount_msat;
-        if amt_to_split < crate::MIN_SHARD_AMOUNT
-            || amt_to_split / 2 < crate::MIN_SHARD_AMOUNT
-            || amt_to_split < payment.min_shard_amt
-            || amt_to_split / 2 < payment.min_shard_amt
-        {
+        if amt_to_split < payment.min_shard_amt || amt_to_split / 2 < payment.min_shard_amt {
             error!(
                 "Payment failing as min shard amount has been reached. Min amount {}, amount {}",
                 crate::MIN_SHARD_AMOUNT,

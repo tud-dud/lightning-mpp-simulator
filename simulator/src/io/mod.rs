@@ -51,6 +51,8 @@ pub struct PaymentInfo {
 #[serde(rename_all = "camelCase")]
 /// Describes the path used by amounts - may or may not have failed
 pub struct PathInfo {
+    /// the amount that was transferred by this path
+    pub amount: usize,
     /// The aggregated path fees describing how costly the path is
     pub total_fees: usize,
     pub total_time: usize,
@@ -63,6 +65,7 @@ impl PathInfo {
             .iter()
             .filter(|p| !p.path.hops.is_empty())
             .map(|path| Self {
+                amount: crate::to_sat(path.path_amount()),
                 total_fees: crate::to_sat(path.path_fees()),
                 total_time: path.time,
                 path_len: path.path.path_length(),

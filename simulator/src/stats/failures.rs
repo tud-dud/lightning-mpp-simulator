@@ -18,7 +18,7 @@ impl Simulation {
         );
         let mut sim = self.clone();
         sim.delete_targets(targets);
-        let pp = sim.reconstruct_payment_pairs();
+        let (pp, min_shard_amt) = sim.reconstruct_payment_pairs();
         sim.failed_payments.clear();
         sim.successful_payments.clear();
         sim.num_successful = 0;
@@ -27,10 +27,14 @@ impl Simulation {
         sim.total_num_payments = pp.size_hint().0;
         assert_eq!(sim.payment_parts, self.payment_parts);
         assert_eq!(sim.routing_metric, self.routing_metric);
-        sim.simulate(pp)
+        sim.simulate(pp, min_shard_amt)
     }
 
-    fn simulate(&mut self, payment_pairs: impl Iterator<Item = (ID, ID)>) -> TargetedAttack {
+    fn simulate(
+        &mut self,
+        payment_pairs: impl Iterator<Item = (ID, ID)>,
+        min_shard_amt: Option<usize>,
+    ) -> TargetedAttack {
         info!(
             "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
             payment_pairs.size_hint().0,
@@ -42,7 +46,7 @@ impl Simulation {
             let payment_id = self.next_payment_id();
             let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
             self.add_invoice(invoice);
-            let payment = Payment::new(payment_id, src, dest, self.amount);
+            let payment = Payment::new(payment_id, src, dest, self.amount, min_shard_amt);
             let event = PaymentEvent::Scheduled { payment };
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);
@@ -101,8 +105,11 @@ impl Simulation {
         }
     }
 
-    fn reconstruct_payment_pairs(&self) -> (impl Iterator<Item = (ID, ID)> + Clone) {
+    fn reconstruct_payment_pairs(
+        &self,
+    ) -> ((impl Iterator<Item = (ID, ID)> + Clone), Option<usize>) {
         let mut payment_pairs = vec![];
+        let mut min_shard_amt = None;
         for payments_iter in self
             .successful_payments
             .iter()
@@ -112,6 +119,7 @@ impl Simulation {
                 if self.graph.node_is_in_graph(&payment.source)
                     && self.graph.node_is_in_graph(&payment.dest)
                 {
+                    min_shard_amt = Some(payment.min_shard_amt);
                     payment_pairs.push((payment.source.clone(), payment.dest.clone()));
                 }
             };
@@ -128,7 +136,7 @@ impl Simulation {
             "Reusing {} % of payment pairs.",
             (payment_pairs.len() as f32 / self.total_num_payments as f32) * 100.0
         );
-        payment_pairs.into_iter()
+        (payment_pairs.into_iter(), min_shard_amt)
     }
 }
 

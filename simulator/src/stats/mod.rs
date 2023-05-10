@@ -11,15 +11,15 @@ pub use diversity::*;
 #[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Adversaries {
-    pub(crate) selection_strategy: crate::AdversarySelection,
-    pub(crate) statistics: Vec<Statistics>,
+    pub selection_strategy: crate::AdversarySelection,
+    pub statistics: Vec<Statistics>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Statistics {
     /// how many adversaries
-    pub(crate) number: usize,
+    pub number: usize,
     /// Number of times an adversary was included a payment path
     pub hits: usize,
     /// Number of times an adversary was included a successful payment path

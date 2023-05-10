@@ -108,7 +108,11 @@ impl Simulation {
         )
     }
 
-    pub fn run(&mut self, payment_pairs: impl Iterator<Item = (ID, ID)> + Clone) -> SimResult {
+    pub fn run(
+        &mut self,
+        payment_pairs: impl Iterator<Item = (ID, ID)> + Clone,
+        min_shard_amt: Option<usize>,
+    ) -> SimResult {
         info!(
             "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
             payment_pairs.size_hint().0,
@@ -120,7 +124,7 @@ impl Simulation {
             let payment_id = self.next_payment_id();
             let invoice = Invoice::new(payment_id, self.amount, &src, &dest);
             self.add_invoice(invoice);
-            let payment = Payment::new(payment_id, src, dest, self.amount);
+            let payment = Payment::new(payment_id, src, dest, self.amount, min_shard_amt);
             let event = PaymentEvent::Scheduled { payment };
             self.event_queue.schedule(now, event);
             now += Time::from_secs(crate::SIM_DELAY_IN_SECS);

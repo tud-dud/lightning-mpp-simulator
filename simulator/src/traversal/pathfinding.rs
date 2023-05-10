@@ -201,6 +201,14 @@ impl CandidatePath {
             0
         }
     }
+    /// Returns the amount that was trasferred by this path.
+    pub(crate) fn path_amount(&self) -> usize {
+        if !self.path.hops.is_empty() {
+            self.path.hops[self.path.hops.len() - 1].1
+        } else {
+            0
+        }
+    }
 }
 
 impl PathFinder {

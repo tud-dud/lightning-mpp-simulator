@@ -42,6 +42,9 @@ struct Cli {
     /// Select adversaries using random sampling
     #[arg(long = "random")]
     random_selection: bool,
+    /// Min shard when using MPP
+    #[arg(long = "min")]
+    min_shard: Option<usize>,
     #[arg(long)]
     verbose: bool,
 }
@@ -107,7 +110,7 @@ fn main() {
                 "Starting {:?} simulation of {} pairs of {} sats.",
                 combi, number_of_sim_pairs, amount,
             );
-            let sim_result = simulate(sim, pairs.clone());
+            let sim_result = simulate(sim, pairs.clone(), args.min_shard);
             let duration_in_ms = start.elapsed().as_millis();
             info!(
                 "Simulation {:?} of amount {} sat completed after {} ms.",
@@ -138,8 +141,9 @@ fn init_sim(
 fn simulate(
     mut sim: Simulation,
     payment_pairs: impl Iterator<Item = (std::string::String, std::string::String)> + Clone,
+    min_shard: Option<usize>,
 ) -> SimResult {
-    sim.run(payment_pairs)
+    sim.run(payment_pairs, min_shard)
 }
 
 fn report_to_file(
