@@ -18,8 +18,8 @@ impl Simulation {
     pub(crate) fn eval_adversaries(&mut self) {
         info!("Starting adversary evaluation scenarios..");
         let number_of_adversaries =
-            if let Some(number_of_adversaries) = self.number_of_adversaries.clone() {
-                info!("Got {:?} adversaries", number_of_adversaries);
+            if let Some(mut number_of_adversaries) = self.number_of_adversaries.clone() {
+                number_of_adversaries.sort();
                 number_of_adversaries
             } else {
                 vec![1, 2, 3, 4, 5, 10, 12, 15, 20]
@@ -152,6 +152,7 @@ mod tests {
                 (source.clone(), "dina".to_string()),
             ]
             .into_iter(),
+            None,
         );
         assert_eq!(sim_result.num_succesful, 2);
         let statistics = &simulator.adversaries[0].statistics;
@@ -173,6 +174,7 @@ mod tests {
                 (source, "dina".to_string()),
             ]
             .into_iter(),
+            None,
         );
         assert_eq!(sim_result.num_succesful, 2);
         let statistics = &simulator.adversaries[0].statistics;

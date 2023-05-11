@@ -173,7 +173,7 @@ mod tests {
         let source = "source".to_string();
         let dest = "dest".to_string();
         let amount = 10000;
-        let actual = Payment::new(id, source.clone(), dest.clone(), amount);
+        let actual = Payment::new(id, source.clone(), dest.clone(), amount, None);
         let expected = Payment {
             payment_id: id,
             source: source.clone(),

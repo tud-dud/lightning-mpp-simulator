@@ -184,7 +184,7 @@ mod tests {
             ("dina".to_string(), "alice".to_string()),
         ]
         .into_iter();
-        let actual = simulator.reconstruct_payment_pairs();
+        let (actual, _) = simulator.reconstruct_payment_pairs();
         assert!(expected.eq(actual));
     }
 

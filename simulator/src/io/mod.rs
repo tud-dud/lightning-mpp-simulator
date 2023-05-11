@@ -151,13 +151,16 @@ mod tests {
             num_parts: 1,
             htlc_attempts: 2,
             succeeded: false,
+            // values are in sat
             used_paths: vec![
                 PathInfo {
+                    amount: 6,
                     total_fees: 1,
                     total_time: 5,
                     path_len: 2,
                 },
                 PathInfo {
+                    amount: 6,
                     total_fees: 3,
                     total_time: 10,
                     path_len: 3,

@@ -435,7 +435,7 @@ mod tests {
             Some(number_of_adversaries),
             &adversary_selection,
         );
-        simulator.run(pairs.clone().into_iter());
+        simulator.run(pairs.clone().into_iter(), None);
         assert_eq!(simulator.num_successful + simulator.num_failed, pairs.len());
         let mut expected_hits: HashMap<String, usize> = HashMap::with_capacity(3);
         for payment in simulator.successful_payments {
