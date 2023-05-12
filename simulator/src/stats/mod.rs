@@ -50,7 +50,7 @@ pub struct AnonymitySet {
     correct_source: bool,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetedAttack {
     pub total_num: usize,

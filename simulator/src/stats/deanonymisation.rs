@@ -718,7 +718,7 @@ mod tests {
         let dest = "chan".to_string();
         let mut simulator =
             crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
-        let sim_result = simulator.run(vec![(source, dest)].into_iter(), None);
+        let sim_result = simulator.run(vec![(source, dest)].into_iter(), None, true);
         assert_eq!(sim_result.num_succesful, 1);
         assert_eq!(
             simulator.adversaries[0].selection_strategy,

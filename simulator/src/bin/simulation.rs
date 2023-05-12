@@ -106,5 +106,5 @@ fn main() {
         &adversary_selection,
     );
     let pairs = Simulation::draw_n_pairs_for_simulation(&graph, number_of_sim_pairs);
-    _ = simulator.run(pairs, args.min_shard);
+    _ = simulator.run(pairs, args.min_shard, true);
 }

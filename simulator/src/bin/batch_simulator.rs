@@ -143,7 +143,7 @@ fn simulate(
     payment_pairs: impl Iterator<Item = (std::string::String, std::string::String)> + Clone,
     min_shard: Option<usize>,
 ) -> SimResult {
-    sim.run(payment_pairs, min_shard)
+    sim.run(payment_pairs, min_shard, true)
 }
 
 fn report_to_file(

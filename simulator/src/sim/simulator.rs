@@ -112,6 +112,7 @@ impl Simulation {
         &mut self,
         payment_pairs: impl Iterator<Item = (ID, ID)> + Clone,
         min_shard_amt: Option<usize>,
+        run_all_adversary_scenarios: bool,
     ) -> SimResult {
         info!(
             "# Payment pairs = {}, Pathfinding weight = {:?}, Single/MMP payments: {:?}",
@@ -173,7 +174,7 @@ impl Simulation {
             "# Total payments = {}, # successful {}, # failed = {}.",
             self.total_num_payments, self.num_successful, self.num_failed
         );
-        self.eval_adversaries();
+        self.eval_adversaries(run_all_adversary_scenarios);
         self.eval_path_similarity();
         SimResult {
             run: self.run,
@@ -435,7 +436,7 @@ mod tests {
             Some(number_of_adversaries),
             &adversary_selection,
         );
-        simulator.run(pairs.clone().into_iter(), None);
+        simulator.run(pairs.clone().into_iter(), None, true);
         assert_eq!(simulator.num_successful + simulator.num_failed, pairs.len());
         let mut expected_hits: HashMap<String, usize> = HashMap::with_capacity(3);
         for payment in simulator.successful_payments {

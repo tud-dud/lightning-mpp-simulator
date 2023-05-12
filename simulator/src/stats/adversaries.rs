@@ -1,6 +1,6 @@
 use crate::{
     payment::Payment,
-    stats::{Adversaries, Statistics},
+    stats::{Adversaries, Statistics, TargetedAttack},
     AdversarySelection, Simulation, ID,
 };
 
@@ -15,7 +15,7 @@ use std::{
 use std::{println as info, println as warn, println as error};
 
 impl Simulation {
-    pub(crate) fn eval_adversaries(&mut self) {
+    pub(crate) fn eval_adversaries(&mut self, run_all: bool) {
         info!("Starting adversary evaluation scenarios..");
         let number_of_adversaries =
             if let Some(mut number_of_adversaries) = self.number_of_adversaries.clone() {
@@ -57,7 +57,11 @@ impl Simulation {
                     vec![]
                 };*/
                 let anonymity_sets = vec![];
-                let targeted_attack = self.rerun_simulation(&adv);
+                let targeted_attack = if run_all {
+                    self.rerun_simulation(&adv)
+                } else {
+                    TargetedAttack::default()
+                };
                 statistics.push(Statistics {
                     number: *num_adv,
                     hits,
@@ -153,6 +157,7 @@ mod tests {
             ]
             .into_iter(),
             None,
+            true,
         );
         assert_eq!(sim_result.num_succesful, 2);
         let statistics = &simulator.adversaries[0].statistics;
@@ -175,6 +180,7 @@ mod tests {
             ]
             .into_iter(),
             None,
+            true,
         );
         assert_eq!(sim_result.num_succesful, 2);
         let statistics = &simulator.adversaries[0].statistics;
