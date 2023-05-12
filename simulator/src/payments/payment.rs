@@ -280,4 +280,72 @@ mod tests {
         };
         assert!(Payment::split_payment(&payment).is_none());
     }
+
+    #[test]
+    fn split_with_given_min_amt() {
+        let source = "source".to_string();
+        let dest = "dest".to_string();
+        let amount = crate::MIN_SHARD_AMOUNT;
+        let payment = Payment {
+            payment_id: 0,
+            source: source.clone(),
+            dest,
+            amount_msat: amount,
+            succeeded: false,
+            min_shard_amt: crate::MIN_SHARD_AMOUNT / 2,
+            used_paths: Vec::default(),
+            num_parts: 1,
+            htlc_attempts: 1,
+            failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
+            failed_paths: vec![],
+        };
+        let actual = Payment::split_payment(&payment).unwrap();
+        let expected = (
+            Payment {
+                amount_msat: crate::MIN_SHARD_AMOUNT / 2,
+                ..payment.clone()
+            },
+            Payment {
+                amount_msat: crate::MIN_SHARD_AMOUNT / 2,
+                ..payment.clone()
+            },
+        );
+        assert_eq!(actual.0.amount_msat, expected.0.amount_msat);
+        assert_eq!(actual.1.amount_msat, expected.1.amount_msat);
+    }
+
+    #[test]
+    fn create_with_given_min_amt() {
+        let id = 1;
+        let source = "source".to_string();
+        let dest = "dest".to_string();
+        let amount = 10000;
+        let min_shard_amt = 100;
+        let actual = Payment::new(
+            id,
+            source.clone(),
+            dest.clone(),
+            amount,
+            Some(min_shard_amt),
+        );
+        let expected = Payment {
+            payment_id: id,
+            source: source.clone(),
+            dest,
+            amount_msat: amount,
+            succeeded: false,
+            min_shard_amt,
+            used_paths: Vec::default(),
+            num_parts: 1,
+            htlc_attempts: 0,
+            failed_amounts: Vec::default(),
+            successful_shards: Vec::default(),
+            failed_paths: vec![],
+        };
+        assert_eq!(actual, expected);
+        assert_eq!(actual.succeeded, expected.succeeded);
+        assert_eq!(actual.min_shard_amt, expected.min_shard_amt);
+        assert_eq!(actual.htlc_attempts, expected.htlc_attempts);
+    }
 }
