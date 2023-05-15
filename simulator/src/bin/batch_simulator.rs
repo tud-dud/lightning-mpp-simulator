@@ -45,6 +45,8 @@ struct Cli {
     /// Min shard when using MPP
     #[arg(long = "min")]
     min_shard: Option<usize>,
+    #[arg(long = "graph-source", short = 'g')]
+    graph_type: network_parser::GraphSource,
     #[arg(long)]
     verbose: bool,
 }
@@ -57,14 +59,15 @@ fn main() {
         .write_style_or("MY_LOG_STYLE", "always");
     env_logger::init_from_env(env);
 
+    let graph_source = args.graph_type;
     let g = network_parser::Graph::from_json_file(
         std::path::Path::new(&args.graph_file),
-        network_parser::GraphSource::Lnresearch,
+        graph_source.clone(),
     );
     let seed = args.run;
     let number_of_sim_pairs = args.num_pairs;
     let graph = match g {
-        Ok(graph) => Graph::to_sim_graph(&graph),
+        Ok(graph) => Graph::to_sim_graph(&graph, graph_source),
         Err(e) => {
             error!("Error in graph file {}. Exiting.", e);
             std::process::exit(-1)

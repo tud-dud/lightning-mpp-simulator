@@ -267,6 +267,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -293,6 +294,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let n = 2;
         let actual = Simulation::draw_n_pairs_for_simulation(&graph, n);
@@ -308,6 +310,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let nodes = &graph.get_node_ids();
         let amount = nodes.len();
@@ -329,6 +332,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -377,6 +381,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -422,6 +427,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -456,6 +462,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let number_of_adversaries = vec![graph.node_count()];
         let amount = 1000;

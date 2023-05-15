@@ -14,7 +14,7 @@ pub enum GraphSource {
     #[default]
     Lnd,
 }
-#[derive( Deserialize, Clone, Debug, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 pub struct Graph {
     pub nodes: HashSet<Node>,
     #[serde(alias = "adjacency")]
@@ -24,10 +24,8 @@ pub struct Graph {
 
 #[derive(Deserialize, Clone, Debug, Default)]
 pub struct Node {
-    #[serde(alias = "pub_key")]
     pub id: ID,
     pub alias: String,
-    pub addresses: Vec<String>,
     pub last_update: usize,
 }
 
@@ -50,7 +48,6 @@ pub struct Edge {
     /// CLTV delta across channel
     /// minimum difference between the expiration of an incoming and outgoing HTLC
     pub cltv_expiry_delta: usize,
-    pub id: String,
     /// node's edge balance which we calculate after graph creation
     pub balance: usize,
     /// edge balance minus commited HTLCs
@@ -69,7 +66,7 @@ impl Graph {
         graph_source: GraphSource,
     ) -> Result<Graph, serde_json::Error> {
         match graph_source {
-            GraphSource::Lnd => todo!(),
+            GraphSource::Lnd => Self::from_lnd_json_str(json_str),
             GraphSource::Lnresearch => Self::from_lnresearch_json_str(json_str),
         }
     }
@@ -82,10 +79,9 @@ impl Graph {
         Self::from_json_str(&json_str, graph_source)
     }
 
-    fn nodes_from_raw_graph(raw_graph: &RawGraph) -> HashSet<Node> {
+    fn nodes_from_raw_graph(nodes: &[RawNode]) -> HashSet<Node> {
         // discard nodes without ID
-        raw_graph
-            .nodes
+        nodes
             .iter()
             .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
             .map(|raw_node| Node::from_raw(raw_node.clone()))
@@ -93,8 +89,9 @@ impl Graph {
     }
 
     pub fn from_lnresearch_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
-        let raw_graph = from_json_to_raw(json_str).expect("Error deserialising JSON str!");
-        let nodes = Self::nodes_from_raw_graph(&raw_graph);
+        let raw_graph: RawLnresearchGraph =
+            serde_json::from_str(json_str).expect("Error deserialising JSON str!");
+        let nodes = Self::nodes_from_raw_graph(&raw_graph.nodes);
         let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
         // discard edges with unknown IDs
         let edges_vec: Vec<HashSet<Edge>> = raw_graph
@@ -129,6 +126,40 @@ impl Graph {
                     }
                 };
             }
+        }
+        Ok(Graph { nodes, edges })
+    }
+    pub fn from_lnd_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
+        let raw_graph: RawLndGraph =
+            serde_json::from_str(json_str).expect("Error deserialising JSON str!");
+        let nodes = Self::nodes_from_raw_graph(&raw_graph.nodes);
+        let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
+        // discard edges with unknown IDs
+        let mut edges_vec = vec![];
+        for raw_edge in raw_graph.edges {
+            let src_node = Node {
+                id: raw_edge.source.clone().unwrap(),
+                ..Default::default()
+            };
+            let dest_node = Node {
+                id: raw_edge.destination.clone().unwrap(),
+                ..Default::default()
+            };
+            if nodes.contains(&src_node) && nodes.contains(&dest_node) {
+                if let Some(edge) = Edge::from_lnd_raw(&(raw_edge).clone()) {
+                    edges_vec.push(edge.0);
+                    edges_vec.push(edge.1);
+                }
+            }
+        }
+        for edge in edges_vec {
+            match edges.get_mut(&edge.source) {
+                Some(node) => node.insert(edge),
+                None => {
+                    edges.insert(edge.source.clone(), HashSet::from([edge]));
+                    true // weird so that match arms return same type
+                }
+            };
         }
         Ok(Graph { nodes, edges })
     }
@@ -204,6 +235,19 @@ impl PartialEq for Edge {
     }
 }
 
+impl clap::ValueEnum for GraphSource {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Self::Lnd, Self::Lnresearch]
+    }
+
+    fn to_possible_value<'a>(&self) -> Option<clap::builder::PossibleValue> {
+        match self {
+            Self::Lnd => Some(clap::builder::PossibleValue::new("lnd")),
+            Self::Lnresearch => Some(clap::builder::PossibleValue::new("lnr")),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,7 +279,6 @@ mod tests {
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: "MilliBit".to_string(),
-            addresses: vec!["ipv4://83.85.142.36:9735".to_string()],
             last_update: 54321,
         };
         assert_eq!(*actual, expected);
@@ -310,8 +353,6 @@ mod tests {
                     htlc_minimim_msat: 1000,
                     htlc_maximum_msat: 5564111000,
                     cltv_expiry_delta: 34,
-                    id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
-                        .to_string(),
                     balance: 0,
                     capacity: 0,
                     liquidity: 0,
@@ -328,8 +369,6 @@ mod tests {
                     htlc_minimim_msat: 1,
                     htlc_maximum_msat: 5545472000,
                     cltv_expiry_delta: 34,
-                    id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
-                        .to_string(),
                     balance: 0,
                     liquidity: 0,
                     capacity: 0,
@@ -356,7 +395,6 @@ mod tests {
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: String::default(),
-            addresses: Vec::default(),
             last_update: 54321,
         };
         assert_eq!(*actual, expected);
@@ -454,8 +492,6 @@ mod tests {
                 htlc_minimim_msat: 1000,
                 htlc_maximum_msat: 5564111000,
                 cltv_expiry_delta: 34,
-                id: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
-                    .to_string(),
                 balance: 0,
                 liquidity: 0,
                 capacity: 0,
@@ -471,8 +507,6 @@ mod tests {
                 htlc_minimim_msat: 1,
                 htlc_maximum_msat: 5545472000,
                 cltv_expiry_delta: 34,
-                id: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
-                    .to_string(),
                 balance: 0,
                 liquidity: 0,
                 capacity: 0,
@@ -676,5 +710,95 @@ mod tests {
         for id in actual {
             assert!(expected.contains(&id));
         }
+    }
+
+    #[test]
+    fn edges_from_lnd_json_str() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "alias": "node1"
+                },
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "alias": "node2"
+                }
+            ],
+            "edges": [
+                {
+                    "channel_id": "659379322247708673",
+                    "chan_point": "ae07c9fe78e6a1057902441f599246d735bac33be7b159667006757609fb5a86:1",
+                    "last_update": 1571278793,
+                    "node1_pub": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "node2_pub": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "capacity": "1000000",
+                    "node1_policy": {
+                        "time_lock_delta": 14,
+                        "min_htlc": "1000",
+                        "fee_base_msat": "1000",
+                        "fee_rate_milli_msat": "1",
+                        "disabled": false,
+                        "max_htlc_msat": "990000000",
+                        "last_update": 1571278793
+                    },
+                    "node2_policy": {
+                        "time_lock_delta": 14,
+                        "min_htlc": "1000",
+                        "fee_base_msat": "1000",
+                        "fee_rate_milli_msat": "1",
+                        "disabled": false,
+                        "max_htlc_msat": "990000000",
+                        "last_update": 1571278793
+                    }
+                }
+            ]
+            }"##;
+        let graph = Graph::from_lnd_json_str(&json_str).unwrap();
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.edges.len(), 2);
+    }
+
+    #[test]
+    fn null_node_policy() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "alias": "node1"
+                },
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "alias": "node2"
+                }
+            ],
+            "edges": [
+                {
+                    "channel_id": "659379322247708673",
+                    "chan_point": "ae07c9fe78e6a1057902441f599246d735bac33be7b159667006757609fb5a86:1",
+                    "last_update": 1571278793,
+                    "node1_pub": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "node2_pub": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "capacity": "1000000",
+                    "node1_policy": {
+                        "time_lock_delta": 14,
+                        "min_htlc": "1000",
+                        "fee_base_msat": "1000",
+                        "fee_rate_milli_msat": "1",
+                        "disabled": false,
+                        "max_htlc_msat": "990000000",
+                        "last_update": 1571278793
+                    },
+                    "node2_policy": null
+                }
+            ]
+            }"##;
+        let graph = Graph::from_lnd_json_str(&json_str).unwrap();
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.edges.len(), 0);
     }
 }

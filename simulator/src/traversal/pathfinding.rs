@@ -542,6 +542,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
@@ -587,6 +588,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
@@ -640,6 +642,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let mut path_finder = PathFinder {
             graph: Box::new(graph),
@@ -686,6 +689,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let balance = 70000; // ensure balances are not the reason for failure
         for (_, edges) in graph.edges.iter_mut() {
@@ -765,6 +769,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let mut path_finder = PathFinder {
             graph: Box::new(graph),

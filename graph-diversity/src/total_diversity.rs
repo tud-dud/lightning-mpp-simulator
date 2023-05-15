@@ -166,6 +166,7 @@ mod tests {
         let graph = Graph::to_sim_graph(
             &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
                 .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let amount = 10;
         let pairs = vec![
@@ -188,6 +189,7 @@ mod tests {
         let graph = Graph::to_sim_graph(
             &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
                 .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let k = 2;
         let routing_metric = RoutingMetric::MinFee;
@@ -218,6 +220,7 @@ mod tests {
         let graph = Graph::to_sim_graph(
             &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
                 .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let k = 2;
         let lambdas = [0.5];

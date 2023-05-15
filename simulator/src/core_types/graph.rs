@@ -17,7 +17,10 @@ pub struct Graph {
 
 impl Graph {
     /// Transform to another type of graph to allow graph operations such as SCC and shortest path computations
-    pub fn to_sim_graph(net_graph: &network_parser::Graph) -> Graph {
+    pub fn to_sim_graph(
+        net_graph: &network_parser::Graph,
+        graph_source: network_parser::GraphSource,
+    ) -> Graph {
         let nodes: Vec<Node> = net_graph.nodes.clone().into_iter().collect();
         let edges: HashMap<ID, Vec<Edge>> = net_graph
             .clone()
@@ -28,7 +31,7 @@ impl Graph {
         let graph = Graph { nodes, edges };
         let greatest_scc = graph.reduce_to_greatest_scc();
         let mut greatest_scc = greatest_scc.remove_unidrectional_edges();
-        greatest_scc.set_channel_balances();
+        greatest_scc.set_channel_balances(graph_source);
         greatest_scc
     }
 
@@ -206,7 +209,7 @@ impl Graph {
 
     /// We calculate balances based on the edges' max_sat values using a random uniform
     /// distribution. We set the liquidity to the calculated balance
-    fn set_channel_balances(&mut self) {
+    fn set_channel_balances(&mut self, graph_source: network_parser::GraphSource) {
         info!("Calculating channel balances.");
         // hm
         let graph_copy = self.clone();
@@ -219,9 +222,19 @@ impl Graph {
                     if let Some(mut reverse_edge) = graph_copy.get_edge(&out_edge.destination, src)
                     {
                         let src_capacity_dist: f32 = rng.gen();
-                        let max_src_htlc = &out_edge.htlc_maximum_msat;
-                        let max_dest_htlc = reverse_edge.htlc_maximum_msat;
-                        let capacity = *cmp::min(max_src_htlc, &max_dest_htlc) as f32;
+                        let capacity = match graph_source {
+                            network_parser::GraphSource::Lnresearch => {
+                                let max_src_htlc = &out_edge.htlc_maximum_msat;
+                                let max_dest_htlc = reverse_edge.htlc_maximum_msat;
+                                *cmp::min(max_src_htlc, &max_dest_htlc) as f32
+                            }
+                            network_parser::GraphSource::Lnd =>
+                            // should not be necessary since the library ensures both edges are
+                            // there
+                            {
+                                cmp::min(out_edge.capacity, reverse_edge.capacity) as f32
+                            }
+                        };
                         out_edge.capacity = capacity as usize;
                         reverse_edge.capacity = capacity as usize;
                         let src_balance = (src_capacity_dist * capacity).round();
@@ -438,7 +451,7 @@ mod tests {
             network_parser::GraphSource::Lnresearch,
         )
         .unwrap();
-        let digraph = Graph::to_sim_graph(&graph);
+        let digraph = Graph::to_sim_graph(&graph, network_parser::GraphSource::Lnresearch);
         let num_nodes = digraph.node_count();
         assert_eq!(num_nodes, 3);
         let num_edges = digraph.edge_count();
@@ -454,6 +467,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let actual = graph.get_sccs();
         assert_eq!(actual.len(), 2);
@@ -468,6 +482,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         graph.nodes.push(network_parser::Node {
             id: "scc1".to_string(),
@@ -499,6 +514,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let actual = graph.get_node_ids();
         assert_eq!(actual.len(), graph.nodes.len());
@@ -517,6 +533,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let random_pair: Vec<(ID, ID)> = graph.get_random_pairs_of_nodes(n).into_iter().collect();
         assert!(graph.get_node_ids().contains(&random_pair[0].0));
@@ -532,6 +549,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let from = "random0".to_string();
         let to = "random1".to_string();
@@ -548,7 +566,6 @@ mod tests {
             htlc_minimim_msat: 1000,
             htlc_maximum_msat: 5564111000,
             cltv_expiry_delta: 34,
-            id: String::default(),
             balance: actual.clone().unwrap().balance, // hacky because it depends on the RNG
             liquidity: 0,
             capacity: 0,
@@ -565,6 +582,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node = String::from("random1");
         let actual = graph.get_outedges(&node);
@@ -577,7 +595,6 @@ mod tests {
             htlc_minimim_msat: 1,
             htlc_maximum_msat: 5545472000,
             cltv_expiry_delta: 34,
-            id: String::default(),
             balance: 0,
             liquidity: 0,
             capacity: 0,
@@ -594,6 +611,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node1 = String::from("random1");
         let node2 = String::from("random2");
@@ -619,8 +637,9 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
-        graph.set_channel_balances();
+        graph.set_channel_balances(network_parser::GraphSource::Lnresearch);
         for edges in graph.edges.into_values() {
             for e in edges {
                 assert!(e.balance != usize::default());
@@ -637,6 +656,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let nodes = graph.get_node_ids();
         for (idx, node) in nodes.iter().enumerate() {
@@ -658,6 +678,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let balance = 4711;
         // Set balance so we can compare
@@ -681,6 +702,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node = String::from("alice");
         let channel_id = String::from("alice1");
@@ -698,6 +720,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node = String::from("bob");
         let channel_id = String::from("bob1");
@@ -720,6 +743,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node = String::from("bob");
         let channel_id = String::from("bob1");
@@ -742,6 +766,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node1 = String::from("random1");
         let channel_id = String::from("714116x477x0/0");
@@ -761,6 +786,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let capacity = 5000;
         let balance = capacity / 2;
@@ -787,6 +813,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let capacity = 5000;
         let balance = capacity / 2;
@@ -816,6 +843,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         for node in graph.get_node_ids() {
             graph.remove_node(&node);
@@ -833,6 +861,7 @@ mod tests {
                 network_parser::GraphSource::Lnresearch,
             )
             .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let node = "bob".to_string();
         assert!(graph.node_is_in_graph(&node));

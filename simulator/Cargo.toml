@@ -22,10 +22,6 @@ ordered-float = "3.4.0"
 rayon = "1.6"
 
 [[bin]]
-name = "main"
-path = "src/bin/main.rs"
-
-[[bin]]
 name = "lightning-simulator"
 path = "src/bin/simulation.rs"
 

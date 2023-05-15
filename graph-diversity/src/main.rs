@@ -37,6 +37,8 @@ struct Cli {
     /// Set the seed for the simulation
     #[arg(long, short, default_value_t = 19)]
     _run: u64,
+    #[arg(long = "graph-source", short = 'g')]
+    graph_type: network_parser::GraphSource,
     verbose: bool,
 }
 
@@ -50,12 +52,13 @@ fn main() {
 
     let routing_metric = args.edge_weight;
     let k = args.num_paths;
+    let graph_source = args.graph_type;
     let g = network_parser::Graph::from_json_file(
         std::path::Path::new(&args.graph_file),
-        network_parser::GraphSource::Lnresearch,
+        graph_source.clone(),
     );
     let graph = match g {
-        Ok(graph) => simlib::core_types::graph::Graph::to_sim_graph(&graph),
+        Ok(graph) => simlib::core_types::graph::Graph::to_sim_graph(&graph, graph_source),
         Err(e) => {
             error!("Error in graph file {}. Exiting.", e);
             std::process::exit(-1)

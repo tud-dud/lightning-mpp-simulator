@@ -299,6 +299,7 @@ pub(crate) mod tests {
         let mut graph = Graph::to_sim_graph(
             &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
                 .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
@@ -552,6 +553,7 @@ pub(crate) mod tests {
         let graph = Graph::to_sim_graph(
             &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
                 .unwrap(),
+            network_parser::GraphSource::Lnresearch,
         );
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
