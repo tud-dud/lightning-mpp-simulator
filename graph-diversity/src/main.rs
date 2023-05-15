@@ -50,7 +50,10 @@ fn main() {
 
     let routing_metric = args.edge_weight;
     let k = args.num_paths;
-    let g = network_parser::from_json_file(std::path::Path::new(&args.graph_file));
+    let g = network_parser::Graph::from_json_file(
+        std::path::Path::new(&args.graph_file),
+        network_parser::GraphSource::Lnresearch,
+    );
     let graph = match g {
         Ok(graph) => simlib::core_types::graph::Graph::to_sim_graph(&graph),
         Err(e) => {

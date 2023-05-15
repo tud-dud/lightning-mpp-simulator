@@ -57,7 +57,10 @@ fn main() {
         .write_style_or("MY_LOG_STYLE", "always");
     env_logger::init_from_env(env);
 
-    let g = network_parser::from_json_file(std::path::Path::new(&args.graph_file));
+    let g = network_parser::Graph::from_json_file(
+        std::path::Path::new(&args.graph_file),
+        network_parser::GraphSource::Lnresearch,
+    );
     let seed = args.run;
     let number_of_sim_pairs = args.num_pairs;
     let graph = match g {

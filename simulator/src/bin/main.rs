@@ -26,7 +26,8 @@ fn main() {
         .read_to_string(&mut contents)
         .expect("Could not read from file");
     let _seed = 2983;
-    let graph = network_parser::from_json_str(&contents);
+    let graph =
+        network_parser::Graph::from_json_str(&contents, network_parser::GraphSource::Lnresearch);
     info!("Got graph");
     match graph {
         Ok(graph) => {

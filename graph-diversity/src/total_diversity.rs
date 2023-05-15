@@ -163,7 +163,10 @@ mod tests {
         let k = 3;
         let routing_metric = RoutingMetric::MinFee;
         let path = std::path::Path::new("../test_data/trivial_connected.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
+                .unwrap(),
+        );
         let amount = 10;
         let pairs = vec![
             ("034".to_owned(), "025".to_owned()),
@@ -182,7 +185,10 @@ mod tests {
     fn calculate_effective_diversity() {
         let lambdas = [0.5];
         let path = std::path::Path::new("../test_data/trivial_connected.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
+                .unwrap(),
+        );
         let k = 2;
         let routing_metric = RoutingMetric::MinFee;
         let amount = 10;
@@ -209,7 +215,10 @@ mod tests {
     #[test]
     fn calculate_graph_diversity() {
         let path = std::path::Path::new("../test_data/trivial_connected.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
+                .unwrap(),
+        );
         let k = 2;
         let lambdas = [0.5];
         let amount = 10;

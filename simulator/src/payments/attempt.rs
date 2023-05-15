@@ -290,13 +290,16 @@ pub(crate) mod tests {
     pub fn init_sim(path: Option<String>, number_of_adversaries: Option<Vec<usize>>) -> Simulation {
         let seed = 0;
         let amount = 1000;
-        let mut graph = if let Some(file_path) = path {
-            let file_path = std::path::Path::new(&file_path);
-            Graph::to_sim_graph(&network_parser::from_json_file(&file_path).unwrap())
+        let path = if let Some(file_path) = path {
+            file_path
         } else {
-            let path = std::path::Path::new("../test_data/lnbook_example.json");
-            Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap())
+            String::from("../test_data/lnbook_example.json")
         };
+        let path = std::path::Path::new(&path);
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
+                .unwrap(),
+        );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         // set balances because of rng
@@ -546,7 +549,10 @@ pub(crate) mod tests {
         let seed = 0;
         let amount = 500000;
         let path = std::path::Path::new("../data/gossip-20210906_1000UTC.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(&path).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(&path, network_parser::GraphSource::Lnresearch)
+                .unwrap(),
+        );
         let routing_metric = RoutingMetric::MaxProb;
         let payment_parts = PaymentParts::Single;
         let adversary_selection = vec![AdversarySelection::Random];

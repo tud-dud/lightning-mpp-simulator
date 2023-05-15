@@ -261,7 +261,13 @@ mod tests {
         let seed = 0;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let adversary_selection = vec![AdversarySelection::Random];
@@ -281,7 +287,13 @@ mod tests {
     #[test]
     fn get_n_random_node_pairs() {
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let n = 2;
         let actual = Simulation::draw_n_pairs_for_simulation(&graph, n);
         assert_eq!(actual.size_hint(), (n, Some(n)));
@@ -290,7 +302,13 @@ mod tests {
     #[test]
     fn get_adversaries() {
         let path_to_file = Path::new("../test_data/trivial_connected.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let nodes = &graph.get_node_ids();
         let amount = nodes.len();
         let actual = Simulation::draw_adversaries(nodes, amount);
@@ -305,7 +323,13 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let adversary_selection = vec![AdversarySelection::Random];
@@ -347,7 +371,13 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let adversary_selection = vec![AdversarySelection::Random];
@@ -386,7 +416,13 @@ mod tests {
         let seed = 1;
         let amount = 100;
         let path_to_file = Path::new("../test_data/trivial.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let routing_metric = RoutingMetric::MinFee;
         let payment_parts = PaymentParts::Single;
         let adversary_selection = vec![AdversarySelection::Random];
@@ -414,7 +450,13 @@ mod tests {
     #[test]
     fn run_sim() {
         let path_to_file = Path::new("../test_data/lnbook_example.json");
-        let graph = Graph::to_sim_graph(&network_parser::from_json_file(path_to_file).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &path_to_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let number_of_adversaries = vec![graph.node_count()];
         let amount = 1000;
         let seed = 1;

@@ -5,10 +5,10 @@ use itertools::Itertools;
 use log::{debug, info, warn};
 use pathfinding::directed::strongly_connected_components::strongly_connected_components;
 use rand::{seq::SliceRandom, Rng};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{cmp, collections::HashMap};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Graph {
     pub(crate) nodes: Vec<Node>,
     #[serde(rename = "adjacency")]
@@ -433,7 +433,11 @@ mod tests {
     #[test]
     fn transform_works() {
         let json_str = json_str();
-        let graph = network_parser::from_json_str(&json_str).unwrap();
+        let graph = network_parser::Graph::from_json_str(
+            &json_str,
+            network_parser::GraphSource::Lnresearch,
+        )
+        .unwrap();
         let digraph = Graph::to_sim_graph(&graph);
         let num_nodes = digraph.node_count();
         assert_eq!(num_nodes, 3);
@@ -444,7 +448,13 @@ mod tests {
     #[test]
     fn scc_compuatation() {
         let json_str = json_str();
-        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let actual = graph.get_sccs();
         assert_eq!(actual.len(), 2);
     }
@@ -452,7 +462,13 @@ mod tests {
     #[test]
     fn greatest_scc_subgraph() {
         let json_str = json_str();
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         graph.nodes.push(network_parser::Node {
             id: "scc1".to_string(),
             ..Default::default()
@@ -477,7 +493,13 @@ mod tests {
     #[test]
     fn fetch_node_ids() {
         let json_str = json_str();
-        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let actual = graph.get_node_ids();
         assert_eq!(actual.len(), graph.nodes.len());
         for node in graph.nodes {
@@ -489,7 +511,13 @@ mod tests {
     fn random_pair_of_nodes() {
         let n = 1;
         let json_str = json_str();
-        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let random_pair: Vec<(ID, ID)> = graph.get_random_pairs_of_nodes(n).into_iter().collect();
         assert!(graph.get_node_ids().contains(&random_pair[0].0));
         assert!(graph.get_node_ids().contains(&random_pair[0].1));
@@ -498,7 +526,13 @@ mod tests {
     #[test]
     fn get_edge_from_src_to_dest() {
         let json_str = json_str();
-        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let from = "random0".to_string();
         let to = "random1".to_string();
         let actual = graph.get_edge(&from, &to);
@@ -509,7 +543,6 @@ mod tests {
             channel_id: String::from("714116xx0/0"),
             source: from,
             destination: to,
-            features: String::default(),
             fee_base_msat: 5,
             fee_proportional_millionths: 270,
             htlc_minimim_msat: 1000,
@@ -526,14 +559,19 @@ mod tests {
     #[test]
     fn get_nodes_outedges() {
         let json_str = json_str();
-        let graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node = String::from("random1");
         let actual = graph.get_outedges(&node);
         let expected = vec![Edge {
             channel_id: String::from("714116x477x0/0"),
             source: node,
             destination: String::from("random1"),
-            features: String::default(),
             fee_base_msat: 0,
             fee_proportional_millionths: 555,
             htlc_minimim_msat: 1,
@@ -550,7 +588,13 @@ mod tests {
     #[test]
     fn delete_edge() {
         let json_str = json_str();
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node1 = String::from("random1");
         let node2 = String::from("random2");
         let node1_edge_len = graph.edges[&node1].len();
@@ -569,7 +613,13 @@ mod tests {
     #[test]
     fn add_edge_balances() {
         let json_str = json_str();
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         graph.set_channel_balances();
         for edges in graph.edges.into_values() {
             for e in edges {
@@ -582,8 +632,11 @@ mod tests {
     #[test]
     fn all_edges_between_two_nodes() {
         let graph = Graph::to_sim_graph(
-            &network_parser::from_json_file(&Path::new("../test_data/trivial_connected.json"))
-                .unwrap(),
+            &network_parser::Graph::from_json_file(
+                &Path::new("../test_data/trivial_connected.json"),
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
         );
         let nodes = graph.get_node_ids();
         for (idx, node) in nodes.iter().enumerate() {
@@ -599,7 +652,13 @@ mod tests {
     #[test]
     fn get_edge_balance() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let balance = 4711;
         // Set balance so we can compare
         for edges in graph.edges.values_mut() {
@@ -616,7 +675,13 @@ mod tests {
     #[test]
     fn update_edge_balance() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node = String::from("alice");
         let channel_id = String::from("alice1");
         let new_balance = 1234;
@@ -627,7 +692,13 @@ mod tests {
     #[test]
     fn max_send_capacity() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node = String::from("bob");
         let channel_id = String::from("bob1");
         let new_balance = 10000;
@@ -643,7 +714,13 @@ mod tests {
     #[test]
     fn total_send_capacity() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node = String::from("bob");
         let channel_id = String::from("bob1");
         let new_balance = 10000;
@@ -659,7 +736,13 @@ mod tests {
     #[test]
     fn delete_channel() {
         let json_str = json_str();
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_str(&json_str).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_str(
+                &json_str,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node1 = String::from("random1");
         let channel_id = String::from("714116x477x0/0");
         let node1_edge_len = graph.edges[&node1].len();
@@ -672,7 +755,13 @@ mod tests {
     #[test]
     fn channel_can_receive() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let capacity = 5000;
         let balance = capacity / 2;
         // Set balance so we can compare
@@ -692,7 +781,13 @@ mod tests {
     #[test]
     fn max_node_can_receive() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let capacity = 5000;
         let balance = capacity / 2;
         // Set balance so we can compare
@@ -715,7 +810,13 @@ mod tests {
     #[test]
     fn delete_node_from_graph() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         for node in graph.get_node_ids() {
             graph.remove_node(&node);
         }
@@ -726,7 +827,13 @@ mod tests {
     #[test]
     fn contains_node() {
         let json_file = std::path::Path::new("../test_data/lnbook_example.json");
-        let mut graph = Graph::to_sim_graph(&network_parser::from_json_file(&json_file).unwrap());
+        let mut graph = Graph::to_sim_graph(
+            &network_parser::Graph::from_json_file(
+                &json_file,
+                network_parser::GraphSource::Lnresearch,
+            )
+            .unwrap(),
+        );
         let node = "bob".to_string();
         assert!(graph.node_is_in_graph(&node));
         graph.remove_node(&node);

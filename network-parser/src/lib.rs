@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
@@ -8,26 +8,30 @@ use std::path::Path;
 mod helpers;
 use helpers::*;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
+pub enum GraphSource {
+    Lnresearch,
+    #[default]
+    Lnd,
+}
+#[derive( Deserialize, Clone, Debug, Default)]
 pub struct Graph {
     pub nodes: HashSet<Node>,
-    #[serde(rename = "adjacency")]
+    #[serde(alias = "adjacency")]
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub edges: HashMap<ID, HashSet<Edge>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 pub struct Node {
-    /// Pubkey
+    #[serde(alias = "pub_key")]
     pub id: ID,
     pub alias: String,
     pub addresses: Vec<String>,
-    pub rgb_color: String,
-    pub out_degree: u32,
-    pub in_degree: u32,
+    pub last_update: usize,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Deserialize, Clone, Debug, Default)]
 pub struct Edge {
     /// Short channel id
     pub channel_id: String,
@@ -35,8 +39,6 @@ pub struct Edge {
     pub source: String,
     /// The destination node
     pub destination: String,
-    /// BOLT #9 features bitmap for this channel
-    pub features: String,
     /// Base fee changed by source to use this channel
     pub fee_base_msat: usize,
     /// Proportional fee changed by source to use this channel, in parts-per-million
@@ -62,6 +64,74 @@ pub type ID = String;
 pub type NodeRanks = Vec<ID>;
 
 impl Graph {
+    pub fn from_json_str(
+        json_str: &str,
+        graph_source: GraphSource,
+    ) -> Result<Graph, serde_json::Error> {
+        match graph_source {
+            GraphSource::Lnd => todo!(),
+            GraphSource::Lnresearch => Self::from_lnresearch_json_str(json_str),
+        }
+    }
+
+    pub fn from_json_file(
+        path: &Path,
+        graph_source: GraphSource,
+    ) -> Result<Graph, serde_json::Error> {
+        let json_str = fs::read_to_string(path).expect("Error reading file");
+        Self::from_json_str(&json_str, graph_source)
+    }
+
+    fn nodes_from_raw_graph(raw_graph: &RawGraph) -> HashSet<Node> {
+        // discard nodes without ID
+        raw_graph
+            .nodes
+            .iter()
+            .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
+            .map(|raw_node| Node::from_raw(raw_node.clone()))
+            .collect()
+    }
+
+    pub fn from_lnresearch_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
+        let raw_graph = from_json_to_raw(json_str).expect("Error deserialising JSON str!");
+        let nodes = Self::nodes_from_raw_graph(&raw_graph);
+        let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
+        // discard edges with unknown IDs
+        let edges_vec: Vec<HashSet<Edge>> = raw_graph
+            .edges
+            .iter()
+            .map(|adj| {
+                adj.iter()
+                    .filter(|raw_edge| {
+                        // We only need the ID to know if the node exists
+                        let src_node = Node {
+                            id: raw_edge.source.clone().unwrap(),
+                            ..Default::default()
+                        };
+                        let dest_node = Node {
+                            id: raw_edge.destination.clone().unwrap(),
+                            ..Default::default()
+                        };
+                        nodes.contains(&src_node) && nodes.contains(&dest_node)
+                    })
+                    .filter(|raw_edge| Edge::from_lnresearch_raw(&(*raw_edge).clone()).is_some())
+                    .map(|raw_edge| Edge::from_lnresearch_raw(raw_edge).unwrap())
+                    .collect()
+            })
+            .collect();
+        for node_adj in edges_vec {
+            for edge in node_adj {
+                match edges.get_mut(&edge.source) {
+                    Some(node) => node.insert(edge),
+                    None => {
+                        edges.insert(edge.source.clone(), HashSet::from([edge]));
+                        true // weird so that match arms return same type
+                    }
+                };
+            }
+        }
+        Ok(Graph { nodes, edges })
+    }
     pub fn get_nodes(self) -> HashSet<Node> {
         self.nodes
     }
@@ -106,108 +176,6 @@ pub fn read_node_rankings_from_file(
         }
     }
     Ok(ranks)
-}
-
-pub fn from_json_file(path: &Path) -> Result<Graph, serde_json::Error> {
-    let json_str = fs::read_to_string(path).expect("Error reading file");
-    from_json_str(&json_str)
-}
-
-pub fn from_web_str(json_str: &str) -> Result<Graph, serde_json::Error> {
-    let web_graph: WebGraph =
-        serde_json::from_str(json_str).expect("Error serialising JSON str to WebGraph.");
-    // discard nodes without ID
-    let nodes: HashSet<Node> = web_graph
-        .nodes
-        .iter()
-        .filter(|web_node| web_node.id.clone().unwrap_or_default() != ID::default())
-        .map(|web_node| Node::from_web(web_node.clone()))
-        .collect();
-    let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(web_graph.edges.len());
-    // discard edges with unknown IDs
-    let edges_vec: Vec<HashSet<Edge>> = web_graph
-        .edges
-        .iter()
-        .map(|adj| {
-            adj.iter()
-                .filter(|raw_edge| {
-                    // We only need the ID to know if the node exists
-                    let src_node = Node {
-                        id: raw_edge.source.clone().unwrap(),
-                        ..Default::default()
-                    };
-                    let dest_node = Node {
-                        id: raw_edge.destination.clone().unwrap(),
-                        ..Default::default()
-                    };
-                    nodes.contains(&src_node) && nodes.contains(&dest_node)
-                })
-                .filter(|web_edge| Edge::from_web(&(*web_edge).clone()).is_some())
-                .map(|web_edge| Edge::from_web(web_edge).unwrap())
-                .collect()
-        })
-        .collect();
-    for node_adj in edges_vec {
-        for edge in node_adj {
-            match edges.get_mut(&edge.source) {
-                Some(node) => node.insert(edge),
-                None => {
-                    edges.insert(edge.source.clone(), HashSet::from([edge]));
-                    true // weird so that match arms return same type
-                }
-            };
-        }
-    }
-
-    Ok(Graph { nodes, edges })
-}
-
-pub fn from_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
-    let raw_graph = from_json_to_raw(json_str).expect("Error deserialising JSON str!");
-    // discard nodes without ID
-    let nodes: HashSet<Node> = raw_graph
-        .nodes
-        .iter()
-        .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
-        .map(|raw_node| Node::from_raw(raw_node.clone()))
-        .collect();
-
-    let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
-    // discard edges with unknown IDs
-    let edges_vec: Vec<HashSet<Edge>> = raw_graph
-        .edges
-        .iter()
-        .map(|adj| {
-            adj.iter()
-                .filter(|raw_edge| {
-                    // We only need the ID to know if the node exists
-                    let src_node = Node {
-                        id: raw_edge.source.clone().unwrap(),
-                        ..Default::default()
-                    };
-                    let dest_node = Node {
-                        id: raw_edge.destination.clone().unwrap(),
-                        ..Default::default()
-                    };
-                    nodes.contains(&src_node) && nodes.contains(&dest_node)
-                })
-                .filter(|raw_edge| Edge::from_raw(&(*raw_edge).clone()).is_some())
-                .map(|raw_edge| Edge::from_raw(raw_edge).unwrap())
-                .collect()
-        })
-        .collect();
-    for node_adj in edges_vec {
-        for edge in node_adj {
-            match edges.get_mut(&edge.source) {
-                Some(node) => node.insert(edge),
-                None => {
-                    edges.insert(edge.source.clone(), HashSet::from([edge]));
-                    true // weird so that match arms return same type
-                }
-            };
-        }
-    }
-    Ok(Graph { nodes, edges })
 }
 
 impl Hash for Node {
@@ -261,22 +229,20 @@ mod tests {
             "adjacency": [
               ]
             }"##;
-        let graph = from_json_str(json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(json_str).unwrap();
         let nodes: Vec<Node> = graph.nodes.into_iter().collect();
         let actual = &nodes[0];
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: "MilliBit".to_string(),
-            rgb_color: "550055".to_string(),
             addresses: vec!["ipv4://83.85.142.36:9735".to_string()],
-            out_degree: 25,
-            in_degree: 9,
+            last_update: 54321,
         };
         assert_eq!(*actual, expected);
     }
 
     #[test]
-    fn edges_from_json_str() {
+    fn edges_from_lnresearch_json_str() {
         let json_str = r##"{
             "nodes": [
                 {
@@ -327,7 +293,7 @@ mod tests {
                 ]
               ]
             }"##;
-        let graph = from_json_str(json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(json_str).unwrap();
         let actual = graph.edges;
         let expected = HashMap::from([(
             "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
@@ -339,7 +305,6 @@ mod tests {
                     destination:
                         "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                             .to_string(),
-                    features: String::default(),
                     fee_base_msat: 5,
                     fee_proportional_millionths: 270,
                     htlc_minimim_msat: 1000,
@@ -358,7 +323,6 @@ mod tests {
                     destination:
                         "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                             .to_string(),
-                    features: String::default(),
                     fee_base_msat: 0,
                     fee_proportional_millionths: 555,
                     htlc_minimim_msat: 1,
@@ -386,24 +350,22 @@ mod tests {
             "adjacency": [
               ]
             }"##;
-        let graph = from_json_str(json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(json_str).unwrap();
         let nodes: Vec<Node> = graph.nodes.into_iter().collect();
         let actual = &nodes[0];
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: String::default(),
-            rgb_color: String::default(),
             addresses: Vec::default(),
-            out_degree: u32::default(),
-            in_degree: u32::default(),
+            last_update: 54321,
         };
         assert_eq!(*actual, expected);
     }
 
     #[test]
-    fn graph_from_json_file() {
+    fn graph_from_lnresearch_json_file() {
         let path_to_file = Path::new("../test_data/trivial.json");
-        let actual = from_json_file(path_to_file);
+        let actual = Graph::from_json_file(path_to_file, GraphSource::Lnresearch);
         assert!(actual.is_ok());
         let graph = actual.unwrap();
         let edges: HashMap<ID, HashSet<Edge>> = graph.edges.into_iter().collect();
@@ -413,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn edges_to_vec() {
+    fn lnresearch_edges_to_vec() {
         let json_str = r##"{
             "nodes": [
                 {
@@ -478,7 +440,7 @@ mod tests {
                 ]
               ]
             }"##;
-        let graph = from_json_str(json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(json_str).unwrap();
         let actual = graph.get_edges_as_vec_vec();
         let expected = vec![
             Edge {
@@ -487,7 +449,6 @@ mod tests {
                     .to_string(),
                 destination: "03271338633d2d37b285dae4df40b413d8c6c791fbee7797bc5dc70812196d7d5c"
                     .to_string(),
-                features: String::default(),
                 fee_base_msat: 5,
                 fee_proportional_millionths: 270,
                 htlc_minimim_msat: 1000,
@@ -505,7 +466,6 @@ mod tests {
                     .to_string(),
                 destination: "03e5ea100e6b1ef3959f79627cb575606b19071235c48b3e7f9808ebcd6d12e87d"
                     .to_string(),
-                features: String::default(),
                 fee_base_msat: 0,
                 fee_proportional_millionths: 555,
                 htlc_minimim_msat: 1,
@@ -541,7 +501,7 @@ mod tests {
             "adjacency": [
               ]
             }"##;
-        let graph = from_json_str(&json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(&json_str).unwrap();
         let actual = graph.get_edges_for_node(
             &"021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
         );
@@ -615,7 +575,7 @@ mod tests {
                 ]
               ]
             }"##;
-        let graph = from_json_str(&json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(&json_str).unwrap();
         let actual = graph.edge_count();
         let expected = 2;
         assert_eq!(actual, expected);
@@ -671,7 +631,7 @@ mod tests {
                 ]
               ]
             }"##;
-        let graph = from_json_str(&json_str).unwrap();
+        let graph = Graph::from_lnresearch_json_str(&json_str).unwrap();
         let actual = graph.edge_count();
         let expected = 0;
         assert_eq!(expected, actual);
@@ -680,7 +640,7 @@ mod tests {
     #[test]
     fn get_nodes() {
         let path_to_file = Path::new("../test_data/trivial_connected.json");
-        let graph = from_json_file(path_to_file).unwrap();
+        let graph = Graph::from_json_file(path_to_file, GraphSource::Lnresearch).unwrap();
         let actual = graph.get_node_ids();
         let expected = vec!["025".to_owned(), "034".to_owned(), "036".to_owned()];
         assert_eq!(actual.len(), expected.len());

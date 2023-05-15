@@ -13,7 +13,8 @@ fn main() {
     let _res = buf_reader
         .read_to_string(&mut contents)
         .expect("Could not read from file");
-    let graph = network_parser::from_json_str(&contents);
+    let graph =
+        network_parser::Graph::from_json_str(&contents, network_parser::GraphSource::Lnresearch);
     match graph {
         Ok(graph) => {
             println!("Number of nodes {}", graph.nodes.len());
