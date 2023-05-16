@@ -45,6 +45,7 @@ pub struct LndRawEdge {
     #[serde(alias = "node2_pub")]
     pub destination: Option<String>,
     #[serde(deserialize_with = "deserialize_option_number_from_string")]
+    /// Denominated in sat
     pub capacity: Option<u64>,
     pub node1_policy: Option<NodePolicy>,
     pub node2_policy: Option<NodePolicy>,
@@ -52,11 +53,14 @@ pub struct LndRawEdge {
 
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct NodePolicy {
+    /// Denominated in msat
     #[serde(deserialize_with = "deserialize_option_number_from_string")]
     pub fee_base_msat: Option<u64>,
+    /// Denominated in ppm msat
     #[serde(alias = "fee_rate_milli_msat")]
     #[serde(deserialize_with = "deserialize_option_number_from_string")]
     pub fee_proportional_millionths: Option<u64>,
+    /// Denominated in msat
     #[serde(alias = "min_htlc")]
     #[serde(deserialize_with = "deserialize_option_number_from_string")]
     pub htlc_minimim_msat: Option<u64>,
@@ -203,7 +207,8 @@ impl Edge {
                         .capacity
                         .unwrap_or_default()
                         .try_into()
-                        .unwrap_or(usize::default()),
+                        .unwrap_or(usize::default())
+                        * 1000,
                 },
                 Edge {
                     channel_id: raw_edge.channel_id.clone().expect("scid not found"),
@@ -240,7 +245,8 @@ impl Edge {
                         .capacity
                         .unwrap_or_default()
                         .try_into()
-                        .unwrap_or(usize::default()),
+                        .unwrap_or(usize::default())
+                        * 1000,
                 },
             ))
         }
@@ -466,5 +472,58 @@ mod tests {
         let actual = graph.edge_count();
         let expected = 0;
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn capacity_is_converted_to_msat() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "alias": "node1"
+                },
+                {
+                    "last_update": 1567764428,
+                    "pub_key": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "alias": "node2"
+                }
+            ],
+            "edges": [
+                {
+                    "channel_id": "659379322247708673",
+                    "chan_point": "ae07c9fe78e6a1057902441f599246d735bac33be7b159667006757609fb5a86:1",
+                    "last_update": 1571278793,
+                    "node1_pub": "02899d09a65c5ca768c42b12e57d0497bfdf8ac1c46b0dcc0d4faefcdbc01304c1",
+                    "node2_pub": "0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f",
+                    "capacity": "1000",
+                    "node1_policy": {
+                        "time_lock_delta": 14,
+                        "min_htlc": "1000",
+                        "fee_base_msat": "1000",
+                        "fee_rate_milli_msat": "1",
+                        "disabled": false,
+                        "max_htlc_msat": "990000000",
+                        "last_update": 1571278793
+                    },
+                    "node2_policy": {
+                        "time_lock_delta": 4,
+                        "min_htlc": "100",
+                        "fee_base_msat": "10000",
+                        "fee_rate_milli_msat": "1",
+                        "disabled": false,
+                        "max_htlc_msat": "990000000",
+                        "last_update": 1571278793
+                    }
+                }
+            ]
+            }"##;
+        let expected = 1000 * 1000;
+        let graph = Graph::from_lnd_json_str(&json_str).unwrap();
+        assert_eq!(graph.nodes.len(), 2);
+        assert_eq!(graph.edges.len(), 2);
+        for e in graph.get_edges_as_vec_vec().into_iter().flatten() {
+            assert_eq!(e.capacity, expected);
+        }
     }
 }

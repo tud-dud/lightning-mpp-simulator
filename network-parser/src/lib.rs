@@ -52,8 +52,8 @@ pub struct Edge {
     pub balance: usize,
     /// edge balance minus commited HTLCs
     pub liquidity: usize,
-    /// channel capacity which is calculated after graph creation. The min of the involved nodes'
-    /// max msat
+    /// channel capacity which is either calculated after graph creation as the min of the involved nodes'
+    /// max msat or available in LND graph as sats
     pub capacity: usize,
 }
 
