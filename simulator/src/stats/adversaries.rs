@@ -35,7 +35,7 @@ impl Simulation {
         let adversaries = Arc::new(Mutex::new(vec![]));
         self.adversary_selection.par_iter().for_each(|strategy| {
             let mut statistics: Vec<Statistics> = vec![];
-            for num_adv in number_of_adversaries.iter() {
+            for (idx, num_adv) in number_of_adversaries.iter().enumerate() {
                 let adv = match selected_adversaries.get(strategy) {
                     None => vec![],
                     Some(selected_adversaries) => selected_adversaries[0..*num_adv].to_vec(),
@@ -44,7 +44,22 @@ impl Simulation {
                     "Starting adversary scenario: {} sat: {:?} with {} nodes.",
                     self.amount, strategy, num_adv,
                 );
-                let (hits, hits_successful) = Self::adversary_hits(&all_payments, &adv);
+                let (hits, parts_hits, payment_attacks) = Self::adversary_hits(&all_payments, &adv);
+                let (adv_count, adv_count_successful) = if idx == 0 {
+                    payment_attacks
+                } else {
+                    let (mut attacks, mut attacks_successful) = payment_attacks.clone();
+                    for (k, v) in statistics[idx - 1].adv_count.iter() {
+                        attacks.entry(*k).and_modify(|u| *u += v).or_insert(*v);
+                    }
+                    for (k, v) in statistics[idx - 1].adv_count_successful.iter() {
+                        attacks_successful
+                            .entry(*k)
+                            .and_modify(|u| *u += v)
+                            .or_insert(*v);
+                    }
+                    (attacks, attacks_successful)
+                };
                 info!("Completed counting adversary occurences in payments.");
                 /*let anonymity_sets = if let Some(adversary) = adv.last() {
                         let set = self.deanonymise_tx_pairs(adversary);
@@ -64,10 +79,14 @@ impl Simulation {
                 };
                 statistics.push(Statistics {
                     number: *num_adv,
-                    hits,
-                    hits_successful,
+                    hits: hits.0,
+                    hits_successful: hits.1,
                     anonymity_sets,
                     targeted_attack,
+                    part_hits: parts_hits.0,
+                    part_hits_successful: parts_hits.1,
+                    adv_count,
+                    adv_count_successful,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",
@@ -88,13 +107,25 @@ impl Simulation {
 
     /// Count how many adversaries are included in a payment's path
     /// MPP payment parts are considered jointly
-    fn adversary_hits(payments: &[Payment], adv: &[ID]) -> (usize, usize) {
+    #[allow(clippy::type_complexity)]
+    fn adversary_hits(
+        payments: &[Payment],
+        adv: &[ID],
+    ) -> (
+        (usize, usize),
+        (usize, usize),
+        (HashMap<usize, usize>, HashMap<usize, usize>),
+    ) {
         let mut hits = 0;
         let mut hits_successful = 0;
-        for payment in payments {
-            let mut used_paths = payment.used_paths.to_owned();
-            used_paths.extend(payment.failed_paths.to_owned());
-            for path in used_paths.iter() {
+        let mut part_hits = 0;
+        let mut part_hits_successful = 0;
+        let mut adv_count: HashMap<usize, usize> = HashMap::default();
+        let mut adv_count_successful: HashMap<usize, usize> = HashMap::default();
+        let mut contains_an_adversary = |payment: &Payment| {
+            let mut all_paths = payment.used_paths.to_owned();
+            all_paths.extend(payment.failed_paths.to_owned());
+            for path in all_paths.iter() {
                 if !path.path.path_contains_adversary(adv).is_empty() {
                     hits += 1;
                     if payment.succeeded {
@@ -103,8 +134,38 @@ impl Simulation {
                     continue;
                 }
             }
+        };
+        for payment in payments {
+            contains_an_adversary(payment);
+            let mut used_paths = payment.used_paths.to_owned();
+            used_paths.extend(payment.failed_paths.to_owned());
+            let mut num_attacks = 0;
+            for path in used_paths.iter() {
+                let num_adv = path.path.path_contains_adversary(adv);
+                if !num_adv.is_empty() {
+                    part_hits += 1;
+                    if payment.succeeded {
+                        part_hits_successful += 1;
+                    }
+                }
+                num_attacks += num_adv.len();
+                adv_count
+                    .entry(num_attacks)
+                    .and_modify(|occ| *occ += 1)
+                    .or_insert(1);
+                if payment.succeeded {
+                    adv_count_successful
+                        .entry(num_attacks)
+                        .and_modify(|occ| *occ += 1)
+                        .or_insert(1);
+                }
+            }
         }
-        (hits, hits_successful)
+        (
+            (hits, hits_successful),
+            (part_hits, part_hits_successful),
+            (adv_count, adv_count_successful),
+        )
     }
 
     fn get_adversaries(
@@ -142,6 +203,7 @@ impl Simulation {
 mod tests {
 
     use crate::AdversarySelection;
+    use std::collections::HashMap;
 
     #[test]
     fn adversary_hits() {
@@ -168,8 +230,17 @@ mod tests {
         assert_eq!(statistics[0].number, number_of_adversaries);
         assert_eq!(statistics[0].hits, 2); // we send two payments
         assert_eq!(statistics[0].hits_successful, 2);
+        assert_eq!(statistics[0].part_hits, 2); // we send two payments as single payments
+        assert_eq!(statistics[0].part_hits_successful, 2);
         assert_eq!(statistics[0].targeted_attack.num_successful, 0);
         assert_eq!(statistics[0].targeted_attack.num_failed, 0);
+        let expected_adv_count = HashMap::from([(1, 1), (2, 1)]);
+        assert_eq!(expected_adv_count, statistics[0].adv_count);
+        let expected_adv_count_successful = HashMap::from([(1, 1), (2, 1)]);
+        assert_eq!(
+            expected_adv_count_successful,
+            statistics[0].adv_count_successful
+        );
         let number_of_adversaries = 0;
         let mut simulator =
             crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
@@ -185,10 +256,19 @@ mod tests {
         assert_eq!(sim_result.num_succesful, 2);
         let statistics = &simulator.adversaries[0].statistics;
         assert_eq!(statistics[0].number, number_of_adversaries);
-        assert_eq!(statistics[0].hits, 0); // we only send one payment
-        assert_eq!(statistics[0].hits_successful, 0); // times
+        assert_eq!(statistics[0].hits, 0); // we have no adversaries
+        assert_eq!(statistics[0].hits_successful, 0);
+        assert_eq!(statistics[0].part_hits, 0);
+        assert_eq!(statistics[0].part_hits_successful, 0);
         assert_eq!(statistics[0].targeted_attack.num_successful, 2);
         assert_eq!(statistics[0].targeted_attack.num_failed, 0);
+        let expected_adv_count = HashMap::from([(0, 2)]);
+        assert_eq!(expected_adv_count, statistics[0].adv_count);
+        let expected_adv_count_successful = HashMap::from([(0, 2)]);
+        assert_eq!(
+            expected_adv_count_successful,
+            statistics[0].adv_count_successful
+        );
     }
 
     #[test]
