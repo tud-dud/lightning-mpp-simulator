@@ -1,8 +1,13 @@
 # simulator
 
+## Tools
+
 1.`lightning-simulator`
 
-- Simulate a set of payments with one pathfinding  approach and payment type.
+- Simulate a set of payments with a selected pathfinding approach and payment type.
+
+<details>
+  <summary>Usage</summary>
 
     ```
     lightning-simulator [OPTIONS] --amount <AMOUNT> --centrality <SCORE_FILE> --path-metric <EDGE_WEIGHT> <GRAPH_FILE>
@@ -27,8 +32,28 @@
       -h, --help                            Print help information
       -V, --version                         Print version information
   ```
+</details>
 
 2.`batch-simulator`
 
 - Simulate a set of payments with all possible combinations of pathfinding
   approaches and payment types.
+
+## Simulation results
+
+Here are some results of a batch of simulations conducted with a snapshot dated
+2023-05-16.
+
+<details open>
+  <summary>Performance</summary>
+    |:-------------------------:|:-------------------------:|
+    |<img width="1604" alt=""
+    src="../../evaluation/sim-results/2023-05-16/plots/success_rate_line.pdf"> |
+    <img width="1604" alt=""
+    src="../../evaluation/sim-results/2023-05-16/plots/transaction_fees.pdf"> |
+</details>
+
+<details>
+  <summary>Privacy</summary>
+    |:-------------------------:|:-------------------------:|
+</details>
