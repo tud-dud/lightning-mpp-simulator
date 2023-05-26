@@ -60,6 +60,8 @@ impl Simulation {
                     }
                     (attacks, attacks_successful)
                 };
+                let (correlated, correlated_successful) =
+                    Self::colluding_adversaries(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
                 /*let anonymity_sets = if let Some(adversary) = adv.last() {
                         let set = self.deanonymise_tx_pairs(adversary);
@@ -87,6 +89,8 @@ impl Simulation {
                     part_hits_successful: parts_hits.1,
                     adv_count,
                     adv_count_successful,
+                    correlated,
+                    correlated_successful,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",
@@ -168,6 +172,33 @@ impl Simulation {
         )
     }
 
+    /// Counts the number of paths per payment that could be correlated by colluding adversaries.
+    /// Includes all payment attempts
+    fn colluding_adversaries(payments: &[Payment], adv: &[ID]) -> (usize, usize) {
+        info!("Counting colluding adversaries.");
+        let mut correlated = 0;
+        let mut correlated_successful = 0;
+        for payment in payments {
+            let mut all_paths = payment.used_paths.to_owned();
+            all_paths.extend(payment.failed_paths.to_owned());
+            let mut paths_containing_adversaries = 0;
+            for path in all_paths.iter() {
+                // no need to exclude the src and dest and the function takes that into account
+                if !path.path.path_contains_adversary(adv).is_empty() {
+                    paths_containing_adversaries += 1;
+                }
+            }
+            // because the same payment was seen more than once
+            if paths_containing_adversaries >= 2 {
+                correlated += 1;
+                if payment.succeeded {
+                    correlated_successful += 1;
+                }
+            }
+        }
+        (correlated, correlated_successful)
+    }
+
     fn get_adversaries(
         &self,
         number_of_adversaries: usize,
@@ -202,8 +233,13 @@ impl Simulation {
 #[cfg(test)]
 mod tests {
 
-    use crate::AdversarySelection;
-    use std::collections::HashMap;
+    use super::*;
+    use crate::{
+        payment::Payment,
+        traversal::pathfinding::{CandidatePath, Path},
+        AdversarySelection,
+    };
+    use std::collections::{HashMap, VecDeque};
 
     #[test]
     fn adversary_hits() {
@@ -282,5 +318,126 @@ mod tests {
         for node in simulator.graph.get_node_ids() {
             assert!(actual.contains(&node));
         }
+    }
+
+    #[test]
+    fn count_correlations() {
+        let number_of_adversaries = 4; // all four nodes are adversaries
+        let source = "alice".to_string();
+        let mut simulator =
+            crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
+        let sim_result = simulator.run(
+            vec![
+                (source.clone(), "chan".to_string()), // alice -> bob -> chan
+                (source.clone(), "dina".to_string()), // alice-> bob -> chan-> dina
+            ]
+            .into_iter(),
+            None,
+            true,
+        );
+        assert_eq!(sim_result.num_succesful, 2);
+        let statistics = &simulator.adversaries[0].statistics;
+        assert_eq!(statistics[0].correlated, 0); // only one path available
+        assert_eq!(statistics[0].correlated_successful, 0);
+        // we add a fake payment for testing
+    }
+
+    #[test]
+    fn correlate_payments() {
+        let number_of_adversaries = 4;
+        let simulator = crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
+        let adversaries = simulator.get_adversaries(number_of_adversaries);
+        let adversaries = adversaries.get(&AdversarySelection::Random).unwrap();
+        let source = "alice".to_string();
+        let payments = vec![
+            Payment {
+                payment_id: 2,
+                source: source.clone(),
+                dest: "eric".to_string(),
+                amount_msat: 1000,
+                succeeded: true,
+                min_shard_amt: crate::MIN_SHARD_AMOUNT,
+                num_parts: 1,
+                htlc_attempts: 2,
+                used_paths: vec![CandidatePath {
+                    path: Path {
+                        src: source.to_string(),
+                        dest: "eric".to_string(),
+                        // the fees and all don't matter here
+                        hops: VecDeque::from([
+                            ("alice".to_string(), 1100, 40, "alice1".to_string()),
+                            ("bob".to_string(), 100, 40, "bob2".to_string()),
+                            ("chan".to_string(), 1000, 0, "chan1".to_string()),
+                            ("eric".to_string(), 1000, 0, "eric1".to_string()),
+                        ]),
+                    },
+                    weight: 100.0,
+                    amount: 1100,
+                    time: 40,
+                }],
+                failed_amounts: Vec::default(),
+                successful_shards: Vec::default(),
+                failed_paths: vec![CandidatePath {
+                    path: Path {
+                        src: "alice".to_string(),
+                        dest: "eric".to_string(),
+                        hops: VecDeque::from([
+                            ("alice".to_string(), 1100, 40, "alice1".to_string()),
+                            ("bob".to_string(), 100, 40, "bob2".to_string()),
+                            ("eric".to_string(), 1000, 0, "eric1".to_string()),
+                        ]),
+                    },
+                    weight: 100.0,
+                    amount: 1100,
+                    time: 40,
+                }],
+            },
+            Payment {
+                payment_id: 2,
+                source: source.clone(),
+                dest: "eric".to_string(),
+                amount_msat: 1000,
+                succeeded: false,
+                min_shard_amt: crate::MIN_SHARD_AMOUNT,
+                num_parts: 1,
+                htlc_attempts: 2,
+                used_paths: vec![CandidatePath {
+                    path: Path {
+                        src: source.to_string(),
+                        dest: "eric".to_string(),
+                        // the fees and all don't matter here
+                        hops: VecDeque::from([
+                            ("alice".to_string(), 1100, 40, "alice1".to_string()),
+                            ("bob".to_string(), 100, 40, "bob2".to_string()),
+                            ("chan".to_string(), 1000, 0, "chan1".to_string()),
+                            ("eric".to_string(), 1000, 0, "eric1".to_string()),
+                        ]),
+                    },
+                    weight: 100.0,
+                    amount: 1100,
+                    time: 40,
+                }],
+                failed_amounts: Vec::default(),
+                successful_shards: Vec::default(),
+                failed_paths: vec![CandidatePath {
+                    path: Path {
+                        src: "alice".to_string(),
+                        dest: "eric".to_string(),
+                        hops: VecDeque::from([
+                            ("alice".to_string(), 1100, 40, "alice1".to_string()),
+                            ("bob".to_string(), 100, 40, "bob2".to_string()),
+                            ("eric".to_string(), 1000, 0, "eric1".to_string()),
+                        ]),
+                    },
+                    weight: 100.0,
+                    amount: 1100,
+                    time: 40,
+                }],
+            },
+        ];
+        let (correlation_count, correlation_count_successful) =
+            Simulation::colluding_adversaries(&payments, &adversaries);
+        assert_eq!(correlation_count, 2); // bob sees the payment twice
+        assert_eq!(correlation_count_successful, 1);
     }
 }

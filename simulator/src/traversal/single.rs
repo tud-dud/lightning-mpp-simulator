@@ -54,21 +54,29 @@ impl PathFinder {
             }
             // - calculate total path cost
             Some(shortest_path) => {
-                trace!("Got shortest path between {} and {}.", self.src, self.dest);
-                trace!(
-                    "Creating candidate path from {:?} shortest path.",
-                    shortest_path
-                );
-                let mut path = Path::new(self.src.clone(), self.dest.clone());
-                // the weights and timelock are set as the total path costs are calculated
-                path.hops = shortest_path
-                    .0
-                    .into_iter()
-                    .map(|h| (h, usize::default(), usize::default(), String::default()))
-                    .collect();
-                let mut candidate_path = CandidatePath::new_with_path(path);
-                self.get_aggregated_path_cost(&mut candidate_path, false);
-                Some(candidate_path)
+                if shortest_path.0.len() > crate::MAX_HOPS + 2 {
+                    error!(
+                        "shortest path is too long. len =  {}!",
+                        shortest_path.0.len()
+                    );
+                    None
+                } else {
+                    trace!("Got shortest path between {} and {}.", self.src, self.dest);
+                    trace!(
+                        "Creating candidate path from {:?} shortest path.",
+                        shortest_path
+                    );
+                    let mut path = Path::new(self.src.clone(), self.dest.clone());
+                    // the weights and timelock are set as the total path costs are calculated
+                    path.hops = shortest_path
+                        .0
+                        .into_iter()
+                        .map(|h| (h, usize::default(), usize::default(), String::default()))
+                        .collect();
+                    let mut candidate_path = CandidatePath::new_with_path(path);
+                    self.get_aggregated_path_cost(&mut candidate_path, false);
+                    Some(candidate_path)
+                }
             }
         }
     }

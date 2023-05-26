@@ -38,6 +38,10 @@ pub struct Statistics {
     pub(crate) anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
     /// Contains the updated sim results when some nodes are removed
     pub targeted_attack: TargetedAttack,
+    /// Number of payments an adversary could corelate (incl. failed + successful payments)
+    pub correlated: usize,
+    /// Number of successful payments an adversary could corelate
+    pub correlated_successful: usize,
 }
 
 /// All the distances in the simulated payments' paths

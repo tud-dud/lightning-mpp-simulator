@@ -31,11 +31,13 @@ pub(crate) static _DEPTH: usize = 3;
 pub static MIN_SHARD_AMOUNT: usize = 10000 * SAT_SCALE;
 #[cfg(test)]
 pub(crate) static MIN_SHARD_AMOUNT: usize = 1000;
-/// the default number of splits in LND
-/// (https://github.com/lightningnetwork/lnd/blob/master/lnrpc/routerrpc/router_backend.go#L29)
+/// the default number of splits in
+/// [LND](https://github.com/lightningnetwork/lnd/blob/master/lnrpc/routerrpc/router_backend.go#L29)
 pub(crate) static MAX_PARTS: usize = 16;
 /// Scaling factor used to convert msats and sats
 pub static SAT_SCALE: usize = 1000;
+/// Up to 20 intermediaries (vaious [LND code snippets](https://github.com/lightningnetwork/lnd/blob/bbbf7d33fb1527acebb44e2a69d16fbcf24cc2fa/routing/pathfind_test.go#LL1690C34-L1690C34)
+pub static MAX_HOPS: usize = 20;
 
 /// Metric to use when looking for a route
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
