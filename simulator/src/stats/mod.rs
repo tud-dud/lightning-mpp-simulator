@@ -42,6 +42,15 @@ pub struct Statistics {
     pub correlated: usize,
     /// Number of successful payments an adversary could corelate
     pub correlated_successful: usize,
+    /// The number of correlated payments that were observed at the first hop
+    pub correlated_first_hop: usize,
+    pub correlated_first_hop_successful: usize,
+    /// The number of correlated payments that were observed at the last hop
+    pub correlated_last_hop: usize,
+    pub correlated_last_hop_successful: usize,
+    /// The number of correlated payments that were observed at both hops
+    pub correlated_both_hops: usize,
+    pub correlated_both_hops_successful: usize,
 }
 
 /// All the distances in the simulated payments' paths

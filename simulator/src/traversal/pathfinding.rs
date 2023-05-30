@@ -169,6 +169,21 @@ impl Path {
         true
     }
 
+    pub(crate) fn is_first_hop(&self, node: &ID) -> bool {
+        match self.get_involved_nodes().iter().position(|n| n.eq(node)) {
+            None => false,
+            Some(i) => i == 1,
+        }
+    }
+
+    pub(crate) fn is_last_hop(&self, node: &ID) -> bool {
+        let involved_nodes = self.get_involved_nodes();
+        match involved_nodes.iter().position(|n| n.eq(node)) {
+            None => false,
+            Some(i) => i == involved_nodes.len() - 2,
+        }
+    }
+
     fn update_hop(&mut self, hop_id: ID, fees: usize, timelock: usize, edge_id: &String) {
         for hop in self.hops.iter_mut() {
             if hop.0 == hop_id {
@@ -884,5 +899,41 @@ mod tests {
         let actual = self_path.is_subpath(&other_path);
         let expected = false;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn is_first_intermediary() {
+        let path = Path {
+            src: String::from("alice"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        assert!(!path.is_first_hop(&"alice".to_string()));
+        assert!(path.is_first_hop(&"bob".to_string()));
+        assert!(!path.is_first_hop(&"chan".to_string()));
+        assert!(!path.is_first_hop(&"dina".to_string()));
+    }
+
+    #[test]
+    fn is_last_intermediary() {
+        let path = Path {
+            src: String::from("alice"),
+            dest: String::from("dina"),
+            hops: VecDeque::from([
+                ("alice".to_string(), 5175, 55, "alice1".to_string()),
+                ("bob".to_string(), 100, 40, "bob2".to_string()),
+                ("chan".to_string(), 75, 15, "chan2".to_string()),
+                ("dina".to_string(), 5000, 0, "dina1".to_string()),
+            ]),
+        };
+        assert!(!path.is_last_hop(&"alice".to_string()));
+        assert!(!path.is_last_hop(&"bob".to_string()));
+        assert!(path.is_last_hop(&"chan".to_string()));
+        assert!(!path.is_last_hop(&"dina".to_string()));
     }
 }

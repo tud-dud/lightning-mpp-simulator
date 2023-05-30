@@ -60,7 +60,7 @@ impl Simulation {
                     }
                     (attacks, attacks_successful)
                 };
-                let (correlated, correlated_successful) =
+                let ((correlated, correlated_successful), (first_hop, last_hop, both_hops)) =
                     Self::colluding_adversaries(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
                 /*let anonymity_sets = if let Some(adversary) = adv.last() {
@@ -91,6 +91,12 @@ impl Simulation {
                     adv_count_successful,
                     correlated,
                     correlated_successful,
+                    correlated_first_hop: first_hop.0,
+                    correlated_last_hop: last_hop.0,
+                    correlated_both_hops: both_hops.0,
+                    correlated_first_hop_successful: first_hop.1,
+                    correlated_last_hop_successful: last_hop.1,
+                    correlated_both_hops_successful: both_hops.1,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",
@@ -174,29 +180,76 @@ impl Simulation {
 
     /// Counts the number of paths per payment that could be correlated by colluding adversaries.
     /// Includes all payment attempts
-    fn colluding_adversaries(payments: &[Payment], adv: &[ID]) -> (usize, usize) {
+    /// Returns
+    ///     1. the number of payments that were observed on multiple occasions
+    ///     2. the number of payments which were 1'ed at the first, last and both positions
+    #[allow(clippy::type_complexity)]
+    fn colluding_adversaries(
+        payments: &[Payment],
+        adv: &[ID],
+    ) -> (
+        (usize, usize),
+        ((usize, usize), (usize, usize), (usize, usize)),
+    ) {
         info!("Counting colluding adversaries.");
         let mut correlated = 0;
         let mut correlated_successful = 0;
+        let mut first_hop_observation = 0;
+        let mut last_hop_observation = 0;
+        let mut both_points_observation = 0;
+        let mut first_hop_observation_successful = 0;
+        let mut last_hop_observation_successful = 0;
+        let mut both_points_observation_successful = 0;
         for payment in payments {
             let mut all_paths = payment.used_paths.to_owned();
             all_paths.extend(payment.failed_paths.to_owned());
             let mut paths_containing_adversaries = 0;
+            let mut is_first_hop = false;
+            let mut is_last_hop = false;
             for path in all_paths.iter() {
-                // no need to exclude the src and dest and the function takes that into account
+                // no need to exclude the src and dest and the called function takes that into account
                 if !path.path.path_contains_adversary(adv).is_empty() {
                     paths_containing_adversaries += 1;
+                    for a in adv {
+                        is_first_hop |= path.path.is_first_hop(a);
+                        is_last_hop |= path.path.is_last_hop(a);
+                    }
                 }
             }
             // because the same payment was seen more than once
             if paths_containing_adversaries >= 2 {
                 correlated += 1;
+                if is_first_hop {
+                    first_hop_observation += 1;
+                };
+                if is_last_hop {
+                    last_hop_observation += 1;
+                };
+                if is_first_hop && is_last_hop {
+                    both_points_observation += 1;
+                }
                 if payment.succeeded {
                     correlated_successful += 1;
+                    if is_first_hop {
+                        first_hop_observation_successful += 1;
+                    };
+                    if is_last_hop {
+                        last_hop_observation_successful += 1;
+                    };
+                    if is_first_hop && is_last_hop {
+                        both_points_observation_successful += 1;
+                    }
                 }
             }
         }
-        (correlated, correlated_successful)
+        (
+            (correlated, correlated_successful),
+            (
+                (first_hop_observation, first_hop_observation_successful),
+                (last_hop_observation, last_hop_observation_successful),
+                (both_points_observation, both_points_observation_successful),
+            ),
+        )
     }
 
     fn get_adversaries(
