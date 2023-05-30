@@ -5,7 +5,6 @@ mod failures;
 
 use crate::io::PaymentInfo;
 use serde::Serialize;
-use std::collections::HashMap;
 
 pub use diversity::*;
 
@@ -25,15 +24,6 @@ pub struct Statistics {
     pub hits: usize,
     /// Number of times a successful payment contained at least one adversary
     pub hits_successful: usize,
-
-    /// Number of times a payment part contained at least one adversary
-    pub part_hits: usize,
-    pub part_hits_successful: usize,
-    /// The number of adversaries (key) in a payment and how often (value). parts as individual
-    /// payments
-    pub adv_count: HashMap<usize, usize>,
-    /// The number of adversaries (key) in a successful payment and how often (value). sum of parts
-    pub adv_count_successful: HashMap<usize, usize>,
     // independent of the number of adversaries
     pub(crate) anonymity_sets: Vec<AnonymitySet>, // one for each adversary in a payment path (MPP payments are treated like separate payments
     /// Contains the updated sim results when some nodes are removed

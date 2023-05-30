@@ -35,7 +35,7 @@ impl Simulation {
         let adversaries = Arc::new(Mutex::new(vec![]));
         self.adversary_selection.par_iter().for_each(|strategy| {
             let mut statistics: Vec<Statistics> = vec![];
-            for (idx, num_adv) in number_of_adversaries.iter().enumerate() {
+            for (_idx, num_adv) in number_of_adversaries.iter().enumerate() {
                 let adv = match selected_adversaries.get(strategy) {
                     None => vec![],
                     Some(selected_adversaries) => selected_adversaries[0..*num_adv].to_vec(),
@@ -44,22 +44,8 @@ impl Simulation {
                     "Starting adversary scenario: {} sat: {:?} with {} nodes.",
                     self.amount, strategy, num_adv,
                 );
-                let (hits, parts_hits, payment_attacks) = Self::adversary_hits(&all_payments, &adv);
-                let (adv_count, adv_count_successful) = if idx == 0 {
-                    payment_attacks
-                } else {
-                    let (mut attacks, mut attacks_successful) = payment_attacks.clone();
-                    for (k, v) in statistics[idx - 1].adv_count.iter() {
-                        attacks.entry(*k).and_modify(|u| *u += v).or_insert(*v);
-                    }
-                    for (k, v) in statistics[idx - 1].adv_count_successful.iter() {
-                        attacks_successful
-                            .entry(*k)
-                            .and_modify(|u| *u += v)
-                            .or_insert(*v);
-                    }
-                    (attacks, attacks_successful)
-                };
+                let (hits, _parts_hits, _payment_attacks) =
+                    Self::adversary_hits(&all_payments, &adv);
                 let ((correlated, correlated_successful), (first_hop, last_hop, both_hops)) =
                     Self::colluding_adversaries(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
@@ -85,10 +71,6 @@ impl Simulation {
                     hits_successful: hits.1,
                     anonymity_sets,
                     targeted_attack,
-                    part_hits: parts_hits.0,
-                    part_hits_successful: parts_hits.1,
-                    adv_count,
-                    adv_count_successful,
                     correlated,
                     correlated_successful,
                     correlated_first_hop: first_hop.0,
@@ -292,7 +274,7 @@ mod tests {
         traversal::pathfinding::{CandidatePath, Path},
         AdversarySelection,
     };
-    use std::collections::{HashMap, VecDeque};
+    use std::collections::VecDeque;
 
     #[test]
     fn adversary_hits() {
@@ -319,17 +301,8 @@ mod tests {
         assert_eq!(statistics[0].number, number_of_adversaries);
         assert_eq!(statistics[0].hits, 2); // we send two payments
         assert_eq!(statistics[0].hits_successful, 2);
-        assert_eq!(statistics[0].part_hits, 2); // we send two payments as single payments
-        assert_eq!(statistics[0].part_hits_successful, 2);
         assert_eq!(statistics[0].targeted_attack.num_successful, 0);
         assert_eq!(statistics[0].targeted_attack.num_failed, 0);
-        let expected_adv_count = HashMap::from([(1, 1), (2, 1)]);
-        assert_eq!(expected_adv_count, statistics[0].adv_count);
-        let expected_adv_count_successful = HashMap::from([(1, 1), (2, 1)]);
-        assert_eq!(
-            expected_adv_count_successful,
-            statistics[0].adv_count_successful
-        );
         let number_of_adversaries = 0;
         let mut simulator =
             crate::attempt::tests::init_sim(None, Some(vec![number_of_adversaries]));
@@ -347,17 +320,8 @@ mod tests {
         assert_eq!(statistics[0].number, number_of_adversaries);
         assert_eq!(statistics[0].hits, 0); // we have no adversaries
         assert_eq!(statistics[0].hits_successful, 0);
-        assert_eq!(statistics[0].part_hits, 0);
-        assert_eq!(statistics[0].part_hits_successful, 0);
         assert_eq!(statistics[0].targeted_attack.num_successful, 2);
         assert_eq!(statistics[0].targeted_attack.num_failed, 0);
-        let expected_adv_count = HashMap::from([(0, 2)]);
-        assert_eq!(expected_adv_count, statistics[0].adv_count);
-        let expected_adv_count_successful = HashMap::from([(0, 2)]);
-        assert_eq!(
-            expected_adv_count_successful,
-            statistics[0].adv_count_successful
-        );
     }
 
     #[test]
@@ -488,9 +452,21 @@ mod tests {
                 }],
             },
         ];
-        let (correlation_count, correlation_count_successful) =
-            Simulation::colluding_adversaries(&payments, &adversaries);
+        let (
+            (correlation_count, correlation_count_successful),
+            (
+                (first_hop, first_hop_successful),
+                (last_hop, last_hop_successful),
+                (both_hops, both_hops_successful),
+            ),
+        ) = Simulation::colluding_adversaries(&payments, &adversaries);
         assert_eq!(correlation_count, 2); // bob sees the payment twice
         assert_eq!(correlation_count_successful, 1);
+        assert_eq!(first_hop, 2);
+        assert_eq!(first_hop_successful, 1);
+        assert_eq!(last_hop, 2);
+        assert_eq!(last_hop_successful, 1);
+        assert_eq!(both_hops, 2);
+        assert_eq!(both_hops_successful, 1);
     }
 }
