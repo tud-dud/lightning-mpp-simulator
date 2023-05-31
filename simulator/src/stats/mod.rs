@@ -32,15 +32,13 @@ pub struct Statistics {
     pub correlated: usize,
     /// Number of successful payments an adversary could corelate
     pub correlated_successful: usize,
-    /// The number of correlated payments that were observed at the first hop
-    pub correlated_first_hop: usize,
-    pub correlated_first_hop_successful: usize,
-    /// The number of correlated payments that were observed at the last hop
-    pub correlated_last_hop: usize,
-    pub correlated_last_hop_successful: usize,
-    /// The number of correlated payments that were observed at both hops
-    pub correlated_both_hops: usize,
-    pub correlated_both_hops_successful: usize,
+    /// probabilities based on equation in https://eprint.iacr.org/2020/303.pdf
+    /// The probability that a path is vulnerable
+    pub prone_paths_prob: f32,
+    pub prone_paths_successful_prob: f32,
+    /// The probability that a payment is vulnerable
+    pub prone_payments_prob: f32,
+    pub prone_payments_successful_prob: f32,
 }
 
 /// All the distances in the simulated payments' paths

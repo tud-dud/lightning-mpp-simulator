@@ -46,8 +46,10 @@ impl Simulation {
                 );
                 let (hits, _parts_hits, _payment_attacks) =
                     Self::adversary_hits(&all_payments, &adv);
-                let ((correlated, correlated_successful), (first_hop, last_hop, both_hops)) =
+                let (correlated, correlated_successful) =
                     Self::colluding_adversaries(&all_payments, &adv);
+                let (prone_paths, prone_payments) =
+                    Self::prone_paths_and_payments(&all_payments, &adv);
                 info!("Completed counting adversary occurences in payments.");
                 /*let anonymity_sets = if let Some(adversary) = adv.last() {
                         let set = self.deanonymise_tx_pairs(adversary);
@@ -73,12 +75,10 @@ impl Simulation {
                     targeted_attack,
                     correlated,
                     correlated_successful,
-                    correlated_first_hop: first_hop.0,
-                    correlated_last_hop: last_hop.0,
-                    correlated_both_hops: both_hops.0,
-                    correlated_first_hop_successful: first_hop.1,
-                    correlated_last_hop_successful: last_hop.1,
-                    correlated_both_hops_successful: both_hops.1,
+                    prone_paths_prob: prone_paths.0,
+                    prone_paths_successful_prob: prone_paths.1,
+                    prone_payments_prob: prone_payments.0,
+                    prone_payments_successful_prob: prone_payments.1,
                 });
                 info!(
                     "Completed adversary scenario: {:?} with {} nodes and {} sat.",
@@ -160,78 +160,95 @@ impl Simulation {
         )
     }
 
+    /// Returns the number of paths and payments that were observed the first and last hops
+    fn prone_paths_and_payments(payments: &[Payment], adv: &[ID]) -> ((f32, f32), (f32, f32)) {
+        let mut prone_paths = 0;
+        let mut prone_paths_successful = 0;
+        let mut safe_paths = 0;
+        let mut safe_paths_successful = 0;
+        let mut prone_payments = 0;
+        let mut prone_payments_successful = 0;
+        let mut safe_payments = 0;
+        let mut safe_payments_successful = 0;
+        for payment in payments {
+            let mut payment_is_prone = false;
+            for path in payment.used_paths.iter() {
+                // no need to exclude the src and dest and the called function takes that into account
+                if !path.path.path_contains_adversary(adv).is_empty() {
+                    let mut first_hop = false;
+                    let mut final_hop = false;
+                    for a in adv {
+                        if path.path.is_first_hop(a) {
+                            first_hop = true;
+                        }
+                        if path.path.is_last_hop(a) {
+                            final_hop = true;
+                        }
+                    }
+                    if first_hop && final_hop {
+                        payment_is_prone = true;
+                        prone_paths += 1;
+                        if payment.succeeded {
+                            prone_paths_successful += 1;
+                        }
+                    } else {
+                        safe_paths += 1;
+                        if payment.succeeded {
+                            safe_paths_successful += 1;
+                        }
+                    }
+                }
+            }
+            if payment_is_prone {
+                prone_payments += 1;
+                if payment.succeeded {
+                    prone_payments_successful += 1;
+                }
+            } else {
+                safe_payments += 1;
+                if payment.succeeded {
+                    safe_payments_successful += 1;
+                }
+            }
+        }
+        let prob_paths = prone_paths as f32 / (prone_paths + safe_paths) as f32;
+        let prob_paths_successful =
+            prone_paths_successful as f32 / (prone_paths_successful + safe_paths_successful) as f32;
+        let prob_payments = prone_payments as f32 / (prone_payments + safe_payments) as f32;
+        let prob_payments_successful = prone_payments_successful as f32
+            / (prone_payments_successful + safe_payments_successful) as f32;
+        (
+            (prob_paths, prob_paths_successful),
+            (prob_payments, prob_payments_successful),
+        )
+    }
+
     /// Counts the number of paths per payment that could be correlated by colluding adversaries.
     /// Includes all payment attempts
-    /// Returns
-    ///     1. the number of payments that were observed on multiple occasions
-    ///     2. the number of payments which were 1'ed at the first, last and both positions
-    #[allow(clippy::type_complexity)]
-    fn colluding_adversaries(
-        payments: &[Payment],
-        adv: &[ID],
-    ) -> (
-        (usize, usize),
-        ((usize, usize), (usize, usize), (usize, usize)),
-    ) {
+    /// Returns the number of payments that were observed on multiple occasions
+    fn colluding_adversaries(payments: &[Payment], adv: &[ID]) -> (usize, usize) {
         info!("Counting colluding adversaries.");
         let mut correlated = 0;
         let mut correlated_successful = 0;
-        let mut first_hop_observation = 0;
-        let mut last_hop_observation = 0;
-        let mut both_points_observation = 0;
-        let mut first_hop_observation_successful = 0;
-        let mut last_hop_observation_successful = 0;
-        let mut both_points_observation_successful = 0;
         for payment in payments {
             let mut all_paths = payment.used_paths.to_owned();
             all_paths.extend(payment.failed_paths.to_owned());
             let mut paths_containing_adversaries = 0;
-            let mut is_first_hop = false;
-            let mut is_last_hop = false;
             for path in all_paths.iter() {
                 // no need to exclude the src and dest and the called function takes that into account
                 if !path.path.path_contains_adversary(adv).is_empty() {
                     paths_containing_adversaries += 1;
-                    for a in adv {
-                        is_first_hop |= path.path.is_first_hop(a);
-                        is_last_hop |= path.path.is_last_hop(a);
-                    }
                 }
             }
             // because the same payment was seen more than once
             if paths_containing_adversaries >= 2 {
                 correlated += 1;
-                if is_first_hop {
-                    first_hop_observation += 1;
-                };
-                if is_last_hop {
-                    last_hop_observation += 1;
-                };
-                if is_first_hop && is_last_hop {
-                    both_points_observation += 1;
-                }
                 if payment.succeeded {
                     correlated_successful += 1;
-                    if is_first_hop {
-                        first_hop_observation_successful += 1;
-                    };
-                    if is_last_hop {
-                        last_hop_observation_successful += 1;
-                    };
-                    if is_first_hop && is_last_hop {
-                        both_points_observation_successful += 1;
-                    }
                 }
             }
         }
-        (
-            (correlated, correlated_successful),
-            (
-                (first_hop_observation, first_hop_observation_successful),
-                (last_hop_observation, last_hop_observation_successful),
-                (both_points_observation, both_points_observation_successful),
-            ),
-        )
+        (correlated, correlated_successful)
     }
 
     fn get_adversaries(
@@ -274,6 +291,7 @@ mod tests {
         traversal::pathfinding::{CandidatePath, Path},
         AdversarySelection,
     };
+    use approx::*;
     use std::collections::VecDeque;
 
     #[test]
@@ -452,21 +470,19 @@ mod tests {
                 }],
             },
         ];
-        let (
-            (correlation_count, correlation_count_successful),
-            (
-                (first_hop, first_hop_successful),
-                (last_hop, last_hop_successful),
-                (both_hops, both_hops_successful),
-            ),
-        ) = Simulation::colluding_adversaries(&payments, &adversaries);
+        let (correlation_count, correlation_count_successful) =
+            Simulation::colluding_adversaries(&payments, &adversaries);
         assert_eq!(correlation_count, 2); // bob sees the payment twice
         assert_eq!(correlation_count_successful, 1);
-        assert_eq!(first_hop, 2);
-        assert_eq!(first_hop_successful, 1);
-        assert_eq!(last_hop, 2);
-        assert_eq!(last_hop_successful, 1);
-        assert_eq!(both_hops, 2);
-        assert_eq!(both_hops_successful, 1);
+        let (prone_paths, prone_payments) =
+            Simulation::prone_paths_and_payments(&payments, &adversaries);
+        // all paths are susceptible
+        assert_abs_diff_eq!(prone_paths.0, 1.0, epsilon = 0.001f32);
+        // all successful payemnts' paths are susceptible
+        assert_abs_diff_eq!(prone_paths.1, 1.0, epsilon = 0.001f32);
+        // both payments
+        assert_abs_diff_eq!(prone_payments.1, 1.0, epsilon = 0.001f32);
+        // the only successful payment is prone
+        assert_abs_diff_eq!(prone_payments.1, 1.0, epsilon = 0.001f32);
     }
 }
