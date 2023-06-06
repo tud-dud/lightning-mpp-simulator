@@ -61,7 +61,7 @@ Here are some results of a batch of simulations conducted with a snapshot dated
 </details>
 
 <details>
-  <summary>Privacy</summary>
+  <summary><b>Privacy</b></summary>
 
   <p float="middle">
     <img src="plots/observation_rate.pdf" width="45%" />

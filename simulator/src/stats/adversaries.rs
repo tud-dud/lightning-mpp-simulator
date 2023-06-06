@@ -123,7 +123,7 @@ impl Simulation {
                     if payment.succeeded {
                         hits_successful += 1;
                     }
-                    continue;
+                    break;
                 }
             }
         };
