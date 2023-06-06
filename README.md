@@ -15,8 +15,9 @@ A binary that does computations on the diversity in the LN channel graph.
 
 ## network-parser
 
-A library to deserialise the topology graphs provided by
-[lnresearch](https://github.com/lnresearch/topology).
+A library to deserialise the channel graphs provided by either
+[LND](https://lightning.engineering/api-docs/api/lnd/lightning/describe-graph/index.html)
+or [lnresearch](https://github.com/lnresearch/topology).
 
 ## simulator
 
