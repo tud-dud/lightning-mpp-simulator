@@ -31,10 +31,10 @@ jobs:
         name: 🔨 Build
         with:
           command: build
-          args: --release --features "measurements"
+          args: --release
 
       - uses: actions-rs/cargo@v1
         name: 🔎 Run unit tests
         with:
           command: test
-          args: --release --features measurements
+          args: --release
