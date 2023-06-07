@@ -29,3 +29,50 @@ payments in the LN.
 Build all members of the project:
 
 `cargo build --release`
+
+## Simulation results
+
+Here are the results of a series of simulations conducted with a snapshot dated
+2023-05-16.
+
+<details open>
+  <summary><b>Performance</b></summary>
+
+  <p float="middle">
+      <em>Median success rate</em>
+      <img src="plots/success_rate.png" width="45%" />
+      <em>Absolute and relative fees in sat</em>
+      <img src="plots/transaction_fees.png" width="45%" />
+  </p>
+  <p float="middle">
+      <em>Successful paths' lengths</em>
+      <img src="plots/path_length.png" width="45%" />
+      <em>Total and relative number of payment attempts</em>
+      <img src="plots/htlc_attempts.png" width="45%" />
+  </p>
+  <p float="middle">
+      <em>Failed paths' lengths</em>
+      <img src="plots/failed_path_length.png" width="45%" />
+      <em>Number of payment parts</em>
+      <img src="plots/splits.png" width="45%" />
+  </p>
+
+</details>
+
+<details open>
+  <summary><b>Privacy</b></summary>
+
+  <p float="middle">
+      <em>Observation rate for successful payments</em>
+      <img src="plots/observation_rate.png" width="45%" />
+      <em>Predecessor/successor attack probability</em>
+      <img src="plots/predecessor_guesses.png" width="45%" />
+  </p>
+  <p float="middle">
+      <em>Number of payments vulnerable to confirmation attacks</em>
+      <img src="plots/vulnerable_successful_payments.png" width="45%" />
+      <em>Path diversity</em>
+      <img src="plots/path_diversity.png" width="45%" />
+  </p>
+
+</details>
