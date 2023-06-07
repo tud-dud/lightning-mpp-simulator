@@ -29,7 +29,8 @@ jobs:
       - name: 🔬 Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          args: '--exclude-files src/bin/*'
+          version: 0.25.0
+          args: '--exclude-files simulator/src/bin/*'
 
       - name: 🆙 Upload to codecov.io
         uses: codecov/codecov-action@v3

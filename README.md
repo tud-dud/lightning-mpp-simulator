@@ -1,7 +1,9 @@
 # lightning-simulator
 
-[![Rust](https://camo.githubusercontent.com/5782bcc58a7786e9a7d00e2cf45937db8a2598232d9524ec9dcd149c7218671b/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f527573742d50726f6772616d6d696e672532304c616e67756167652d626c61636b3f7374796c653d666c6174266c6f676f3d72757374)](www.rust-lang.org)
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+[![CI](https://github.com/open-anonymous-science/lightning-simulator/actions/workflows/test.yml/badge.svg)](https://github.com/open-anonymous-science/lightning-simulator/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/open-anonymous-science/lightning-simulator/branch/main/graph/badge.svg?token=QZH345MHCJ)](https://codecov.io/gh/open-anonymous-science/lightning-simulator)
+[![dependency status](https://deps.rs/repo/github/open-anonymous-science/lightning-simulator/status.svg)](https://deps.rs/repo/github/open-anonymous-science/lightning-simulator)
 
 This is a collection of projects related to simulating payments in the Lightning
 network.
@@ -32,47 +34,35 @@ Build all members of the project:
 
 ## Simulation results
 
-Here are the results of a series of simulations conducted with a snapshot dated
-2023-05-16.
+Here are the results of a series of simulations conducted on a snapshot of the
+network on 2023-05-16.
 
 <details open>
   <summary><b>Performance</b></summary>
 
-  <p float="middle">
-      <em>Median success rate</em>
-      <img src="plots/success_rate.png" width="45%" />
-      <em>Absolute and relative fees in sat</em>
-      <img src="plots/transaction_fees.png" width="45%" />
-  </p>
-  <p float="middle">
-      <em>Successful paths' lengths</em>
-      <img src="plots/path_length.png" width="45%" />
-      <em>Total and relative number of payment attempts</em>
-      <img src="plots/htlc_attempts.png" width="45%" />
-  </p>
-  <p float="middle">
-      <em>Failed paths' lengths</em>
-      <img src="plots/failed_path_length.png" width="45%" />
-      <em>Number of payment parts</em>
-      <img src="plots/splits.png" width="45%" />
-  </p>
+   ![](plots/success_rate.png)
+
+   ![](plots/transaction_fees.png)
+
+   ![](plots/path_length.png)
+
+   ![](plots/htlc_attempts.png)
+
+   ![](plots/failed_path_length.png)
+
+   ![](plots/splits.png)
 
 </details>
 
 <details open>
   <summary><b>Privacy</b></summary>
 
-  <p float="middle">
-      <em>Observation rate for successful payments</em>
-      <img src="plots/observation_rate.png" width="45%" />
-      <em>Predecessor/successor attack probability</em>
-      <img src="plots/predecessor_guesses.png" width="45%" />
-  </p>
-  <p float="middle">
-      <em>Number of payments vulnerable to confirmation attacks</em>
-      <img src="plots/vulnerable_successful_payments.png" width="45%" />
-      <em>Path diversity</em>
-      <img src="plots/path_diversity.png" width="45%" />
-  </p>
+   ![](plots/observation_rate.png)
+
+   ![](plots/predecessor_guesses.png)
+
+   ![](plots/vulnerable_successful_payments.png)
+
+   ![](plots/path_diversity.png)
 
 </details>

@@ -2,7 +2,7 @@
 name = "network-parser"
 version = "0.1.0"
 #repository = ""
-authors = ["Charmaine Ndolo <c.n.ndolo@hu-berlin.de>"]
+authors = ["Anonymous Author <>"]
 description = "Read the LN's topology from a JSON file."
 #keywords = []
 license = "MIT"
