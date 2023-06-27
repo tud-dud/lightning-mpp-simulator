@@ -223,6 +223,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(tarpaulin, ignore)]
     // all edges except bob have 1k balance. Bob has a total of 15k spread across 3 channels and
     // wants to send alice 12k.
     fn mpp_failure_hops_no_funds() {
