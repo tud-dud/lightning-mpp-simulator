@@ -2314,6 +2314,8 @@ textarea.form-control-lg {
   margin-right: 1rem;
 }
 
+.btn-sm { height: 3vh; }
+
 .btn-check {
   position: absolute;
   clip: rect(0, 0, 0, 0);
@@ -5636,7 +5638,7 @@ textarea.form-control-lg {
 
 /* rtl:end:ignore */
 .tooltip-inner {
-  max-width: var(--bs-tooltip-max-width);
+  max-width: 20%;
   padding: var(--bs-tooltip-padding-y) var(--bs-tooltip-padding-x);
   color: var(--bs-tooltip-color);
   text-align: center;
@@ -10846,19 +10848,6 @@ body {
   height: 100%;
 }
 
-#layoutAuthentication {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-#layoutAuthentication #layoutAuthentication_content {
-  min-width: 0;
-  flex-grow: 1;
-}
-#layoutAuthentication #layoutAuthentication_footer {
-  min-width: 0;
-}
-
 #layoutSidenav {
   display: flex;
 }
@@ -10877,7 +10866,7 @@ body {
   min-width: 0;
   flex-grow: 1;
   min-height: calc(100vh - 56px);
-  margin-left: -225px;
+  margin-left: 0px;
 }
 
 .sb-sidenav-toggled #layoutSidenav #layoutSidenav_nav {
