@@ -114,7 +114,7 @@ impl Simulation {
     /// This is the actual transaction
     pub(crate) fn attempt_payment(
         &mut self,
-        mut payment_shard: &mut PaymentShard,
+        payment_shard: &mut PaymentShard,
         candidate_path: &CandidatePath,
         path_finder: &mut PathFinder,
     ) -> (bool, Vec<(ID, String, usize)>) {

@@ -42,4 +42,4 @@ Build all members of the project:
 ## Simulation results
 
 We maintain interactive charts with simulation results at
-[https://anonymous.4open.science/w/lightning-simulator-13A7/](https://anonymous.4open.science/w/lightning-simulator-13A7/).
+[https://cndolo.github.io/lightning-simulator/](https://cndolo.github.io/lightning-simulator/).

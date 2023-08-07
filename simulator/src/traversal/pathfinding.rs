@@ -287,7 +287,7 @@ impl PathFinder {
     /// adversary calculations
     pub fn get_aggregated_path_cost(
         &mut self,
-        mut candidate_path: &mut CandidatePath,
+        candidate_path: &mut CandidatePath,
         include_src: bool,
     ) {
         // 1. for all (src, dest) pairs in the path:
