@@ -35,7 +35,7 @@ impl Simulation {
         let adversaries = Arc::new(Mutex::new(vec![]));
         self.adversary_selection.par_iter().for_each(|strategy| {
             let mut statistics: Vec<Statistics> = vec![];
-            for (_idx, num_adv) in number_of_adversaries.iter().enumerate() {
+            for num_adv in number_of_adversaries.iter() {
                 let adv = match selected_adversaries.get(strategy) {
                     None => vec![],
                     Some(selected_adversaries) => selected_adversaries[0..*num_adv].to_vec(),

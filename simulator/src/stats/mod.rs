@@ -6,8 +6,6 @@ mod failures;
 use crate::io::PaymentInfo;
 use serde::Serialize;
 
-pub use diversity::*;
-
 #[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Adversaries {

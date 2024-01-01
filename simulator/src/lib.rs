@@ -13,7 +13,6 @@ pub mod traversal;
 pub use core_types::*;
 pub use payments::*;
 pub use sim::*;
-pub use stats::diversity::*;
 pub use traversal::pathfinding::*;
 
 pub type ID = String;
