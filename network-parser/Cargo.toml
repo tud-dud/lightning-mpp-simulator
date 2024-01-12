@@ -1,10 +1,10 @@
 [package]
 name = "network-parser"
-version = "0.1.0"
+version = "0.2.0"
 #repository = ""
-authors = ["Anonymous Author <>"]
+authors = ["Charmaine Ndolo <charmaine.ndolo@tu-dresden.de>"]
 description = "Read the LN's topology from a JSON file."
-#keywords = []
+keywords = ["lightning-network", "graph"]
 license = "MIT"
 readme = "./README.md"
 edition = "2021"

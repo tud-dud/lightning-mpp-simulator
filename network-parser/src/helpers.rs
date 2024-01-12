@@ -1,27 +1,41 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_aux::prelude::*;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 use crate::*;
 
 #[derive(Deserialize, Debug, Default)]
 pub struct RawLnresearchGraph {
-    pub(crate) nodes: Vec<RawNode>,
+    pub(crate) nodes: Vec<RawLnresearchNode>,
     #[serde(alias = "adjacency")]
     pub(crate) edges: Vec<Vec<LnresearchRawEdge>>,
 }
 #[derive(Deserialize, Debug, Default)]
 pub struct RawLndGraph {
-    pub(crate) nodes: Vec<RawNode>,
+    pub(crate) nodes: Vec<RawLndNode>,
     #[serde(alias = "adjacency")]
     pub(crate) edges: Vec<LndRawEdge>,
 }
 
+serde_aux::StringOrVecToVecParser!(parse_between_commas, |c| { c == ',' }, true);
+
 #[derive(Deserialize, Debug, Clone, Default, Eq, PartialEq)]
-pub struct RawNode {
+pub struct RawLnresearchNode {
     #[serde(alias = "pub_key")]
     pub(crate) id: Option<String>,
     pub(crate) alias: Option<String>,
+    #[serde(deserialize_with = "addr_lnr_deserialize")]
+    #[serde(default)]
+    pub(crate) addresses: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Debug, Clone, Default, Eq, PartialEq)]
+pub struct RawLndNode {
+    #[serde(alias = "pub_key")]
+    pub(crate) id: Option<String>,
+    pub(crate) alias: Option<String>,
+    pub(crate) addresses: Option<Vec<Address>>,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -69,15 +83,44 @@ pub struct NodePolicy {
     pub htlc_maximum_msat: Option<u64>,
     #[serde(alias = "time_lock_delta")]
     pub cltv_expiry_delta: Option<u64>,
-    pub last_update: u32,
 }
 
 impl Node {
-    pub(crate) fn from_raw(raw_node: RawNode) -> Node {
+    pub(crate) fn from_raw_lnresearch(raw_node: RawLnresearchNode) -> Node {
+        let mut addresses = vec![];
+        if let Some(raw_addresses) = raw_node.addresses {
+            for raw_addr in raw_addresses {
+                let mut addr = Address::default();
+                for (i, part) in raw_addr.split("://").enumerate() {
+                    if i == 0 {
+                        // the network part which always seems to be tcp
+                        println!("part {}", part);
+                        match part {
+                            "ipv4" | "ipv6" | "torv2" | "torv3" => addr.network = "tcp".to_owned(),
+                            _ => {
+                                break;
+                            }
+                        }
+                    } else if i == 1 {
+                        println!("part 1 {}", part);
+                        // the addr part
+                        addr.addr = part.to_owned();
+                    }
+                }
+                addresses.push(addr);
+            }
+        }
         Node {
             id: raw_node.id.expect("Error in node ID"),
             alias: raw_node.alias.unwrap_or_default(),
-            last_update: Default::default(),
+            addresses,
+        }
+    }
+    pub(crate) fn from_raw_lnd(raw_node: RawLndNode) -> Node {
+        Node {
+            id: raw_node.id.expect("Error in node ID"),
+            alias: raw_node.alias.unwrap_or_default(),
+            addresses: raw_node.addresses.unwrap_or_default(),
         }
     }
 }
@@ -275,12 +318,31 @@ impl PartialEq for LndRawEdge {
         self.channel_id == other.channel_id && self.source == other.source
     }
 }
+
+fn addr_lnr_deserialize<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let str_sequence = String::deserialize(deserializer)?;
+    println!("str_sequence {}", str_sequence);
+    if str_sequence.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            str_sequence
+                .split(',')
+                .map(|item| item.to_owned())
+                .collect(),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn node_wo_id_is_ignored() {
+    fn lnr_node_wo_id_is_ignored() {
         let json_str = r##"{
             "nodes": [
                 {
@@ -307,10 +369,6 @@ mod tests {
               ]
             }"##;
         let graph = Graph::from_lnresearch_json_str(json_str).unwrap();
-        let actual = graph.nodes.len();
-        let expected = 1;
-        assert_eq!(actual, expected);
-        let graph = Graph::from_lnd_json_str(json_str).unwrap();
         let actual = graph.nodes.len();
         let expected = 1;
         assert_eq!(actual, expected);
@@ -524,6 +582,110 @@ mod tests {
         assert_eq!(graph.edges.len(), 2);
         for e in graph.get_edges_as_vec_vec().into_iter().flatten() {
             assert_eq!(e.capacity, expected);
+        }
+    }
+
+    #[test]
+    fn lnd_addresses_works() {
+        let json_str = r##"{
+            "nodes": [
+                {
+                    "id": "021fa5be893f5b3ec37cf5a0f4e984f35a32",
+                    "addresses": [
+                        {
+                            "network": "tcp",
+                            "addr": "159.69.16.168:9735"
+                        },
+                        {
+                            "network": "tcp",
+                            "addr": "[2a01:4f8:1c1e:abc1::1]:9735"
+                        }
+                    ]
+                },
+                {
+                    "id": "00e332bc1b7d8db0e705df3f087d285f9c06",
+                    "addresses": [
+                    ]
+                },
+                {
+                    "id": "026cf8782a7735ac62f0e71da85c93f1d864",
+                    "addresses": [
+                        {
+                            "network": "tcp",
+                            "addr": "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion:9735"
+                        }
+                    ]
+                }
+            ],
+            "edges": []
+            }"##;
+        let graph = Graph::from_lnd_json_str(&json_str).unwrap();
+        assert_eq!(graph.nodes.len(), 3);
+        let expected: HashMap<ID, Vec<Address>> = HashMap::from([
+            (
+                "021fa5be893f5b3ec37cf5a0f4e984f35a32".to_owned(),
+                vec![
+                    Address {
+                        network: "tcp".to_owned(),
+                        addr: "159.69.16.168:9735".to_owned(),
+                    },
+                    Address {
+                        network: "tcp".to_owned(),
+                        addr: "[2a01:4f8:1c1e:abc1::1]:9735".to_owned(),
+                    },
+                ],
+            ),
+            ("00e332bc1b7d8db0e705df3f087d285f9c06".to_owned(), vec![]),
+            (
+                "026cf8782a7735ac62f0e71da85c93f1d864".to_owned(),
+                vec![Address {
+                    network: "tcp".to_owned(),
+                    addr: "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion:9735"
+                        .to_owned(),
+                }],
+            ),
+        ]);
+        for node in graph.nodes {
+            assert_eq!(*expected.get(&node.id).unwrap(), node.addresses);
+        }
+    }
+
+    #[test]
+    fn lnr_addresses_works() {
+        let path_to_file = Path::new("../test_data/trivial_connected.json");
+        let graph = Graph::from_json_file(path_to_file, GraphSource::Lnresearch).unwrap();
+        let expected: HashMap<ID, Vec<Address>> = HashMap::from([
+            (
+                "034".to_owned(),
+                vec![Address {
+                    network: "tcp".to_owned(),
+                    addr: "212.108.220.135:9735".to_owned(),
+                }],
+            ),
+            (
+                "025".to_owned(),
+                vec![Address {
+                    network: "tcp".to_owned(),
+                    addr: "104.236.54.112:9735".to_owned(),
+                }],
+            ),
+            (
+                "036".to_owned(),
+                vec![
+                    Address {
+                        network: "tcp".to_owned(),
+                        addr: "218.250.157.241:9735".to_owned(),
+                    },
+                    Address {
+                        network: "tcp".to_string(),
+                        addr: "wu5mkpokybtbf6dwdaepnujbzxpm6mqqqm2hwob6ndt5k74iujd2pdyd.onion:9735"
+                            .to_owned(),
+                    },
+                ],
+            ),
+        ]);
+        for node in graph.nodes {
+            assert_eq!(*expected.get(&node.id).unwrap(), node.addresses);
         }
     }
 }

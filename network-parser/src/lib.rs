@@ -26,7 +26,13 @@ pub struct Graph {
 pub struct Node {
     pub id: ID,
     pub alias: String,
-    pub last_update: usize,
+    pub addresses: Vec<Address>,
+}
+
+#[derive(Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Address {
+    pub network: String,
+    pub addr: String,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -79,19 +85,28 @@ impl Graph {
         Self::from_json_str(&json_str, graph_source)
     }
 
-    fn nodes_from_raw_graph(nodes: &[RawNode]) -> HashSet<Node> {
+    fn nodes_from_raw_lnd_graph(nodes: &[RawLndNode]) -> HashSet<Node> {
         // discard nodes without ID
         nodes
             .iter()
             .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
-            .map(|raw_node| Node::from_raw(raw_node.clone()))
+            .map(|raw_node| Node::from_raw_lnd(raw_node.clone()))
+            .collect()
+    }
+
+    fn nodes_from_raw_lnresearch_graph(nodes: &[RawLnresearchNode]) -> HashSet<Node> {
+        // discard nodes without ID
+        nodes
+            .iter()
+            .filter(|raw_node| raw_node.id.clone().unwrap_or_default() != ID::default())
+            .map(|raw_node| Node::from_raw_lnresearch(raw_node.clone()))
             .collect()
     }
 
     pub fn from_lnresearch_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
         let raw_graph: RawLnresearchGraph =
             serde_json::from_str(json_str).expect("Error deserialising JSON str!");
-        let nodes = Self::nodes_from_raw_graph(&raw_graph.nodes);
+        let nodes = Self::nodes_from_raw_lnresearch_graph(&raw_graph.nodes);
         let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
         // discard edges with unknown IDs
         let edges_vec: Vec<HashSet<Edge>> = raw_graph
@@ -132,7 +147,7 @@ impl Graph {
     pub fn from_lnd_json_str(json_str: &str) -> Result<Graph, serde_json::Error> {
         let raw_graph: RawLndGraph =
             serde_json::from_str(json_str).expect("Error deserialising JSON str!");
-        let nodes = Self::nodes_from_raw_graph(&raw_graph.nodes);
+        let nodes = Self::nodes_from_raw_lnd_graph(&raw_graph.nodes);
         let mut edges: HashMap<ID, HashSet<Edge>> = HashMap::with_capacity(raw_graph.edges.len());
         // discard edges with unknown IDs
         let mut edges_vec = vec![];
@@ -279,7 +294,10 @@ mod tests {
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: "MilliBit".to_string(),
-            last_update: 54321,
+            addresses: vec![Address {
+                network: "tcp".to_string(),
+                addr: "80.115.186.52:9735".to_string(),
+            }],
         };
         assert_eq!(*actual, expected);
     }
@@ -395,7 +413,7 @@ mod tests {
         let expected = Node {
             id: "021f0f2a5b46871b23f690a5be893f5b3ec37cf5a0fd8b89872234e984df35ea32".to_string(),
             alias: String::default(),
-            last_update: 54321,
+            addresses: vec![],
         };
         assert_eq!(*actual, expected);
     }
