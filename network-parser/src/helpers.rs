@@ -2,8 +2,10 @@ use log::error;
 use serde::{Deserialize, Deserializer};
 use serde_aux::prelude::*;
 use std::hash::{Hash, Hasher};
-use std::net::SocketAddr;
-use std::str::FromStr;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+};
 
 use crate::*;
 
@@ -350,7 +352,7 @@ fn parse_net_address(addr: &str) -> String {
     if !addr.contains("onion") {
         let sock_addr: SocketAddr = addr.parse().unwrap_or_else(|_| {
             error!("Failed to parse {:#?} as IpAddr", addr);
-            FromStr::from_str("0.0.0.0").unwrap()
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)
         });
         sock_addr.ip().to_string()
     } else {
