@@ -86,8 +86,12 @@ impl Graph {
         self.nodes.iter().map(|n| n.id.clone()).collect()
     }
 
-    pub(crate) fn get_edges(&self) -> &HashMap<ID, Vec<Edge>> {
+    pub fn get_edges(&self) -> &HashMap<ID, Vec<Edge>> {
         &self.edges
+    }
+
+    pub fn get_nodes(&self) -> Vec<Node> {
+        self.nodes.clone()
     }
 
     pub fn set_edges(&mut self, edges: HashMap<ID, Vec<Edge>>) {

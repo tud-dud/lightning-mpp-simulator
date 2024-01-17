@@ -1,6 +1,8 @@
+use log::error;
 use serde::{Deserialize, Deserializer};
 use serde_aux::prelude::*;
 use std::hash::{Hash, Hasher};
+use std::net::SocketAddr;
 use std::str::FromStr;
 
 use crate::*;
@@ -94,7 +96,6 @@ impl Node {
                 for (i, part) in raw_addr.split("://").enumerate() {
                     if i == 0 {
                         // the network part which always seems to be tcp
-                        println!("part {}", part);
                         match part {
                             "ipv4" | "ipv6" | "torv2" | "torv3" => addr.network = "tcp".to_owned(),
                             _ => {
@@ -102,9 +103,8 @@ impl Node {
                             }
                         }
                     } else if i == 1 {
-                        println!("part 1 {}", part);
                         // the addr part
-                        addr.addr = part.to_owned();
+                        addr.addr = parse_net_address(part);
                     }
                 }
                 addresses.push(addr);
@@ -117,10 +117,19 @@ impl Node {
         }
     }
     pub(crate) fn from_raw_lnd(raw_node: RawLndNode) -> Node {
+        let mut addresses = vec![];
+        if let Some(raw_addresses) = raw_node.addresses {
+            for raw_addr in raw_addresses {
+                addresses.push(Address {
+                    network: raw_addr.network,
+                    addr: parse_net_address(&raw_addr.addr),
+                });
+            }
+        }
         Node {
             id: raw_node.id.expect("Error in node ID"),
             alias: raw_node.alias.unwrap_or_default(),
-            addresses: raw_node.addresses.unwrap_or_default(),
+            addresses,
         }
     }
 }
@@ -334,6 +343,18 @@ where
                 .map(|item| item.to_owned())
                 .collect(),
         ))
+    }
+}
+
+fn parse_net_address(addr: &str) -> String {
+    if !addr.contains("onion") {
+        let sock_addr: SocketAddr = addr.parse().unwrap_or_else(|_| {
+            error!("Failed to parse {:#?} as IpAddr", addr);
+            FromStr::from_str("0.0.0.0").unwrap()
+        });
+        sock_addr.ip().to_string()
+    } else {
+        addr.split(':').next().unwrap_or_default().to_string()
     }
 }
 
@@ -627,11 +648,11 @@ mod tests {
                 vec![
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "159.69.16.168:9735".to_owned(),
+                        addr: "159.69.16.168".to_owned(),
                     },
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "[2a01:4f8:1c1e:abc1::1]:9735".to_owned(),
+                        addr: "2a01:4f8:1c1e:abc1::1".to_owned(),
                     },
                 ],
             ),
@@ -640,7 +661,7 @@ mod tests {
                 "026cf8782a7735ac62f0e71da85c93f1d864".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion:9735"
+                    addr: "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion"
                         .to_owned(),
                 }],
             ),
@@ -659,14 +680,14 @@ mod tests {
                 "034".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "212.108.220.135:9735".to_owned(),
+                    addr: "212.108.220.135".to_owned(),
                 }],
             ),
             (
                 "025".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "104.236.54.112:9735".to_owned(),
+                    addr: "104.236.54.112".to_owned(),
                 }],
             ),
             (
@@ -674,11 +695,11 @@ mod tests {
                 vec![
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "218.250.157.241:9735".to_owned(),
+                        addr: "218.250.157.241".to_owned(),
                     },
                     Address {
                         network: "tcp".to_string(),
-                        addr: "wu5mkpokybtbf6dwdaepnujbzxpm6mqqqm2hwob6ndt5k74iujd2pdyd.onion:9735"
+                        addr: "wu5mkpokybtbf6dwdaepnujbzxpm6mqqqm2hwob6ndt5k74iujd2pdyd.onion"
                             .to_owned(),
                     },
                 ],
