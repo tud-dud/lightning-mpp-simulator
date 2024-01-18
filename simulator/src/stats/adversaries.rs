@@ -5,14 +5,14 @@ use crate::{
 };
 
 #[cfg(not(test))]
-use log::{error, info, warn};
+use log::{info, warn};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
 #[cfg(test)]
-use std::{println as info, println as warn, println as error};
+use std::{println as info, println as warn};
 
 impl Simulation {
     pub(crate) fn eval_adversaries(&mut self, run_all: bool) {
@@ -25,7 +25,7 @@ impl Simulation {
                 vec![1, 2, 3, 4, 5, 10, 12, 15, 20]
             };
         if !number_of_adversaries.is_empty() && self.adversary_selection.is_empty() {
-            error!("Aborting adversary evaluation as no strategy was passed.");
+            warn!("Aborting adversary evaluation as no strategy was passed.");
             return;
         }
         let selected_adversaries =

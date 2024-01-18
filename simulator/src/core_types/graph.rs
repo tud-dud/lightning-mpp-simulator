@@ -133,11 +133,11 @@ impl Graph {
         }
     }
 
-    /// Discard the given node from the graph
-    pub(crate) fn remove_node(&mut self, node: &ID) {
+    /// Discard the given node and its edges from the graph
+    pub fn remove_node(&mut self, node: &ID) {
         self.nodes.retain(|n| *n.id != *node);
-        for n in self.get_node_ids() {
-            self.remove_edge(node, &n);
+        for n in self.get_outedges(node) {
+            self.remove_edge(node, &n.destination);
         }
     }
 
