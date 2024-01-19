@@ -37,7 +37,7 @@ pub struct Results {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PaymentInfo {
-    pub(crate) id: usize,
+    pub id: usize,
     pub succeeded: bool,
     /// Number of parts this payment has been split into
     pub num_parts: usize,
@@ -74,7 +74,7 @@ impl PathInfo {
 }
 
 impl PaymentInfo {
-    pub(super) fn from_payment(payment: &Payment) -> Self {
+    pub fn from_payment(payment: &Payment) -> Self {
         let used_paths = PathInfo::from_payment(&payment.used_paths);
         let failed_paths = PathInfo::from_payment(&payment.failed_paths);
         Self {
