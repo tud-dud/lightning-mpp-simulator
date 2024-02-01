@@ -33,7 +33,7 @@ jobs:
           args: '--exclude-files simulator/src/bin/*'
 
       - name: 🆙 Upload to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
 
       - name: 💾 Archive code coverage results
         uses: actions/upload-artifact@v4
