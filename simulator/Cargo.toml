@@ -9,7 +9,7 @@ default-run = "lightning-simulator"
 [dependencies]
 network-parser = {path = "../network-parser"}
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 pathfinding = "4.3.0"
