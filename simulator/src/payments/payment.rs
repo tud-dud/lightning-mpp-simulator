@@ -7,18 +7,18 @@ use serde::Serialize;
 pub struct Payment {
     /// Unique payment identifier
     pub(crate) payment_id: PaymentId,
-    pub(crate) source: ID,
-    pub(crate) dest: ID,
+    pub source: ID,
+    pub dest: ID,
     /// Amount issued by this payment
     pub(crate) amount_msat: usize,
-    pub(crate) succeeded: bool,
+    pub succeeded: bool,
     pub(crate) min_shard_amt: usize,
     /// Number of parts this payment has been split into
     pub(crate) num_parts: usize,
     /// Paths payment can take
     /// unstable, might change
-    pub(crate) used_paths: Vec<CandidatePath>,
-    pub(crate) htlc_attempts: usize,
+    pub used_paths: Vec<CandidatePath>,
+    pub htlc_attempts: usize,
     /// Payment amounts that have already succeed, used for MPP payments
     pub(crate) failed_amounts: Vec<usize>,
     pub(crate) successful_shards: Vec<(ID, String, usize)>,
@@ -41,7 +41,7 @@ pub struct PaymentShard {
 }
 
 impl Payment {
-    pub(crate) fn new(
+    pub fn new(
         payment_id: PaymentId,
         source: ID,
         dest: ID,

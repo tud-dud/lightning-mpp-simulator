@@ -50,7 +50,7 @@ impl Path {
     }
 
     /// Including src and dest
-    pub(crate) fn get_involved_nodes(&self) -> Vec<ID> {
+    pub fn get_involved_nodes(&self) -> Vec<ID> {
         self.hops.iter().map(|h| h.0.clone()).collect()
     }
 
