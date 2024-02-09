@@ -216,7 +216,7 @@ pub fn read_node_rankings_from_file(
     let file = File::open(path).unwrap_or_else(|_| panic!("Error reading {}.", path.display()));
     let reader = BufReader::new(file);
     let mut ranks: NodeRanks = vec![];
-    for line in reader.lines().flatten() {
+    for line in reader.lines().map_while(Result::ok) {
         if nodes.contains(&line) {
             ranks.push(line);
         }
