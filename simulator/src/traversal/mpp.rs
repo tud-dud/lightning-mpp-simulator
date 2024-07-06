@@ -95,8 +95,8 @@ impl Simulation {
                         failed = true;
                     } else if let Some(shards) = Payment::split_payment(&current_shard) {
                         let (mut shard1, mut shard2) = (shards.0, shards.1);
-                        shard1.failed_amounts = root.failed_amounts.clone();
-                        shard2.failed_amounts = root.failed_amounts.clone();
+                        root.failed_amounts.clone_into(&mut shard1.failed_amounts);
+                        root.failed_amounts.clone_into(&mut shard2.failed_amounts);
                         stack.push(shard1);
                         stack.push(shard2);
                     } else {

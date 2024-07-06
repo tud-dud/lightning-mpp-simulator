@@ -186,7 +186,7 @@ impl Simulation {
                                         &channel_id,
                                         current_balance + remaining_transferable_amount,
                                     );
-                                    payment_shard.used_path = candidate_path.to_owned();
+                                    candidate_path.clone_into(&mut payment_shard.used_path);
                                     // TODO: remove invoice
                                     info!(
                                         "Successfully delivered payment of {} msats from {} to {}.",

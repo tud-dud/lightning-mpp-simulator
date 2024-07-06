@@ -99,7 +99,9 @@ impl Node {
                     if i == 0 {
                         // the network part which always seems to be tcp
                         match part {
-                            "ipv4" | "ipv6" | "torv2" | "torv3" => addr.network = "tcp".to_owned(),
+                            "ipv4" | "ipv6" | "torv2" | "torv3" => {
+                                "tcp".clone_into(&mut addr.network)
+                            }
                             _ => {
                                 break;
                             }

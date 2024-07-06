@@ -55,13 +55,9 @@ impl Simulation {
                                                                                               // stores (src, dest): path
                     let mut shortest_paths: HashMap<(ID, ID), CandidatePath> = HashMap::new();
                     // and capacity
-                    let phase1_paths = if let Some(paths) =
+                    let phase1_paths =
                         Self::get_all_reachable_paths(&g, &succ, amount_to_succ, ttl_to_rx)
-                    {
-                        paths
-                    } else {
-                        vec![]
-                    };
+                            .unwrap_or_default();
                     // for all Pi for a list of potential recipients as R and potential senders for each such recipient
                     // The union of the potential senders for all potential recipients is the sender anonymity set
                     info!(
