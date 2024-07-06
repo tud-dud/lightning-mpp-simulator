@@ -42,4 +42,4 @@ Build all members of the project:
 ## Simulation results
 
 We maintain interactive charts with simulation results at
-[https://cndolo.github.io/lightning-simulator/](https://cndolo.github.io/lightning-simulator/).
+[https://p2p-research-tools.github.io/lightning-mpp-simulator/](https://p2p-research-tools.github.io/lightning-mpp-simulator/).
