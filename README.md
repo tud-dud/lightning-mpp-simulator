@@ -1,9 +1,9 @@
 # lightning-mpp-simulator
 
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-[![CI](https://github.com/p2p-research-tools/lightning-mpp-simulator/actions/workflows/test.yml/badge.svg)](https://github.com/p2p-research-tools/lightning-mpp-simulator/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/p2p-research-tools/lightning-mpp-simulator/branch/main/graph/badge.svg?token=QZH345MHCJ)](https://codecov.io/gh/p2p-research-tools/lightning-mpp-simulator)
-[![dependency status](https://deps.rs/repo/github/p2p-research-tools/lightning-mpp-simulator/status.svg)](https://deps.rs/repo/github/p2p-research-tools/lightning-mpp-simulator)
+[![CI](https://github.com/tud-dud/lightning-mpp-simulator/actions/workflows/test.yml/badge.svg)](https://github.com/tud-dud/lightning-mpp-simulator/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/tud-dud/lightning-mpp-simulator/branch/main/graph/badge.svg?token=QZH345MHCJ)](https://codecov.io/gh/tud-dud/lightning-mpp-simulator)
+[![dependency status](https://deps.rs/repo/github/tud-dud/lightning-mpp-simulator/status.svg)](https://deps.rs/repo/github/tud-dud/lightning-mpp-simulator)
 
 This is a collection of projects related to simulating payments in the Lightning
 network.
@@ -29,7 +29,7 @@ The library implements routing and payment splitting logic and can be used as
 follows.
 
 ```
-lightning-simulator = {git = "https://github.com/p2p-research-tools/lightning-mpp-simulator"}
+lightning-simulator = {git = "https://github.com/tud-dud/lightning-mpp-simulator"}
 use simlib::*;
 ```
 
@@ -42,4 +42,4 @@ Build all members of the project:
 ## Simulation results
 
 We maintain interactive charts with simulation results at
-[https://p2p-research-tools.github.io/lightning-mpp-simulator/](https://p2p-research-tools.github.io/lightning-mpp-simulator/).
+[https://tud-dud.github.io/lightning-mpp-simulator/](https://tud-dud.github.io/lightning-mpp-simulator/).
