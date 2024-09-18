@@ -34,3 +34,6 @@ name = "simlib"
 
 [dev-dependencies]
 approx = "0.5"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin)"] }

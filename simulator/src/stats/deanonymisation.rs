@@ -148,11 +148,7 @@ impl Simulation {
             });
         });
         if let Ok(arc) = Arc::try_unwrap(all_anonymits_sets) {
-            if let Ok(mutex) = arc.into_inner() {
-                mutex
-            } else {
-                vec![]
-            }
+            arc.into_inner().unwrap_or_default()
         } else {
             vec![]
         }

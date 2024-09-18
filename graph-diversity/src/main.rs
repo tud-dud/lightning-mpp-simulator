@@ -96,11 +96,7 @@ fn main() {
         info!("Completed diversity for {amount} sat.");
     });
     let results = if let Ok(arc) = Arc::try_unwrap(results) {
-        if let Ok(mutex) = arc.into_inner() {
-            mutex
-        } else {
-            vec![]
-        }
+        arc.into_inner().unwrap_or_default()
     } else {
         vec![]
     };
