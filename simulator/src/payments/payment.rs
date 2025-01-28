@@ -92,7 +92,7 @@ impl Payment {
         } else {
             // ceil one, floor the either
             let prev_amt = amt_to_split;
-            let shard1_amount = (prev_amt + 2 - 1) / 2;
+            let shard1_amount = (prev_amt).div_ceil(2);
             let shard2_amount = prev_amt / 2;
             assert_eq!(
                 shard1_amount + shard2_amount,
