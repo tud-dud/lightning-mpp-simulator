@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+title: "On the (Not So) Surprising Impact of Multi-Path Payments on Performance And Privacy in the Lightning Network"
+repository-code: 'https://github.com/tud-dud/lightning-mpp-simulator'
+type: inproceedings
+authors:
+  - given-names: Charmaine
+    family-names: Ndolo
+    affiliation: Humboldt University of Berlin
+  - given-names: Florian
+    family-names: Tschorsch
+    affiliation: Dresden University of Technology
+booktitle: "Computer Security. {ESORICS} 2023 International Workshops - CyberICS, DPM, CBT, and SECPRE, The Hague, The Netherlands, September 25-29, 2023, Revised Selected Papers, Part I"
+year: 2023
+publisher: "Springer"
+doi: 10.1007/978-3-031-54204-6_25
