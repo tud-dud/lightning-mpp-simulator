@@ -355,9 +355,9 @@ fn parse_net_address(addr: &str) -> String {
             error!("Failed to parse {:#?} as IpAddr", addr);
             SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)
         });
-        sock_addr.ip().to_string()
+        sock_addr.to_string()
     } else {
-        addr.split(':').next().unwrap_or_default().to_string()
+        addr.to_string()
     }
 }
 
@@ -651,11 +651,11 @@ mod tests {
                 vec![
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "159.69.16.168".to_owned(),
+                        addr: "159.69.16.168:9735".to_owned(),
                     },
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "2a01:4f8:1c1e:abc1::1".to_owned(),
+                        addr: "[2a01:4f8:1c1e:abc1::1]:9735".to_owned(),
                     },
                 ],
             ),
@@ -664,7 +664,7 @@ mod tests {
                 "026cf8782a7735ac62f0e71da85c93f1d864".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion"
+                    addr: "br4uj734xva77u7yt6oevyp2ropqjl7nw2jyzeejwmd7dzlouenkfmid.onion:9735"
                         .to_owned(),
                 }],
             ),
@@ -683,14 +683,14 @@ mod tests {
                 "034".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "212.108.220.135".to_owned(),
+                    addr: "212.108.220.135:9735".to_owned(),
                 }],
             ),
             (
                 "025".to_owned(),
                 vec![Address {
                     network: "tcp".to_owned(),
-                    addr: "104.236.54.112".to_owned(),
+                    addr: "104.236.54.112:9735".to_owned(),
                 }],
             ),
             (
@@ -698,11 +698,11 @@ mod tests {
                 vec![
                     Address {
                         network: "tcp".to_owned(),
-                        addr: "218.250.157.241".to_owned(),
+                        addr: "218.250.157.241:9735".to_owned(),
                     },
                     Address {
                         network: "tcp".to_string(),
-                        addr: "wu5mkpokybtbf6dwdaepnujbzxpm6mqqqm2hwob6ndt5k74iujd2pdyd.onion"
+                        addr: "wu5mkpokybtbf6dwdaepnujbzxpm6mqqqm2hwob6ndt5k74iujd2pdyd.onion:9735"
                             .to_owned(),
                     },
                 ],
