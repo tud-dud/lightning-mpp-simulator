@@ -111,7 +111,9 @@ impl Node {
                         addr.addr = parse_net_address(part);
                     }
                 }
-                addresses.push(addr);
+                if !addresses.contains(&addr) {
+                    addresses.push(addr);
+                }
             }
         }
         Node {
@@ -124,10 +126,13 @@ impl Node {
         let mut addresses = vec![];
         if let Some(raw_addresses) = raw_node.addresses {
             for raw_addr in raw_addresses {
-                addresses.push(Address {
+                let addr = Address {
                     network: raw_addr.network,
                     addr: parse_net_address(&raw_addr.addr),
-                });
+                };
+                if !addresses.contains(&addr) {
+                    addresses.push(addr);
+                }
             }
         }
         Node {
